@@ -6,6 +6,8 @@ use soroban_sdk::{contract, contractimpl, contracttype, symbol_short, Address, E
 #[derive(Clone)]
 pub enum DataKey {
     Deposit(Address),
+    Paused,
+    Admin,
 }
 
 #[contract]
@@ -24,16 +26,41 @@ impl LendingPool {
             .expect("not initialized")
     }
 
-    pub fn initialize(env: Env, token: Address) {
+    pub fn initialize(env: Env, token: Address, admin: Address) {
         let token_key = Self::token_key();
         if env.storage().instance().has(&token_key) {
             panic!("already initialized");
         }
         env.storage().instance().set(&token_key, &token);
+        env.storage().instance().set(&DataKey::Admin, &admin);
+        env.storage().instance().set(&DataKey::Paused, &false);
+    }
+
+    fn assert_not_paused(env: &Env) {
+        let paused: bool = env
+            .storage()
+            .instance()
+            .get(&DataKey::Paused)
+            .unwrap_or(false);
+        if paused {
+            panic!("contract is paused");
+        }
+    }
+
+    pub fn set_paused(env: Env, paused: bool) {
+        let admin: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .expect("not initialized");
+        admin.require_auth();
+        env.storage().instance().set(&DataKey::Paused, &paused);
+        env.events().publish((symbol_short!("Paused"),), paused);
     }
 
     pub fn deposit(env: Env, provider: Address, amount: i128) {
         provider.require_auth();
+        Self::assert_not_paused(&env);
         if amount <= 0 {
             panic!("deposit amount must be positive");
         }
@@ -57,6 +84,7 @@ impl LendingPool {
 
     pub fn withdraw(env: Env, provider: Address, amount: i128) {
         provider.require_auth();
+        Self::assert_not_paused(&env);
         if amount <= 0 {
             panic!("withdraw amount must be positive");
         }
@@ -83,6 +111,54 @@ impl LendingPool {
         }
         env.events()
             .publish((symbol_short!("Withdraw"), provider), amount);
+    }
+
+    // Issue #208: Withdraw all convenience function
+    pub fn withdraw_all(env: Env, provider: Address) {
+        provider.require_auth();
+        Self::assert_not_paused(&env);
+        let key = DataKey::Deposit(provider.clone());
+        let balance: i128 = env.storage().persistent().get(&key).unwrap_or(0);
+        if balance == 0 {
+            panic!("no deposit to withdraw");
+        }
+
+        let token = Self::read_token(&env);
+        let token_client = TokenClient::new(&env, &token);
+        let pool_address = env.current_contract_address();
+        let pool_balance = token_client.balance(&pool_address);
+        if pool_balance < balance {
+            panic!("insufficient pool liquidity");
+        }
+
+        token_client.transfer(&pool_address, &provider, &balance);
+        env.storage().persistent().remove(&key);
+        env.events()
+            .publish((symbol_short!("WithdAll"), provider), balance);
+    }
+
+    // Issue #209: Emergency withdraw bypassing pause
+    pub fn emergency_withdraw(env: Env, provider: Address) {
+        provider.require_auth();
+        let key = DataKey::Deposit(provider.clone());
+        let balance: i128 = env.storage().persistent().get(&key).unwrap_or(0);
+        if balance == 0 {
+            panic!("no deposit to withdraw");
+        }
+
+        let token = Self::read_token(&env);
+        let token_client = TokenClient::new(&env, &token);
+        let pool_address = env.current_contract_address();
+        let pool_balance = token_client.balance(&pool_address);
+        if pool_balance < balance {
+            panic!("insufficient pool liquidity");
+        }
+
+        // Full withdrawal only
+        token_client.transfer(&pool_address, &provider, &balance);
+        env.storage().persistent().remove(&key);
+        env.events()
+            .publish((symbol_short!("EmergWd"), provider), balance);
     }
 
     pub fn get_token(env: Env) -> Address {

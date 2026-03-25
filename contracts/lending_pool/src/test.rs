@@ -26,9 +26,10 @@ fn test_deposit_flow() {
     // 2. Setup LendingPool
     let pool_id = env.register(LendingPool, ());
     let pool_client = LendingPoolClient::new(&env, &pool_id);
+    let pool_admin = Address::generate(&env);
 
     // 3. Initialize LendingPool with Token
-    pool_client.initialize(&token_id);
+    pool_client.initialize(&token_id, &pool_admin);
 
     // 4. Setup provider with some initial tokens
     let provider = Address::generate(&env);
@@ -58,7 +59,8 @@ fn test_negative_deposit_panic() {
 
     let pool_id = env.register(LendingPool, ());
     let pool_client = LendingPoolClient::new(&env, &pool_id);
-    pool_client.initialize(&token_id);
+    let pool_admin = Address::generate(&env);
+    pool_client.initialize(&token_id, &pool_admin);
 
     let provider = Address::generate(&env);
     pool_client.deposit(&provider, &0);
@@ -74,7 +76,8 @@ fn test_deposit_unauthorized() {
 
     let pool_id = env.register(LendingPool, ());
     let pool_client = LendingPoolClient::new(&env, &pool_id);
-    pool_client.initialize(&token_id);
+    let pool_admin = Address::generate(&env);
+    pool_client.initialize(&token_id, &pool_admin);
 
     let provider = Address::generate(&env);
 
@@ -99,7 +102,8 @@ fn test_withdraw_flow() {
     // 2. Setup LendingPool
     let pool_id = env.register(LendingPool, ());
     let pool_client = LendingPoolClient::new(&env, &pool_id);
-    pool_client.initialize(&token_id);
+    let pool_admin = Address::generate(&env);
+    pool_client.initialize(&token_id, &pool_admin);
 
     // 3. Setup provider with 5000 tokens
     let provider = Address::generate(&env);
@@ -132,7 +136,8 @@ fn test_negative_withdraw_panic() {
 
     let pool_id = env.register(LendingPool, ());
     let pool_client = LendingPoolClient::new(&env, &pool_id);
-    pool_client.initialize(&token_id);
+    let pool_admin = Address::generate(&env);
+    pool_client.initialize(&token_id, &pool_admin);
 
     let provider = Address::generate(&env);
     pool_client.withdraw(&provider, &0);
@@ -149,7 +154,8 @@ fn test_insufficient_balance_withdraw_panic() {
 
     let pool_id = env.register(LendingPool, ());
     let pool_client = LendingPoolClient::new(&env, &pool_id);
-    pool_client.initialize(&token_id);
+    let pool_admin = Address::generate(&env);
+    pool_client.initialize(&token_id, &pool_admin);
 
     let provider = Address::generate(&env);
     stellar_asset_client.mint(&provider, &5000);
@@ -170,7 +176,8 @@ fn test_insufficient_pool_liquidity_withdraw_panic() {
 
     let pool_id = env.register(LendingPool, ());
     let pool_client = LendingPoolClient::new(&env, &pool_id);
-    pool_client.initialize(&token_id);
+    let pool_admin = Address::generate(&env);
+    pool_client.initialize(&token_id, &pool_admin);
 
     let provider = Address::generate(&env);
     let borrower = Address::generate(&env);
@@ -206,7 +213,8 @@ fn test_deposit_withdraw_invariants() {
 
         let pool_id = env.register(LendingPool, ());
         let pool_client = LendingPoolClient::new(&env, &pool_id);
-        pool_client.initialize(&token_id);
+        let pool_admin = Address::generate(&env);
+        pool_client.initialize(&token_id, &pool_admin);
 
         let provider = Address::generate(&env);
         stellar_asset_client.mint(&provider, &deposit_amount);

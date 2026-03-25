@@ -26,6 +26,7 @@ pub struct Loan {
     pub borrower: Address,
     pub amount: i128,
     pub status: LoanStatus,
+    pub due_date: u32,
 }
 
 #[contracttype]
@@ -37,6 +38,8 @@ pub enum DataKey {
     Admin,
     Loan(u32),
     LoanCounter,
+    BorrowerLoans(Address),
+    GracePeriod,
 }
 
 #[contract]
@@ -44,17 +47,6 @@ pub struct LoanManager;
 
 #[contractimpl]
 impl LoanManager {
-    fn nft_key() -> soroban_sdk::Symbol {
-        symbol_short!("NFT")
-    }
-
-    fn nft_contract(env: &Env) -> Address {
-        env.storage()
-            .instance()
-            .get(&Self::nft_key())
-            .expect("not initialized")
-    }
-
     pub fn initialize(
         env: Env,
         nft_contract: Address,
@@ -74,6 +66,9 @@ impl LoanManager {
         env.storage().instance().set(&DataKey::Token, &token);
         env.storage().instance().set(&DataKey::Admin, &admin);
         env.storage().instance().set(&DataKey::LoanCounter, &0u32);
+        env.storage()
+            .instance()
+            .set(&DataKey::GracePeriod, &4320u32); // Default 6 hours
     }
 
     pub fn request_loan(env: Env, borrower: Address, amount: i128) -> u32 {
@@ -107,6 +102,7 @@ impl LoanManager {
             borrower: borrower.clone(),
             amount,
             status: LoanStatus::Pending,
+            due_date: 0, // Set when approved
         };
 
         env.storage()
@@ -115,6 +111,18 @@ impl LoanManager {
         env.storage()
             .instance()
             .set(&DataKey::LoanCounter, &loan_counter);
+
+        // Track borrower's loans
+        let borrower_key = DataKey::BorrowerLoans(borrower.clone());
+        let mut borrower_loans: soroban_sdk::Vec<u32> = env
+            .storage()
+            .persistent()
+            .get(&borrower_key)
+            .unwrap_or(soroban_sdk::Vec::new(&env));
+        borrower_loans.push_back(loan_counter);
+        env.storage()
+            .persistent()
+            .set(&borrower_key, &borrower_loans);
 
         events::loan_requested(&env, borrower.clone(), amount);
         env.events()
@@ -147,8 +155,9 @@ impl LoanManager {
             panic!("loan is not pending");
         }
 
-        // Update loan status to Approved
+        // Update loan status to Approved and set due date (30 days from now)
         loan.status = LoanStatus::Approved;
+        loan.due_date = env.ledger().sequence() + 432000; // ~30 days
         env.storage().persistent().set(&loan_key, &loan);
 
         // Transfer funds from LendingPool to borrower
@@ -187,11 +196,99 @@ impl LoanManager {
 
         // Skip cross-contract call when repayment rounds to zero score points.
         if amount >= 100 {
-            let nft_contract = Self::nft_contract(&env);
+            let nft_contract: Address = env
+                .storage()
+                .instance()
+                .get(&DataKey::NftContract)
+                .expect("not initialized");
             let nft_client = NftClient::new(&env, &nft_contract);
             nft_client.update_score(&borrower, &amount, &None);
         }
 
         events::loan_repaid(&env, borrower, amount);
     }
+
+    // Issue #210: Query functions for loan count and borrower loans
+    pub fn get_loan_count(env: Env) -> u32 {
+        env.storage()
+            .instance()
+            .get(&DataKey::LoanCounter)
+            .unwrap_or(0)
+    }
+
+    pub fn get_borrower_loan_ids(env: Env, borrower: Address) -> soroban_sdk::Vec<u32> {
+        let key = DataKey::BorrowerLoans(borrower);
+        env.storage()
+            .persistent()
+            .get(&key)
+            .unwrap_or(soroban_sdk::Vec::new(&env))
+    }
+
+    pub fn get_active_loan_count(env: Env) -> u32 {
+        let total_loans = Self::get_loan_count(env.clone());
+        let mut active_count = 0u32;
+
+        for loan_id in 1..=total_loans {
+            if let Some(loan) = env
+                .storage()
+                .persistent()
+                .get::<DataKey, Loan>(&DataKey::Loan(loan_id))
+            {
+                if loan.status == LoanStatus::Pending || loan.status == LoanStatus::Approved {
+                    active_count += 1;
+                }
+            }
+        }
+
+        active_count
+    }
+
+    // Issue #211: Grace period management
+    pub fn set_grace_period(env: Env, ledgers: u32) {
+        let admin: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .expect("not initialized");
+        admin.require_auth();
+
+        env.storage()
+            .instance()
+            .set(&DataKey::GracePeriod, &ledgers);
+        env.events().publish((symbol_short!("GracePrd"),), ledgers);
+    }
+
+    pub fn get_grace_period(env: Env) -> u32 {
+        env.storage()
+            .instance()
+            .get(&DataKey::GracePeriod)
+            .unwrap_or(4320)
+    }
+
+    pub fn check_default(env: Env, loan_id: u32) {
+        let loan_key = DataKey::Loan(loan_id);
+        let mut loan: Loan = env
+            .storage()
+            .persistent()
+            .get(&loan_key)
+            .expect("loan not found");
+
+        if loan.status != LoanStatus::Approved {
+            return;
+        }
+
+        let grace_period = Self::get_grace_period(env.clone());
+        let current_ledger = env.ledger().sequence();
+
+        // Only mark as defaulted if past due date + grace period
+        if current_ledger > loan.due_date + grace_period {
+            loan.status = LoanStatus::Defaulted;
+            env.storage().persistent().set(&loan_key, &loan);
+            env.events()
+                .publish((symbol_short!("Default"), loan.borrower.clone()), loan_id);
+        }
+    }
 }
+
+#[cfg(test)]
+mod test;
