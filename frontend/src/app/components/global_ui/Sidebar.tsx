@@ -2,7 +2,17 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, HandCoins, SendHorizontal, Settings, X, CreditCard } from "lucide-react";
+import {
+  LayoutDashboard,
+  HandCoins,
+  PiggyBank,
+  SendHorizontal,
+  Settings,
+  X,
+  CreditCard,
+  BarChart3,
+  Crown,
+} from "lucide-react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
@@ -18,7 +28,10 @@ interface SidebarProps {
 const navItems = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
   { name: "Loans", href: "/loans", icon: HandCoins },
+  { name: "Lend", href: "/lend", icon: PiggyBank },
   { name: "Remittances", href: "/remittances", icon: SendHorizontal },
+  { name: "Analytics", href: "/analytics", icon: BarChart3 },
+  { name: "Kingdom", href: "/kingdom", icon: Crown },
   { name: "Wallet", href: "/wallet", icon: CreditCard },
   { name: "Settings", href: "/settings", icon: Settings },
 ];

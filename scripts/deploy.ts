@@ -148,7 +148,7 @@ async function main() {
     // 4. Initialize Contracts
     console.log('Initializing contracts...');
     await invoke(server, nftContractId, 'initialize', [adminAddr], account, passphrase);
-    await invoke(server, poolContractId, 'initialize', [config.token], account, passphrase);
+    await invoke(server, poolContractId, 'initialize', [config.token, adminAddr], account, passphrase);
     await invoke(server, managerContractId, 'initialize', [nftContractId, poolContractId, config.token, adminAddr], account, passphrase);
 
     // 5. Link Contracts
