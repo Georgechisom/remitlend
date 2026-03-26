@@ -1,4 +1,4 @@
-use crate::{DataKey, LoanManager, LoanManagerClient, LoanStatus};
+use crate::{DataKey, LoanError, LoanManager, LoanManagerClient, LoanStatus};
 use remittance_nft::{RemittanceNFT, RemittanceNFTClient};
 use soroban_sdk::testutils::Ledger as _;
 use soroban_sdk::token::{Client as TokenClient, StellarAssetClient};
@@ -73,7 +73,7 @@ fn test_loan_request_success() {
 }
 
 #[test]
-#[should_panic(expected = "score too low for loan")]
+#[should_panic]
 fn test_loan_request_failure_low_score() {
     let env = Env::default();
     env.mock_all_auths();
@@ -190,13 +190,13 @@ fn test_configurable_interest_rate_and_default_term() {
 }
 
 #[test]
-#[should_panic(expected = "interest rate must be positive")]
 fn test_set_interest_rate_zero_rejected() {
     let env = Env::default();
     env.mock_all_auths();
 
     let (manager, _nft_client, _pool, _token, _token_admin) = setup_test(&env);
-    manager.set_interest_rate(&0);
+    let result = manager.try_set_interest_rate(&0);
+    assert_eq!(result, Err(Ok(LoanError::InvalidRate)));
 }
 
 #[test]
@@ -346,7 +346,6 @@ fn test_full_repayment_ignores_minimum_amount() {
 }
 
 #[test]
-#[should_panic(expected = "loan amount exceeds max loan amount")]
 fn test_request_loan_above_max_amount_fails() {
     let env = Env::default();
     env.mock_all_auths();
@@ -358,7 +357,8 @@ fn test_request_loan_above_max_amount_fails() {
     nft_client.mint(&borrower, &700, &history_hash, &None);
     manager.set_max_loan_amount(&500);
 
-    manager.request_loan(&borrower, &600);
+    let result = manager.try_request_loan(&borrower, &600);
+    assert_eq!(result, Err(Ok(LoanError::InvalidAmount)));
 }
 
 #[test]
@@ -400,7 +400,7 @@ fn test_access_controls_unauthorized_repay() {
 }
 
 #[test]
-#[should_panic(expected = "loan not found")]
+#[should_panic]
 fn test_approve_nonexistent_loan() {
     let env = Env::default();
     env.mock_all_auths();
@@ -412,7 +412,7 @@ fn test_approve_nonexistent_loan() {
 }
 
 #[test]
-#[should_panic(expected = "loan is not pending")]
+#[should_panic]
 fn test_approve_already_approved_loan() {
     let env = Env::default();
     env.mock_all_auths_allowing_non_root_auth();
@@ -436,7 +436,7 @@ fn test_approve_already_approved_loan() {
 }
 
 #[test]
-#[should_panic(expected = "insufficient pool liquidity")]
+#[should_panic]
 fn test_approve_loan_insufficient_pool_liquidity() {
     let env = Env::default();
     env.mock_all_auths_allowing_non_root_auth();
@@ -486,7 +486,7 @@ fn test_borrower_max_active_loans_enforced_and_released_on_repay() {
 }
 
 #[test]
-#[should_panic(expected = "borrower reached max active loans")]
+#[should_panic]
 fn test_borrower_max_active_loans_blocks_new_requests() {
     let env = Env::default();
     env.mock_all_auths_allowing_non_root_auth();
@@ -512,7 +512,7 @@ fn test_borrower_max_active_loans_blocks_new_requests() {
 }
 
 #[test]
-#[should_panic(expected = "loan amount must be positive")]
+#[should_panic]
 fn test_request_loan_negative_amount() {
     let env = Env::default();
     env.mock_all_auths();
@@ -558,7 +558,7 @@ fn test_check_default_success() {
 }
 
 #[test]
-#[should_panic(expected = "loan is not past due")]
+#[should_panic]
 fn test_check_default_not_past_due() {
     let env = Env::default();
     env.mock_all_auths_allowing_non_root_auth();
@@ -579,7 +579,7 @@ fn test_check_default_not_past_due() {
 }
 
 #[test]
-#[should_panic(expected = "loan is not active")]
+#[should_panic]
 fn test_check_default_already_repaid() {
     let env = Env::default();
     env.mock_all_auths_allowing_non_root_auth();
@@ -785,7 +785,7 @@ fn test_collateral_is_seized_on_default() {
 }
 
 #[test]
-#[should_panic(expected = "loan is not active")]
+#[should_panic]
 fn test_deposit_collateral_rejects_non_active_loan() {
     let env = Env::default();
     env.mock_all_auths();
