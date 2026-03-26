@@ -5,6 +5,7 @@ import { QueryProvider } from "./components/providers/QueryProvider";
 import { DashboardShell } from "./components/global_ui/DashboardShell";
 import { Toaster } from "./components/ui/Toast";
 import { LevelUpModal } from "./components/gamification/LevelUpModal";
+import { GlobalXPGain } from "./components/global_ui/GlobalXPGain";
 import { ErrorBoundary } from "./components/global_ui/ErrorBoundary";
 
 const geistSans = Geist({
@@ -81,6 +82,7 @@ export default function RootLayout({
           </DashboardShell>
           <Toaster />
           <LevelUpModal />
+          <GlobalXPGain />
         </QueryProvider>
       </body>
     </html>
