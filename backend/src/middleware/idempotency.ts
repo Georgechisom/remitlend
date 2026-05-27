@@ -35,9 +35,13 @@ export const idempotencyMiddleware = async (
         method: req.method,
       });
 
+      // X-Idempotent-Replayed: true signals to the client that this response
+      // is a cached replay of a prior request, not a fresh execution.
+      // Clients can use this to de-duplicate toasts and avoid double-counting.
       res
         .status(cached.status)
         .set("X-Idempotency-Cache", "HIT")
+        .set("X-Idempotent-Replayed", "true")
         .json(cached.body);
       return;
     }
@@ -69,6 +73,10 @@ export const idempotencyMiddleware = async (
       }
       return originalSend.call(this, body);
     };
+
+    // X-Idempotent-Replayed: false on the first (fresh) execution so the
+    // client always receives the header and can branch on its value.
+    res.set("X-Idempotent-Replayed", "false");
 
     // Store the response in cache once the request is finished
     res.on("finish", async () => {
