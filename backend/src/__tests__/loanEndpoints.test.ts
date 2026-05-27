@@ -90,6 +90,13 @@ const mockBuildExtendLoanTx =
       extraLedgers: number,
     ) => Promise<{ unsignedTxXdr: string; networkPassphrase: string }>
   >();
+const mockBuildLiquidateTx =
+  jest.fn<
+    (
+      liquidatorPublicKey: string,
+      loanId: number,
+    ) => Promise<{ unsignedTxXdr: string; networkPassphrase: string }>
+  >();
 const mockSubmitSignedTx =
   jest.fn<
     (
@@ -104,6 +111,7 @@ jest.unstable_mockModule("../services/sorobanService.js", () => ({
     buildReleaseCollateralTx: mockBuildReleaseCollateralTx,
     buildRefinanceLoanTx: mockBuildRefinanceLoanTx,
     buildExtendLoanTx: mockBuildExtendLoanTx,
+    buildLiquidateTx: mockBuildLiquidateTx,
     submitSignedTx: mockSubmitSignedTx,
   },
 }));
@@ -772,5 +780,60 @@ describe("POST /api/loans/:loanId/build-extend", () => {
       .send({ borrowerPublicKey: TEST_BORROWER });
 
     expect(response.status).toBe(400);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// POST /api/loans/:loanId/liquidate/build
+// ---------------------------------------------------------------------------
+describe("POST /api/loans/:loanId/liquidate/build", () => {
+  it("should reject unauthenticated requests", async () => {
+    const response = await request(app)
+      .post("/api/loans/1/liquidate/build")
+      .send({ liquidatorPublicKey: TEST_BORROWER });
+    expect(response.status).toBe(401);
+  });
+
+  it("should return unsigned XDR for valid liquidation build request", async () => {
+    mockBuildLiquidateTx.mockResolvedValueOnce({
+      unsignedTxXdr: "GGGG...liquidate-xdr",
+      networkPassphrase: "Test SDF Network ; September 2015",
+    });
+
+    const response = await request(app)
+      .post("/api/loans/1/liquidate/build")
+      .set(bearer(TEST_BORROWER))
+      .send({ liquidatorPublicKey: TEST_BORROWER });
+
+    expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
+    expect(response.body.loanId).toBe(1);
+    expect(response.body.unsignedTxXdr).toBe("GGGG...liquidate-xdr");
+    expect(mockBuildLiquidateTx).toHaveBeenCalledWith(TEST_BORROWER, 1);
+  });
+
+  it("should reject requests where liquidatorPublicKey does not match JWT", async () => {
+    const otherWallet = Keypair.random().publicKey();
+    const response = await request(app)
+      .post("/api/loans/1/liquidate/build")
+      .set(bearer(TEST_BORROWER))
+      .send({ liquidatorPublicKey: otherWallet });
+
+    expect(response.status).toBe(403);
+  });
+
+  it("should propagate non-liquidatable build failures", async () => {
+    mockBuildLiquidateTx.mockRejectedValueOnce(
+      new Error("Loan is not liquidatable"),
+    );
+
+    const response = await request(app)
+      .post("/api/loans/1/liquidate/build")
+      .set(bearer(TEST_BORROWER))
+      .send({ liquidatorPublicKey: TEST_BORROWER });
+
+    expect(response.status).toBe(500);
+    expect(response.body.success).toBe(false);
+    expect(response.body.message).toBe("Internal server error");
   });
 });

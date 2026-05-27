@@ -176,6 +176,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/notifications", notificationsRoutes);
 app.use("/api/events", eventRoutes);
 app.use("/api/remittances", remittanceRoutes);
+app.use("/api/transactions", transactionRoutes);
 
 // Versioned API routes (v1 - current)
 app.use("/api/v1", simulationRoutes);
@@ -185,6 +186,7 @@ app.use("/api/v1/indexer", indexerRoutes);
 app.use("/api/v1/admin", adminRoutes);
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/remittances", remittanceRoutes);
+app.use("/api/v1/transactions", transactionRoutes);
 
 // ── Diagnostic / Test Routes ─────────────────────────────────────
 // Only exposed in test environment to verify centralized error handling.

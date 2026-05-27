@@ -16,6 +16,8 @@ import {
   getPrecisionError,
   parseAmount,
   sanitizeAmountInput,
+  formatAmountOnBlur,
+  getAssetDecimals,
 } from "../../utils/amount";
 
 interface RemittanceFormProps {
@@ -31,8 +33,9 @@ export function RemittanceForm({ onSuccess }: RemittanceFormProps) {
 
   const txPreview = useTransactionPreview();
   const mutation = useCreateRemittance();
+  const decimals = getAssetDecimals(token);
   const precisionError = getPrecisionError(amount, token);
-  const helperText = buildAmountHelperText(amount, token);
+  const helperText = buildAmountHelperText(amount, token, decimals);
 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
@@ -74,6 +77,13 @@ export function RemittanceForm({ onSuccess }: RemittanceFormProps) {
     setAmount(sanitizeAmountInput(value));
     if (errors.amount) {
       setErrors({ ...errors, amount: "" });
+    }
+  };
+
+  const handleAmountBlur = (value: string) => {
+    const formatted = formatAmountOnBlur(value, token);
+    if (formatted && formatted !== value) {
+      setAmount(formatted);
     }
   };
 
@@ -190,14 +200,15 @@ export function RemittanceForm({ onSuccess }: RemittanceFormProps) {
               type="text"
               inputMode="decimal"
               placeholder="0.00"
+              step={Math.pow(10, -decimals)}
               value={amount}
               onChange={(e) => handleAmountChange(e.target.value)}
+              onBlur={(e) => handleAmountBlur(e.target.value)}
               disabled={mutation.isPending}
               required
               min="0"
-              step="0.0000001"
               error={errors.amount || undefined}
-              helperText={helperText ?? "Up to 7 decimal places supported."}
+              helperText={helperText ?? `Up to ${decimals} decimal places supported.`}
               className={errors.amount ? "border-red-600" : ""}
             />
 

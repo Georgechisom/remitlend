@@ -27,6 +27,7 @@ const EVENT_TYPE_ALIASES: Record<string, WebhookEventType> = {
   ScoreUpd: "ScoreUpdated",
   Seized: "NFTSeized",
   NftBurned: "NFTBurned",
+  MinScore: "MinScoreUpdated",
   GovProp: "ProposalCreated",
   GovAppr: "ProposalApproved",
   GovFin: "ProposalFinalized",
@@ -34,6 +35,22 @@ const EVENT_TYPE_ALIASES: Record<string, WebhookEventType> = {
   GovEmerg: "ProposalCancelled",
   GovExp: "ProposalCancelled",
 };
+
+const ADMIN_CONFIG_EVENT_TYPES: ReadonlySet<WebhookEventType> = new Set([
+  "MinScoreUpdated",
+  "InterestRateUpdated",
+  "DefaultTermUpdated",
+  "TermLimitsUpdated",
+  "LateFeeRateUpdated",
+  "GracePeriodUpdated",
+  "DefaultWindowUpdated",
+  "MaxLoanAmountUpdated",
+  "MinRepaymentUpdated",
+  "MaxLoansPerBorrower",
+  "MinRateBpsUpdated",
+  "MaxRateBpsUpdated",
+  "RateOracleUpdated",
+]);
 
 export interface SorobanRawEvent {
   id: string;
@@ -499,6 +516,27 @@ export class EventIndexer {
         if ((insertResult.rowCount ?? 0) > 0) {
           insertedEvents.push(event);
 
+          if (this.isAdminConfigEventType(event.eventType)) {
+            await client.query(
+              `INSERT INTO audit_logs (actor, action, target, payload, ip_address)
+               VALUES ($1, $2, $3, $4::jsonb, $5)`,
+              [
+                event.address ?? "SYSTEM",
+                `ADMIN_CONFIG_${event.eventType}`,
+                `contract:${event.contractId}`,
+                JSON.stringify({
+                  eventId: event.eventId,
+                  eventType: event.eventType,
+                  loanId: event.loanId ?? null,
+                  amount: event.amount ?? null,
+                  ledger: event.ledger,
+                  txHash: event.txHash,
+                }),
+                null,
+              ],
+            );
+          }
+
           // Aggregate score deltas per borrower; a single bulk upsert at
           // the end of the transaction avoids N+1 score updates.
           if (event.eventType === "LoanRepaid") {
@@ -708,6 +746,69 @@ export class EventIndexer {
       if (Array.isArray(data) && data.length >= 2) {
         amount = data[1].toString();
       }
+    } else if (type === "MinScoreUpdated") {
+      // (type), [old_score, new_score]
+      amount = this.decodeTupleSecondNumericValue(event.value);
+    } else if (type === "InterestRateUpdated") {
+      // (type), [old_rate, new_rate]
+      amount = this.decodeTupleSecondNumericValue(event.value);
+    } else if (type === "DefaultTermUpdated") {
+      // (type), [old_term, new_term]
+      amount = this.decodeTupleSecondNumericValue(event.value);
+    } else if (type === "TermLimitsUpdated") {
+      // (type), [min_term, max_term]
+      amount = this.decodeTupleSecondNumericValue(event.value);
+    } else if (type === "LateFeeRateUpdated") {
+      // (type, admin), [old_rate, new_rate]
+      if (event.topic[1]) {
+        address = this.decodeAddress(event.topic[1]);
+      }
+      amount = this.decodeTupleSecondNumericValue(event.value);
+    } else if (type === "GracePeriodUpdated") {
+      // (type, admin), [old_ledgers, new_ledgers]
+      if (event.topic[1]) {
+        address = this.decodeAddress(event.topic[1]);
+      }
+      amount = this.decodeTupleSecondNumericValue(event.value);
+    } else if (type === "DefaultWindowUpdated") {
+      // (type, admin), [old_ledgers, new_ledgers]
+      if (event.topic[1]) {
+        address = this.decodeAddress(event.topic[1]);
+      }
+      amount = this.decodeTupleSecondNumericValue(event.value);
+    } else if (type === "MaxLoanAmountUpdated") {
+      // (type, admin), [old_amount, new_amount]
+      if (event.topic[1]) {
+        address = this.decodeAddress(event.topic[1]);
+      }
+      amount = this.decodeTupleSecondNumericValue(event.value);
+    } else if (type === "MinRepaymentUpdated") {
+      // (type, admin), [old_amount, new_amount]
+      if (event.topic[1]) {
+        address = this.decodeAddress(event.topic[1]);
+      }
+      amount = this.decodeTupleSecondNumericValue(event.value);
+    } else if (type === "MaxLoansPerBorrower") {
+      // (type, admin), [old_max, new_max]
+      if (event.topic[1]) {
+        address = this.decodeAddress(event.topic[1]);
+      }
+      amount = this.decodeTupleSecondNumericValue(event.value);
+    } else if (type === "MinRateBpsUpdated") {
+      // (type, admin), [old_rate, new_rate]
+      if (event.topic[1]) {
+        address = this.decodeAddress(event.topic[1]);
+      }
+      amount = this.decodeTupleSecondNumericValue(event.value);
+    } else if (type === "MaxRateBpsUpdated") {
+      // (type, admin), [old_rate, new_rate]
+      if (event.topic[1]) {
+        address = this.decodeAddress(event.topic[1]);
+      }
+      amount = this.decodeTupleSecondNumericValue(event.value);
+    } else if (type === "RateOracleUpdated") {
+      // (type), [old_oracle, new_oracle]
+      address = this.decodeTupleSecondAddress(event.value);
     } else if (type === "PoolPaused" || type === "PoolUnpaused") {
       // (type)
     } else if (type === "ColDep" || type === "ColRel") {
@@ -869,6 +970,34 @@ export class EventIndexer {
       return first.toString();
     }
     return undefined;
+  }
+
+  private decodeTupleSecondNumericValue(value: xdr.ScVal): string | undefined {
+    const native = scValToNative(value);
+    if (!Array.isArray(native) || native.length < 2) {
+      return undefined;
+    }
+    const second = native[1];
+    if (typeof second === "bigint" || typeof second === "number") {
+      return second.toString();
+    }
+    return undefined;
+  }
+
+  private decodeTupleSecondAddress(value: xdr.ScVal): string | undefined {
+    const native = scValToNative(value);
+    if (!Array.isArray(native) || native.length < 2) {
+      return undefined;
+    }
+    const second = native[1];
+    if (typeof second === "string") {
+      return second;
+    }
+    return undefined;
+  }
+
+  private isAdminConfigEventType(eventType: WebhookEventType): boolean {
+    return ADMIN_CONFIG_EVENT_TYPES.has(eventType);
   }
 
   private async quarantineEvent(

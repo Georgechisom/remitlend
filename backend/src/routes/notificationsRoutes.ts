@@ -1,9 +1,11 @@
 import { Router } from "express";
 import {
   getNotifications,
+  getNotificationPreferences,
   markRead,
   markAllRead,
   streamNotifications,
+  updateNotificationPreferences,
 } from "../controllers/notificationController.js";
 import { requireJwtAuth, requireScopes } from "../middleware/jwtAuth.js";
 
@@ -38,6 +40,48 @@ router.get(
   requireScopes("read:notifications"),
   getNotifications,
 );
+
+/**
+ * @swagger
+ * /notifications/preferences:
+ *   get:
+ *     summary: Get notification delivery preferences for the authenticated user
+ *     tags: [Notifications]
+ *     security:
+ *       - BearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Notification preference values
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/NotificationPreferences'
+ */
+router.get("/preferences", requireJwtAuth, getNotificationPreferences);
+
+/**
+ * @swagger
+ * /notifications/preferences:
+ *   put:
+ *     summary: Update notification delivery preferences for the authenticated user
+ *     tags: [Notifications]
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/NotificationPreferences'
+ *     responses:
+ *       200:
+ *         description: Updated notification preference values
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/NotificationPreferences'
+ */
+router.put("/preferences", requireJwtAuth, updateNotificationPreferences);
 
 /**
  * @swagger

@@ -4,6 +4,10 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { AppError } from "../errors/AppError.js";
 import { parseCappedLimit } from "../utils/queryHelpers.js";
 import logger from "../utils/logger.js";
+import {
+  updateNotificationPreferencesSchema,
+  validateNotificationPhone,
+} from "../schemas/notificationSchemas.js";
 
 /**
  * GET /api/notifications
@@ -55,6 +59,48 @@ export const markAllRead = asyncHandler(async (req: Request, res: Response) => {
   await notificationService.markAllRead(userId);
   res.json({ success: true });
 });
+
+export const getNotificationPreferences = asyncHandler(
+  async (req: Request, res: Response) => {
+    const userId = req.user?.publicKey;
+    if (!userId) throw AppError.unauthorized("Authentication required");
+
+    const preferences =
+      await notificationService.getNotificationPreferences(userId);
+    res.json(preferences);
+  },
+);
+
+export const updateNotificationPreferences = asyncHandler(
+  async (req: Request, res: Response) => {
+    const userId = req.user?.publicKey;
+    if (!userId) throw AppError.unauthorized("Authentication required");
+
+    const parsed = updateNotificationPreferencesSchema.parse(req.body);
+    const phone = parsed.phone?.trim() ? parsed.phone.trim() : null;
+
+    if (!validateNotificationPhone(phone)) {
+      throw AppError.badRequest("Phone must be a valid E.164-like number");
+    }
+
+    if (parsed.smsEnabled && !phone) {
+      throw AppError.badRequest(
+        "Phone is required when SMS notifications are enabled",
+      );
+    }
+
+    const preferences = await notificationService.updateNotificationPreferences(
+      userId,
+      {
+        emailEnabled: parsed.emailEnabled,
+        smsEnabled: parsed.smsEnabled,
+        phone,
+      },
+    );
+
+    res.json(preferences);
+  },
+);
 
 /**
  * GET /api/notifications/stream

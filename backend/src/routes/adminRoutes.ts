@@ -22,6 +22,7 @@ import {
   getLoanDispute,
   rejectLoanDispute,
 } from "../controllers/adminDisputeController.js";
+import { getPendingGovernance } from "../controllers/adminGovernanceController.js";
 import { query } from "../db/connection.js";
 
 const router = Router();
@@ -106,6 +107,13 @@ router.post(
   requireJwtAuth,
   requireRoles("admin"),
   rejectLoanDispute,
+);
+
+router.get(
+  "/governance/pending",
+  requireJwtAuth,
+  requireRoles("admin"),
+  getPendingGovernance,
 );
 
 const checkDefaultsBodySchema = z.object({

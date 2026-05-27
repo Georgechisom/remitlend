@@ -20,6 +20,8 @@ interface ActivityItem {
     | "Loan Repaid"
     | "Loan Defaulted"
     | "Loan Liquidated"
+    | "Loan Extended"
+    | "Loan Refinanced"
     | "Remittance";
   description: string;
   amount: string;
@@ -55,17 +57,23 @@ export default function ActivityPage() {
 
   const allActivity = useMemo(() => {
     const loanEvents: ActivityItem[] = loans.map((loan) => ({
+      // latestEventType is optional and may be surfaced by indexer-backed APIs.
+      // When present, prioritize it so refinance/extension activity appears.
       id: `loan-${loan.id}`,
       type:
-        loan.status === "repaid"
-          ? "Loan Repaid"
-          : loan.status === "liquidated"
-            ? "Loan Liquidated"
-            : loan.status === "defaulted"
-              ? "Loan Defaulted"
-              : loan.status === "active"
-                ? "Loan Active"
-                : "Loan Request",
+        (loan as { latestEventType?: string }).latestEventType === "LoanExtended"
+          ? "Loan Extended"
+          : (loan as { latestEventType?: string }).latestEventType === "LoanRefinanced"
+            ? "Loan Refinanced"
+            : loan.status === "repaid"
+              ? "Loan Repaid"
+              : loan.status === "liquidated"
+                ? "Loan Liquidated"
+                : loan.status === "defaulted"
+                  ? "Loan Defaulted"
+                  : loan.status === "active"
+                    ? "Loan Active"
+                    : "Loan Request",
       description: `Loan #${loan.id} — ${loan.currency}`,
       amount: `${loan.status === "repaid" ? "+" : "-"}${formatCurrency(loan.amount)}`,
       timestamp: new Date(loan.createdAt).toISOString(),

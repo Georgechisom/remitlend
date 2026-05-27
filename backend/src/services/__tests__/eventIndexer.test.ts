@@ -75,6 +75,38 @@ function makeRawRepaidEvent(id = "event-001"): Record<string, unknown> {
   };
 }
 
+function makeRawAdminConfigEvent(
+  id = "admin-evt-001",
+): Record<string, unknown> {
+  const makeSym = (name: string) => ({
+    sym: () => ({ toString: () => name }),
+    toXDR: (_enc: string) => `xdr:${name}`,
+  });
+
+  return {
+    id,
+    pagingToken: id,
+    topic: [
+      makeSym("LateFeeRateUpdated"),
+      {
+        sym: () => ({ toString: () => "admin-addr" }),
+        toXDR: () => "xdr:admin",
+      },
+    ],
+    value: {
+      _val: [10n, 25n],
+      sym: () => {
+        throw new Error("not a sym");
+      },
+      toXDR: () => "xdr:admin-val",
+    },
+    ledger: 101,
+    ledgerClosedAt: new Date().toISOString(),
+    txHash: "txhash-admin-001",
+    contractId: { toString: () => "CONTRACT001" },
+  };
+}
+
 /** Run the withTransaction callback immediately using the provided mock client. */
 function stubWithTransaction(mockClient: MockClient): void {
   mockWithTransaction.mockImplementation(async (fn: TxCallback) =>
@@ -147,6 +179,18 @@ beforeAll(async () => {
       "Paused",
       "Unpaused",
       "MinScoreUpdated",
+      "InterestRateUpdated",
+      "DefaultTermUpdated",
+      "TermLimitsUpdated",
+      "LateFeeRateUpdated",
+      "GracePeriodUpdated",
+      "DefaultWindowUpdated",
+      "MaxLoanAmountUpdated",
+      "MinRepaymentUpdated",
+      "MaxLoansPerBorrower",
+      "MinRateBpsUpdated",
+      "MaxRateBpsUpdated",
+      "RateOracleUpdated",
       "PoolPaused",
       "PoolUnpaused",
     ],
@@ -360,5 +404,31 @@ describe("EventIndexer – transaction atomicity via ingestRawEvents", () => {
 
     // withTransaction is the entry point instead
     expect(mockWithTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  it("persists admin config events into audit_logs", async () => {
+    const mockClient: MockClient = {
+      query: jest.fn<any>().mockImplementation(async (sql: string) => {
+        if (sql.includes("INSERT INTO loan_events")) {
+          return { rowCount: 1, rows: [{ event_id: "admin-evt-001" }] };
+        }
+        if (sql.includes("INSERT INTO audit_logs")) {
+          return { rowCount: 1, rows: [] };
+        }
+        return { rowCount: 0, rows: [] };
+      }),
+    };
+    stubWithTransaction(mockClient);
+
+    const result = await makeIndexer().ingestRawEvents([
+      makeRawAdminConfigEvent(),
+    ]);
+
+    expect(result.insertedCount).toBe(1);
+    expect(
+      mockClient.query.mock.calls.some(([sql]) =>
+        String(sql).includes("INSERT INTO audit_logs"),
+      ),
+    ).toBe(true);
   });
 });

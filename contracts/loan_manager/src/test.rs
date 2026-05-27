@@ -1,9 +1,9 @@
 use crate::{DataKey, Loan, LoanError, LoanManager, LoanManagerClient, LoanStatus};
 use lending_pool::{LendingPool, LendingPoolClient};
 use remittance_nft::{RemittanceNFT, RemittanceNFTClient};
-use soroban_sdk::testutils::Ledger as _;
+use soroban_sdk::testutils::{Events as _, Ledger as _};
 use soroban_sdk::token::{Client as TokenClient, StellarAssetClient};
-use soroban_sdk::{testutils::Address as _, Address, BytesN, Env, String};
+use soroban_sdk::{testutils::Address as _, Address, BytesN, Env, String, TryFromVal};
 
 fn setup_test<'a>(
     env: &Env,
@@ -1268,10 +1268,10 @@ fn test_overdue_repayment_charges_late_fee() {
 
     let loan = manager.get_loan(&loan_id);
     assert_eq!(loan.interest_paid, 45);
-    assert_eq!(loan.late_fee_paid, 7);
-    assert_eq!(loan.principal_paid, 248);
+    assert_eq!(loan.late_fee_paid, 6);
+    assert_eq!(loan.principal_paid, 249);
     assert_eq!(loan.accrued_interest, 135);
-    assert_eq!(loan.accrued_late_fee, 22);
+    assert_eq!(loan.accrued_late_fee, 19);
     assert_eq!(loan.status, LoanStatus::Approved);
     assert_eq!(token_client.balance(&pool_client), 9_300);
 }
@@ -2495,11 +2495,11 @@ fn test_liquidate_with_collateral_shortfall_has_no_refund() {
     assert_eq!(liquidated_loan.principal_paid, 900);
     assert_eq!(manager.get_collateral(&loan_id), 0);
     assert_eq!(manager.get_borrower_loan_count(&borrower), 0);
-    assert_eq!(token_client.balance(&pool_client), pool_balance_before + 900);
     assert_eq!(
-        token_client.balance(&liquidator),
-        liquidator_balance_before
+        token_client.balance(&pool_client),
+        pool_balance_before + 900
     );
+    assert_eq!(token_client.balance(&liquidator), liquidator_balance_before);
     assert_eq!(token_client.balance(&borrower), borrower_balance_before);
 }
 

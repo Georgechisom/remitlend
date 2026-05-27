@@ -17,6 +17,8 @@ import {
   getPrecisionError,
   parseAmount,
   sanitizeAmountInput,
+  formatAmountOnBlur,
+  getAssetDecimals,
 } from "../../utils/amount";
 
 interface LoanRepaymentFormProps {
@@ -47,11 +49,18 @@ export function LoanRepaymentForm({ loanId, totalOwed, minPayment = 0 }: LoanRep
     },
   });
   const precisionError = getPrecisionError(amount, "USDC");
-  const helperText = buildAmountHelperText(amount, "USDC");
+  const helperText = buildAmountHelperText(amount, "USDC", getAssetDecimals("USDC"));
 
   const handleAmountChange = (value: string) => {
     setAmount(sanitizeAmountInput(value));
     setError(null);
+  };
+
+  const handleAmountBlur = (value: string) => {
+    const formatted = formatAmountOnBlur(value, "USDC");
+    if (formatted && formatted !== value) {
+      setAmount(formatted);
+    }
   };
 
   const validateAmount = (): boolean => {
@@ -141,12 +150,16 @@ export function LoanRepaymentForm({ loanId, totalOwed, minPayment = 0 }: LoanRep
               inputMode="decimal"
               label="Repayment Amount"
               placeholder="0.00"
+              step="0.01"
               value={amount}
               onChange={(e) => handleAmountChange(e.target.value)}
+              onBlur={(e) => handleAmountBlur(e.target.value)}
               error={error || precisionError || undefined}
               leftIcon={<DollarSign className="h-4 w-4" />}
               required
-              helperText={helperText ?? "Enter the amount you want to repay in USDC"}
+              helperText={
+                helperText ?? "Enter the amount you want to repay in USDC (max 2 decimals)"
+              }
             />
 
             <Button variant="ghost" size="sm" onClick={handlePayFullAmount} className="w-full">

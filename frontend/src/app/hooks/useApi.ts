@@ -53,6 +53,12 @@ export const queryKeys = {
   notifications: {
     all: () => ["notifications"] as const,
   },
+  transactions: {
+    mine: (params: Record<string, unknown>) => ["transactions", "mine", params] as const,
+  },
+  governance: {
+    pending: () => ["admin", "governance", "pending"] as const,
+  },
   borrowerLoans: {
     byAddress: (address: string) => ["borrowerLoans", address] as const,
   },
@@ -182,6 +188,7 @@ export interface BorrowerLoan {
   status: LoanStatus;
   borrower: string;
   approvedAt?: string;
+  latestEventType?: string;
 }
 
 export interface LoanEvent {
@@ -253,6 +260,38 @@ export interface LoanStats {
   overdueCount: number;
 }
 
+export interface MyTransaction {
+  id: number;
+  txHash: string;
+  status: string;
+  submittedAt: string;
+  submittedBy: string | null;
+  transactionType: string;
+  resultXdr?: string | null;
+}
+
+export interface GovernanceSigner {
+  address: string;
+  approved: boolean;
+}
+
+export interface GovernancePendingProposal {
+  id: string;
+  targetContract: string;
+  proposedAdmin: string;
+  approvalCount: number;
+  threshold: number;
+  executableAt: string | null;
+  expiresAt: string | null;
+  signers: GovernanceSigner[];
+}
+
+export interface GovernancePendingResponse {
+  currentAdmin: string | null;
+  targetContract: string | null;
+  pendingProposal: GovernancePendingProposal | null;
+}
+
 export interface CursorPageInfo {
   limit: number;
   count: number;
@@ -283,10 +322,11 @@ interface RawPaginatedResponse<T> {
   total_count?: number | null;
 }
 
-interface CursorListParams {
+interface CursorListParams extends Record<string, unknown> {
   limit?: number;
   cursor?: string | null;
   status?: string;
+  enabled?: boolean;
 }
 
 interface BorrowerLoansPageResponse {
@@ -334,6 +374,20 @@ async function fetchRemittancesPage(
 ): Promise<PaginatedListResult<Remittance>> {
   const response = await apiFetch<RawPaginatedResponse<Remittance[]>>(
     `/remittances${toQueryString({
+      limit: params.limit,
+      cursor: params.cursor,
+      status: params.status,
+    })}`,
+  );
+
+  return normalizePaginatedList(response);
+}
+
+async function fetchMyTransactionsPage(
+  params: CursorListParams = {},
+): Promise<PaginatedListResult<MyTransaction>> {
+  const response = await apiFetch<RawPaginatedResponse<MyTransaction[]>>(
+    `/transactions/me${toQueryString({
       limit: params.limit,
       cursor: params.cursor,
       status: params.status,
@@ -1216,5 +1270,58 @@ export async function submitLoanTransaction(signedTxXdr: string) {
   return apiFetch<{ txHash: string; status: string; resultXdr?: string }>("/loans/submit", {
     method: "POST",
     body: JSON.stringify({ signedTxXdr }),
+  });
+}
+
+interface BuildLoanTxResponse {
+  success: boolean;
+  loanId: number;
+  unsignedTxXdr: string;
+  networkPassphrase: string;
+}
+
+export async function buildRefinanceLoanTransaction(params: {
+  loanId: string | number;
+  borrowerPublicKey: string;
+  newAmount: number;
+  newTerm: number;
+}) {
+  return apiFetch<BuildLoanTxResponse>(`/loans/${params.loanId}/build-refinance`, {
+    method: "POST",
+    body: JSON.stringify({
+      borrowerPublicKey: params.borrowerPublicKey,
+      newAmount: params.newAmount,
+      newTerm: params.newTerm,
+    }),
+  });
+}
+
+export async function buildExtendLoanTransaction(params: {
+  loanId: string | number;
+  borrowerPublicKey: string;
+  extraLedgers: number;
+}) {
+  return apiFetch<BuildLoanTxResponse>(`/loans/${params.loanId}/build-extend`, {
+    method: "POST",
+    body: JSON.stringify({
+      borrowerPublicKey: params.borrowerPublicKey,
+      extraLedgers: params.extraLedgers,
+    }),
+  });
+}
+
+export function useMyTransactions(params: CursorListParams = {}) {
+  return useQuery({
+    queryKey: queryKeys.transactions.mine(params),
+    queryFn: () => fetchMyTransactionsPage(params),
+    enabled: params.enabled ?? true,
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useAdminGovernancePending() {
+  return useQuery({
+    queryKey: queryKeys.governance.pending(),
+    queryFn: () => apiFetch<GovernancePendingResponse>("/admin/governance/pending"),
   });
 }

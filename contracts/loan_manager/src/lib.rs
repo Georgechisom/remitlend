@@ -569,18 +569,18 @@ impl LoanManager {
         }
 
         let remaining_principal = Self::remaining_principal(loan);
-        let debt_before_late_fees = remaining_principal
-            .checked_add(loan.accrued_interest)
-            .expect("debt overflow");
 
-        // Stop accruing fees if principal + interest is fully paid
-        if debt_before_late_fees <= 0 {
+        // Stop accruing fees if principal is fully paid
+        if remaining_principal <= 0 {
             loan.last_late_fee_ledger = current_ledger;
             return 0;
         }
 
         let overdue_ledgers = current_ledger - late_fee_start;
-        let incremental_fee = debt_before_late_fees
+        // Late fee is calculated on original principal amount only, not remaining debt.
+        // This ensures the 25% late fee cap is meaningful regardless of payment state.
+        let incremental_fee = loan
+            .amount
             .checked_mul(Self::late_fee_rate_bps(env) as i128)
             .and_then(|value| value.checked_mul(overdue_ledgers as i128))
             .and_then(|value| value.checked_div(10_000))
@@ -594,7 +594,9 @@ impl LoanManager {
             .checked_mul(Self::MAX_PENALTY_MULTIPLIER)
             .expect("debt cap overflow");
 
-        let current_total_debt = debt_before_late_fees
+        let current_total_debt = remaining_principal
+            .checked_add(loan.accrued_interest)
+            .expect("debt overflow")
             .checked_add(loan.accrued_late_fee)
             .expect("debt overflow");
 

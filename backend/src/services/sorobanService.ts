@@ -541,6 +541,53 @@ class SorobanService {
   }
 
   /**
+   * Builds an unsigned Soroban `liquidate(liquidator, loan_id)` transaction.
+   * The liquidator must sign this XDR with their wallet.
+   */
+  async buildLiquidateTx(
+    liquidatorPublicKey: string,
+    loanId: number,
+  ): Promise<{ unsignedTxXdr: string; networkPassphrase: string }> {
+    const server = this.getRpcServer();
+    const contractId = this.getLoanManagerContractId();
+    const passphrase = this.getNetworkPassphrase();
+
+    const account = await server.getAccount(liquidatorPublicKey);
+
+    const liquidatorScVal = nativeToScVal(
+      Address.fromString(liquidatorPublicKey),
+      {
+        type: "address",
+      },
+    );
+    const loanIdScVal = nativeToScVal(loanId, { type: "u32" });
+
+    const tx = new TransactionBuilder(account, {
+      fee: BASE_FEE,
+      networkPassphrase: passphrase,
+    })
+      .addOperation(
+        Operation.invokeContractFunction({
+          contract: contractId,
+          function: "liquidate",
+          args: [liquidatorScVal, loanIdScVal],
+        }),
+      )
+      .setTimeout(30)
+      .build();
+
+    const prepared = await server.prepareTransaction(tx);
+    const unsignedTxXdr = prepared.toXDR();
+
+    logger.info("Built liquidate transaction", {
+      liquidator: liquidatorPublicKey,
+      loanId,
+    });
+
+    return { unsignedTxXdr, networkPassphrase: passphrase };
+  }
+
+  /**
    * Validates all required Soroban configuration on startup.
    * Checks that each contract ID is present and is a valid Stellar contract
    * address, then confirms RPC connectivity with a lightweight health call.

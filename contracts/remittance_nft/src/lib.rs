@@ -25,6 +25,7 @@ pub enum NftError {
     RemintNotApproved = 16,
     BelowMinimum = 17,
     InvalidMetadataUri = 18,
+    MinterLimitReached = 19,
 }
 
 #[contracttype]
@@ -50,6 +51,7 @@ pub enum DataKey {
     Metadata(Address),
     Score(Address),
     AuthorizedMinter(Address),
+    AuthorizedMinters,
     Seized(Address),
     Version,
     ScoreHistory(Address),
@@ -78,6 +80,7 @@ impl RemittanceNFT {
     const MIN_CREDIT_SCORE: u32 = 300;
     pub const MAX_SCORE: u32 = 850;
     pub const MAX_ALLOWED_BURN_THRESHOLD: u32 = 1000; // Set as appropriate for your business logic
+    pub const MAX_AUTHORIZED_MINTERS: u32 = 32;
     const DEFAULT_MIN_REPAYMENT_AMOUNT: i128 = 0;
     /// Minimum repayment amount accepted by update_score() (1/10 XLM in stroops).
     /// Dust repayments below this threshold award 0 score points due to integer
@@ -139,6 +142,35 @@ impl RemittanceNFT {
 
     fn default_history_hash(env: &Env) -> BytesN<32> {
         BytesN::from_array(env, &[0u8; 32])
+    }
+
+    fn get_authorized_minters_list(env: &Env) -> Vec<Address> {
+        let list_key = DataKey::AuthorizedMinters;
+        if let Some(list) = env
+            .storage()
+            .persistent()
+            .get::<DataKey, Vec<Address>>(&list_key)
+        {
+            Self::bump_persistent_ttl(env, &list_key);
+            return list;
+        }
+
+        let mut list = Vec::new(env);
+        let admin = Self::admin(env);
+        if env
+            .storage()
+            .persistent()
+            .has(&DataKey::AuthorizedMinter(admin.clone()))
+        {
+            list.push_back(admin);
+        }
+        list
+    }
+
+    fn write_authorized_minters_list(env: &Env, list: &Vec<Address>) {
+        let list_key = DataKey::AuthorizedMinters;
+        env.storage().persistent().set(&list_key, list);
+        Self::bump_persistent_ttl(env, &list_key);
     }
 
     fn validate_metadata_uri(env: &Env, uri: &String) -> Result<(), NftError> {
@@ -325,6 +357,10 @@ impl RemittanceNFT {
         let key = DataKey::AuthorizedMinter(admin.clone());
         env.storage().persistent().set(&key, &true);
         Self::bump_persistent_ttl(&env, &key);
+
+        let mut minters = Vec::new(&env);
+        minters.push_back(admin);
+        Self::write_authorized_minters_list(&env, &minters);
         Ok(())
     }
 
@@ -375,14 +411,28 @@ impl RemittanceNFT {
     }
 
     /// Authorize a contract or account to mint NFTs
-    pub fn authorize_minter(env: Env, minter: Address) {
+    pub fn authorize_minter(env: Env, minter: Address) -> Result<(), NftError> {
         Self::admin(&env).require_auth();
 
         let key = DataKey::AuthorizedMinter(minter.clone());
+        if env.storage().persistent().has(&key) {
+            Self::bump_persistent_ttl(&env, &key);
+            return Ok(());
+        }
+
+        let mut minters = Self::get_authorized_minters_list(&env);
+        if minters.len() >= Self::MAX_AUTHORIZED_MINTERS {
+            return Err(NftError::MinterLimitReached);
+        }
+
+        minters.push_back(minter.clone());
+        Self::write_authorized_minters_list(&env, &minters);
+
         env.storage().persistent().set(&key, &true);
         Self::bump_persistent_ttl(&env, &key);
 
         env.events().publish((symbol_short!("MntAuth"), minter), ());
+        Ok(())
     }
 
     /// Revoke authorization for a contract or account to mint NFTs
@@ -392,6 +442,15 @@ impl RemittanceNFT {
         env.storage()
             .persistent()
             .remove(&DataKey::AuthorizedMinter(minter.clone()));
+
+        let minters = Self::get_authorized_minters_list(&env);
+        let mut updated = Vec::new(&env);
+        for existing in minters.iter() {
+            if existing != minter {
+                updated.push_back(existing);
+            }
+        }
+        Self::write_authorized_minters_list(&env, &updated);
 
         env.events().publish((symbol_short!("MntRev"), minter), ());
     }
@@ -404,6 +463,10 @@ impl RemittanceNFT {
             Self::bump_persistent_ttl(&env, &key);
         }
         is_authorized
+    }
+
+    pub fn get_authorized_minters(env: Env) -> Vec<Address> {
+        Self::get_authorized_minters_list(&env)
     }
 
     /// Mint an NFT representing a user's remittance history and reputation score.

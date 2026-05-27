@@ -35,6 +35,13 @@ interface CreateNotificationParams {
   loanId?: number | undefined;
 }
 
+export interface NotificationPreferences {
+  emailEnabled: boolean;
+  smsEnabled: boolean;
+  phone: string | null;
+  perTypeOverrides: Record<string, boolean>;
+}
+
 // ─── SSE subscriber registry ──────────────────────────────────────────────────
 // Maps userId → set of SSE response streams currently listening.
 // No persistence needed — streams are in-process only.
@@ -145,6 +152,66 @@ async function sendSMS(phone: string, message: string) {
 }
 
 class NotificationService {
+  async getNotificationPreferences(
+    userId: string,
+  ): Promise<NotificationPreferences> {
+    const result = await query(
+      `SELECT email_enabled, sms_enabled, phone
+       FROM user_profiles
+       WHERE public_key = $1
+       LIMIT 1`,
+      [userId],
+    );
+
+    if (result.rows.length === 0) {
+      return {
+        emailEnabled: false,
+        smsEnabled: false,
+        phone: null,
+        perTypeOverrides: {},
+      };
+    }
+
+    const row = result.rows[0];
+    return {
+      emailEnabled: Boolean(row.email_enabled),
+      smsEnabled: Boolean(row.sms_enabled),
+      phone: (row.phone as string | null) ?? null,
+      perTypeOverrides: {},
+    };
+  }
+
+  async updateNotificationPreferences(
+    userId: string,
+    payload: Pick<
+      NotificationPreferences,
+      "emailEnabled" | "smsEnabled" | "phone"
+    >,
+  ): Promise<NotificationPreferences> {
+    const result = await query(
+      `UPDATE user_profiles
+       SET email_enabled = $2,
+           sms_enabled = $3,
+           phone = $4
+       WHERE public_key = $1
+       RETURNING email_enabled, sms_enabled, phone`,
+      [userId, payload.emailEnabled, payload.smsEnabled, payload.phone],
+    );
+
+    const row = result.rows[0] ?? {
+      email_enabled: payload.emailEnabled,
+      sms_enabled: payload.smsEnabled,
+      phone: payload.phone,
+    };
+
+    return {
+      emailEnabled: Boolean(row.email_enabled),
+      smsEnabled: Boolean(row.sms_enabled),
+      phone: (row.phone as string | null) ?? null,
+      perTypeOverrides: {},
+    };
+  }
+
   /**
    * Persists a new notification and pushes it to any active SSE subscribers
    * for that user.

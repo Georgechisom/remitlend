@@ -1,11 +1,16 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { ChevronRight, Clock, Wallet } from "lucide-react";
+import { useTranslations } from "next-intl";
+import { ChevronRight, Clock, Wallet, Wifi, WifiOff } from "lucide-react";
 import { LoanDetailSkeleton } from "../../../components/skeletons/LoanDetailSkeleton";
 import { useLoan, useLoanAmortizationSchedule } from "../../../hooks/useApi";
+import { useLoanStream } from "../../../hooks/useLoanStream";
 import { RepaymentScheduleTable } from "../../../components/loan-wizard/RepaymentScheduleTable";
+import { RefinanceLoanModal } from "../../../components/loan-wizard/RefinanceLoanModal";
+import { ExtensionLoanModal } from "../../../components/loan-wizard/ExtensionLoanModal";
 import { RepaymentProgress } from "../../../components/ui/RepaymentProgress";
 import { LoanTimeline } from "../../../components/ui/LoanTimeline";
 import { TxHashLink } from "../../../components/ui/TxHashLink";
@@ -31,8 +36,12 @@ function getDaysRemaining(deadline: string | undefined): number | null {
 }
 
 export function LoanDetailsPageClient() {
+  const t = useTranslations("LoanDetails");
   const params = useParams<{ loanId: string }>();
   const loanId = params.loanId;
+  const [isRefinanceOpen, setIsRefinanceOpen] = useState(false);
+  const [isExtensionOpen, setIsExtensionOpen] = useState(false);
+  const realtimeStatus = useLoanStream(loanId);
   const { data: loan, isLoading, isError } = useLoan(loanId);
   const amortizationQuery = useLoanAmortizationSchedule(loanId, {
     retry: false,
@@ -72,6 +81,8 @@ export function LoanDetailsPageClient() {
   const nextDeadline = (loanData as unknown as { nextPaymentDeadline?: string })
     .nextPaymentDeadline;
   const daysRemaining = getDaysRemaining(nextDeadline);
+  const normalizedStatus = String(loan.status).toLowerCase();
+  const canManageApprovedLoan = normalizedStatus === "approved" || normalizedStatus === "active";
 
   function exportCsv() {
     const rows = loanData.events.map((event) => ({
@@ -116,6 +127,30 @@ export function LoanDetailsPageClient() {
               Track repayment timing, lender terms, and the current outstanding balance for this
               loan.
             </p>
+            <div
+              className={`mt-3 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${
+                realtimeStatus === "connected"
+                  ? "bg-green-50 text-green-700 dark:bg-green-500/10 dark:text-green-400"
+                  : realtimeStatus === "polling"
+                    ? "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300"
+                    : realtimeStatus === "disconnected"
+                      ? "bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-300"
+                      : "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
+              }`}
+            >
+              {realtimeStatus === "connected" ? (
+                <Wifi className="h-3.5 w-3.5" />
+              ) : (
+                <WifiOff className="h-3.5 w-3.5" />
+              )}
+              {realtimeStatus === "connected"
+                ? "Live loan updates"
+                : realtimeStatus === "polling"
+                  ? "Polling while reconnecting"
+                  : realtimeStatus === "disconnected"
+                    ? "Realtime temporarily unavailable"
+                    : "Connecting to live updates"}
+            </div>
           </div>
           <button
             type="button"
@@ -264,6 +299,24 @@ export function LoanDetailsPageClient() {
                     <ChevronRight className="h-4 w-4" />
                   </Link>
                 )}
+              {canManageApprovedLoan && (
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsRefinanceOpen(true)}
+                    className="inline-flex items-center rounded-full border border-indigo-200 bg-white px-3 py-1.5 text-xs font-semibold text-indigo-700 transition hover:bg-indigo-50 dark:border-indigo-800 dark:bg-zinc-950 dark:text-indigo-300 dark:hover:bg-zinc-900"
+                  >
+                    {t("actions.refinance")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsExtensionOpen(true)}
+                    className="inline-flex items-center rounded-full border border-indigo-200 bg-white px-3 py-1.5 text-xs font-semibold text-indigo-700 transition hover:bg-indigo-50 dark:border-indigo-800 dark:bg-zinc-950 dark:text-indigo-300 dark:hover:bg-zinc-900"
+                  >
+                    {t("actions.requestExtension")}
+                  </button>
+                </div>
+              )}
 
               {latestTxHash && (
                 <div className="mt-3">
@@ -292,6 +345,42 @@ export function LoanDetailsPageClient() {
           </div>
         </aside>
       </div>
+
+      <RefinanceLoanModal
+        isOpen={isRefinanceOpen}
+        onClose={() => setIsRefinanceOpen(false)}
+        onSuccess={() => {
+          amortizationQuery.refetch();
+        }}
+        loanId={loanId}
+        currentPrincipal={loan.principal}
+        currentInterestRate={loan.interestRate}
+        title={t("refinance.title")}
+        submitLabel={t("refinance.submit")}
+        cancelLabel={t("common.cancel")}
+        principalLabel={t("refinance.principal")}
+        interestRateLabel={t("refinance.interestRate")}
+        termLabel={t("refinance.term")}
+        previewTitle={t("refinance.previewTitle")}
+        previewDescription={t("refinance.previewDescription")}
+        busyLabel={t("common.confirming")}
+      />
+
+      <ExtensionLoanModal
+        isOpen={isExtensionOpen}
+        onClose={() => setIsExtensionOpen(false)}
+        onSuccess={() => {
+          amortizationQuery.refetch();
+        }}
+        loanId={loanId}
+        currentDueDate={nextDeadline}
+        title={t("extension.title")}
+        submitLabel={t("extension.submit")}
+        cancelLabel={t("common.cancel")}
+        ledgersLabel={t("extension.extraLedgers")}
+        newDueDateLabel={t("extension.newDueDate")}
+        busyLabel={t("common.confirming")}
+      />
     </section>
   );
 }

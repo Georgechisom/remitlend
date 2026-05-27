@@ -1,6 +1,18 @@
 export const STROOP_DECIMALS = 7;
 export const STROOP_SCALE = 10 ** STROOP_DECIMALS;
 
+// Asset-specific decimal precision
+export const ASSET_DECIMALS: Record<string, number> = {
+  XLM: 7,
+  USDC: 2,
+  EURC: 2,
+  PHP: 2,
+};
+
+export function getAssetDecimals(asset: string): number {
+  return ASSET_DECIMALS[asset] ?? STROOP_DECIMALS;
+}
+
 export function sanitizeAmountInput(value: string): string {
   let sanitized = value.replace(/[^\d.]/g, "");
   const firstDotIndex = sanitized.indexOf(".");
@@ -74,14 +86,20 @@ export function buildAmountHelperText(
   return `Formatted: ${formatted} ${asset} • Stroops: ${stroops.toString()}`;
 }
 
-export function getPrecisionError(
-  value: string,
-  asset = "XLM",
-  decimals = STROOP_DECIMALS,
-): string | null {
-  if (!hasInvalidPrecision(value, decimals)) {
+export function getPrecisionError(value: string, asset = "XLM", decimals?: number): string | null {
+  const assetDecimals = decimals ?? getAssetDecimals(asset);
+  if (!hasInvalidPrecision(value, assetDecimals)) {
     return null;
   }
 
-  return `${asset} supports at most ${decimals} decimal places.`;
+  return `${asset} supports at most ${assetDecimals} decimal places.`;
+}
+
+export function formatAmountOnBlur(value: string, asset = "XLM"): string {
+  const decimals = getAssetDecimals(asset);
+  const parsed = parseAmount(value);
+  if (!value || Number.isNaN(parsed)) {
+    return "";
+  }
+  return parsed.toFixed(decimals);
 }

@@ -5,8 +5,8 @@ process.env.NODE_ENV = "test";
 import { jest } from "@jest/globals";
 
 const mockQuery: any = jest.fn();
-const mockNotifyAdmins = jest.fn();
-const mockCreateNotification = jest.fn();
+const mockNotifyAdmins: any = jest.fn();
+const mockCreateNotification: any = jest.fn();
 
 jest.unstable_mockModule("../../db/connection.js", () => ({
   query: mockQuery,
@@ -159,10 +159,16 @@ describe("loan dispute resolution integration flow", () => {
       expect.arrayContaining([
         [
           expect.stringContaining("INSERT INTO loan_disputes"),
-          [String(LOAN_ID), TEST_PUBLIC_KEY, "Indexer lag caused an incorrect default event."],
+          [
+            String(LOAN_ID),
+            TEST_PUBLIC_KEY,
+            "Indexer lag caused an incorrect default event.",
+          ],
         ],
         [
-          expect.stringContaining("UPDATE loan_disputes SET status = 'resolved'"),
+          expect.stringContaining(
+            "UPDATE loan_disputes SET status = 'resolved'",
+          ),
           [
             "Default was valid after ledger review.",
             "Collateral ratio stayed below threshold.",
@@ -233,10 +239,16 @@ describe("loan dispute resolution integration flow", () => {
       expect.arrayContaining([
         [
           expect.stringContaining("INSERT INTO loan_disputes"),
-          [String(LOAN_ID), TEST_PUBLIC_KEY, "The repayment posted before the indexer caught up."],
+          [
+            String(LOAN_ID),
+            TEST_PUBLIC_KEY,
+            "The repayment posted before the indexer caught up.",
+          ],
         ],
         [
-          expect.stringContaining("UPDATE loan_disputes SET status = 'resolved'"),
+          expect.stringContaining(
+            "UPDATE loan_disputes SET status = 'resolved'",
+          ),
           [
             "Default reversed after repayment verification.",
             "Loan events were replayed successfully.",

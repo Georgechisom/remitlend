@@ -23,6 +23,7 @@ export interface User {
   id: string;
   email: string;
   walletAddress?: string;
+  role?: "admin" | "borrower" | "lender";
   kycVerified: boolean;
   /** ISO 8601 timestamp of when the session was established */
   sessionStartedAt?: string;

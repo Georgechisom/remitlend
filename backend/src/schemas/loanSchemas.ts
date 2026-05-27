@@ -60,3 +60,7 @@ export const extendLoanSchema = z.object({
     .positive("Extra ledgers must be a positive integer"),
   borrowerPublicKey: stellarAddressSchema,
 });
+
+export const liquidateLoanSchema = z.object({
+  liquidatorPublicKey: stellarAddressSchema,
+});

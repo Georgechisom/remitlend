@@ -128,8 +128,58 @@
     "viewDetails": "Ver detalles",
     "details": "Detalles"
   },
+  "RecentTransactions": {
+    "open": "Abrir transacciones recientes",
+    "close": "Cerrar transacciones recientes",
+    "title": "Transacciones recientes",
+    "description": "Copia hashes y abre enlaces de Stellar Expert.",
+    "loading": "Cargando transacciones recientes...",
+    "empty": "Aún no hay transacciones enviadas.",
+    "error": "No se pudieron cargar las transacciones recientes."
+  },
+  "Governance": {
+    "title": "Consola de gobernanza",
+    "description": "Vista de solo lectura de propuestas multisig pendientes.",
+    "forbidden": "Se requiere acceso de administrador para ver propuestas.",
+    "loading": "Cargando estado de gobernanza...",
+    "error": "No se pudo cargar el estado de gobernanza.",
+    "empty": "No hay propuesta de gobernanza pendiente.",
+    "currentAdmin": "Administrador actual",
+    "targetContract": "Contrato objetivo",
+    "pendingProposal": "Propuesta pendiente",
+    "approvals": "aprobaciones",
+    "timeToExecutable": "Tiempo para ejecutar",
+    "expiresAt": "Expira en",
+    "approved": "Aprobado",
+    "pending": "Pendiente"
+  },
   "Settings": {
     "language": "Idioma",
     "selectLanguage": "Seleccione el idioma"
+  },
+  "LoanDetails": {
+    "actions": {
+      "refinance": "Refinanciar",
+      "requestExtension": "Solicitar extensión"
+    },
+    "common": {
+      "cancel": "Cancelar",
+      "confirming": "Confirmando..."
+    },
+    "refinance": {
+      "title": "Refinanciar préstamo",
+      "principal": "Nuevo monto principal",
+      "interestRate": "Tasa de interés (%)",
+      "term": "Plazo",
+      "previewTitle": "Amortización proyectada",
+      "previewDescription": "Vista previa del plan de pago esperado antes de firmar.",
+      "submit": "Construir, Firmar y Enviar"
+    },
+    "extension": {
+      "title": "Solicitar extensión",
+      "extraLedgers": "Ledgers adicionales",
+      "newDueDate": "Nueva fecha de vencimiento",
+      "submit": "Construir, Firmar y Enviar"
+    }
   }
 }

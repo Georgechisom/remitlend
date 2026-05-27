@@ -128,8 +128,58 @@
     "viewDetails": "Tingnan ang Mga Detalye",
     "details": "Mga Detalye"
   },
+  "RecentTransactions": {
+    "open": "Buksan ang recent transactions",
+    "close": "Isara ang recent transactions",
+    "title": "Recent transactions",
+    "description": "Kopyahin ang hashes at buksan ang Stellar Expert links.",
+    "loading": "Naglo-load ng recent transactions...",
+    "empty": "Wala pang submitted transactions.",
+    "error": "Hindi ma-load ang recent transactions."
+  },
+  "Governance": {
+    "title": "Governance console",
+    "description": "Read-only view ng pending multisig admin-transfer proposals.",
+    "forbidden": "Kailangan ng admin access para makita ang governance proposals.",
+    "loading": "Naglo-load ng governance status...",
+    "error": "Hindi ma-load ang governance status.",
+    "empty": "Walang pending governance proposal.",
+    "currentAdmin": "Current admin",
+    "targetContract": "Target contract",
+    "pendingProposal": "Pending proposal",
+    "approvals": "approvals",
+    "timeToExecutable": "Time to executable",
+    "expiresAt": "Expires at",
+    "approved": "Approved",
+    "pending": "Pending"
+  },
   "Settings": {
     "language": "Wika",
     "selectLanguage": "Piliin ang Wika"
+  },
+  "LoanDetails": {
+    "actions": {
+      "refinance": "Refinance",
+      "requestExtension": "Humiling ng extension"
+    },
+    "common": {
+      "cancel": "Kanselahin",
+      "confirming": "Kinukumpirma..."
+    },
+    "refinance": {
+      "title": "I-refinance ang loan",
+      "principal": "Bagong principal na halaga",
+      "interestRate": "Interest rate (%)",
+      "term": "Termino",
+      "previewTitle": "Projected amortization",
+      "previewDescription": "Preview ng inaasahang repayment schedule bago pumirma.",
+      "submit": "I-build, Pirmahan at Isumite"
+    },
+    "extension": {
+      "title": "Humiling ng extension",
+      "extraLedgers": "Dagdag na ledgers",
+      "newDueDate": "Bagong due date",
+      "submit": "I-build, Pirmahan at Isumite"
+    }
   }
 }

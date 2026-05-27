@@ -37,6 +37,8 @@ import {
   getPrecisionError,
   parseAmount,
   sanitizeAmountInput,
+  formatAmountOnBlur,
+  getAssetDecimals,
 } from "../../utils/amount";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
@@ -72,8 +74,10 @@ export function LendPageClient() {
 
   const depositPrecisionError = getPrecisionError(depositAmount, "USDC");
   const withdrawPrecisionError = getPrecisionError(withdrawAmount, "USDC");
-  const depositHelper = buildAmountHelperText(depositAmount, "USDC");
-  const withdrawHelper = buildAmountHelperText(withdrawAmount, "USDC");
+  const depositDecimals = getAssetDecimals("USDC");
+  const withdrawDecimals = getAssetDecimals("USDC");
+  const depositHelper = buildAmountHelperText(depositAmount, "USDC", depositDecimals);
+  const withdrawHelper = buildAmountHelperText(withdrawAmount, "USDC", withdrawDecimals);
 
   const handleDeposit = async () => {
     const amount = parseAmount(depositAmount);
@@ -312,9 +316,15 @@ export function LendPageClient() {
                     type="text"
                     inputMode="decimal"
                     min="0"
-                    step="0.0000001"
+                    step={Math.pow(10, -depositDecimals)}
                     value={depositAmount}
                     onChange={(event) => setDepositAmount(sanitizeAmountInput(event.target.value))}
+                    onBlur={(event) => {
+                      const formatted = formatAmountOnBlur(event.target.value, "USDC");
+                      if (formatted && formatted !== event.target.value) {
+                        setDepositAmount(formatted);
+                      }
+                    }}
                     aria-invalid={depositPrecisionError ? true : undefined}
                     className={`w-full rounded-xl border bg-zinc-50 px-3 py-2 text-sm outline-none focus:border-indigo-500 dark:border-zinc-800 dark:bg-zinc-900 ${
                       depositPrecisionError ? "border-red-500" : "border-zinc-200"
@@ -327,7 +337,9 @@ export function LendPageClient() {
                         : "text-zinc-500 dark:text-zinc-400"
                     }`}
                   >
-                    {depositPrecisionError ?? depositHelper ?? "Up to 7 decimal places supported."}
+                    {depositPrecisionError ??
+                      depositHelper ??
+                      `Up to ${depositDecimals} decimal places supported.`}
                   </p>
                   <button
                     type="submit"
@@ -358,9 +370,15 @@ export function LendPageClient() {
                     type="text"
                     inputMode="decimal"
                     min="0"
-                    step="0.0000001"
+                    step={Math.pow(10, -withdrawDecimals)}
                     value={withdrawAmount}
                     onChange={(event) => setWithdrawAmount(sanitizeAmountInput(event.target.value))}
+                    onBlur={(event) => {
+                      const formatted = formatAmountOnBlur(event.target.value, "USDC");
+                      if (formatted && formatted !== event.target.value) {
+                        setWithdrawAmount(formatted);
+                      }
+                    }}
                     aria-invalid={withdrawPrecisionError ? true : undefined}
                     className={`w-full rounded-xl border bg-zinc-50 px-3 py-2 text-sm outline-none focus:border-indigo-500 dark:border-zinc-800 dark:bg-zinc-900 ${
                       withdrawPrecisionError ? "border-red-500" : "border-zinc-200"
@@ -375,7 +393,7 @@ export function LendPageClient() {
                   >
                     {withdrawPrecisionError ??
                       withdrawHelper ??
-                      "Up to 7 decimal places supported."}
+                      `Up to ${withdrawDecimals} decimal places supported.`}
                   </p>
                   <button
                     type="submit"

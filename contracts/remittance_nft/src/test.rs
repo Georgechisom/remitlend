@@ -158,14 +158,44 @@ fn test_authorized_minter() {
 
     // Admin should be authorized by default
     assert!(client.is_authorized_minter(&admin));
+    let initial_minters = client.get_authorized_minters();
+    assert_eq!(initial_minters.len(), 1);
+    assert_eq!(initial_minters.get(0).unwrap(), admin);
 
     // Authorize a contract
     client.authorize_minter(&authorized_contract);
     assert!(client.is_authorized_minter(&authorized_contract));
+    let after_authorize = client.get_authorized_minters();
+    assert_eq!(after_authorize.len(), 2);
 
     // Revoke authorization
     client.revoke_minter(&authorized_contract);
     assert!(!client.is_authorized_minter(&authorized_contract));
+    let after_revoke = client.get_authorized_minters();
+    assert_eq!(after_revoke.len(), 1);
+    assert_eq!(after_revoke.get(0).unwrap(), admin);
+}
+
+#[test]
+fn test_authorized_minter_limit_enforced() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let admin = Address::generate(&env);
+
+    let contract_id = env.register(RemittanceNFT, ());
+    let client = RemittanceNFTClient::new(&env, &contract_id);
+    client.initialize(&admin);
+
+    // Admin is already in the list, so only 31 more can be added.
+    for _ in 0..(RemittanceNFT::MAX_AUTHORIZED_MINTERS - 1) {
+        let minter = Address::generate(&env);
+        client.authorize_minter(&minter);
+    }
+
+    let overflow_minter = Address::generate(&env);
+    let result = client.try_authorize_minter(&overflow_minter);
+    assert_eq!(result, Err(Ok(NftError::MinterLimitReached)));
 }
 
 #[test]

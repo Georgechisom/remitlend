@@ -14,6 +14,7 @@ import {
   releaseCollateral,
   refinanceLoan,
   extendLoan,
+  buildLiquidateLoan,
   submitTransaction,
 } from "../controllers/loanController.js";
 import {
@@ -42,6 +43,7 @@ import {
   releaseCollateralSchema,
   refinanceLoanSchema,
   extendLoanSchema,
+  liquidateLoanSchema,
 } from "../schemas/loanSchemas.js";
 
 const router = Router();
@@ -483,6 +485,55 @@ router.post(
   validateBody(extendLoanSchema),
   idempotencyMiddleware,
   extendLoan,
+);
+
+/**
+ * @swagger
+ * /loans/{loanId}/liquidate/build:
+ *   post:
+ *     summary: Build an unsigned liquidate transaction
+ *     description: >
+ *       Builds an unsigned Soroban `liquidate(liquidator, loan_id)` transaction XDR.
+ *       The liquidator signs it and submits via POST /api/loans/submit.
+ *     tags: [Loans]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: loanId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Loan ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - liquidatorPublicKey
+ *             properties:
+ *               liquidatorPublicKey:
+ *                 type: string
+ *                 description: Liquidator's Stellar public key
+ *     responses:
+ *       200:
+ *         description: Unsigned liquidate transaction XDR returned
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Missing or invalid Bearer token
+ *       403:
+ *         description: liquidatorPublicKey does not match authenticated wallet
+ */
+router.post(
+  "/:loanId/liquidate/build",
+  requireJwtAuth,
+  validateParams(repayLoanParamsSchema),
+  validateBody(liquidateLoanSchema),
+  idempotencyMiddleware,
+  buildLiquidateLoan,
 );
 
 /**
