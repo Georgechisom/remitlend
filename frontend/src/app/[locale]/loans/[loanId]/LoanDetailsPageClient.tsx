@@ -124,7 +124,9 @@ export function LoanDetailsPageClient() {
                   ? "bg-green-50 text-green-700 dark:bg-green-500/10 dark:text-green-400"
                   : realtimeStatus === "polling"
                     ? "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300"
-                    : "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
+                    : realtimeStatus === "disconnected"
+                      ? "bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-300"
+                      : "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
               }`}
             >
               {realtimeStatus === "connected" ? (
@@ -136,7 +138,9 @@ export function LoanDetailsPageClient() {
                 ? "Live loan updates"
                 : realtimeStatus === "polling"
                   ? "Polling while reconnecting"
-                  : "Connecting to live updates"}
+                  : realtimeStatus === "disconnected"
+                    ? "Realtime temporarily unavailable"
+                    : "Connecting to live updates"}
             </div>
           </div>
           <button
