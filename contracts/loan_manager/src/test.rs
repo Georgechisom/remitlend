@@ -2456,6 +2456,130 @@ fn test_interest_calculation_overflow_safety() {
 }
 
 #[test]
+fn test_liquidate_with_collateral_shortfall_has_no_refund() {
+    let env = Env::default();
+    env.mock_all_auths_allowing_non_root_auth();
+
+    let (manager, nft_client, pool_client, token_id, _token_admin) = setup_test(&env);
+    let borrower = Address::generate(&env);
+    let liquidator = Address::generate(&env);
+
+    let history_hash = soroban_sdk::BytesN::from_array(&env, &[1u8; 32]);
+    nft_client.mint(
+        &borrower,
+        &650,
+        &history_hash,
+        &String::from_str(&env, "ipfs://QmShortfall"),
+        &None,
+    );
+
+    let token_client = TokenClient::new(&env, &token_id);
+    let stellar_token = StellarAssetClient::new(&env, &token_id);
+    stellar_token.mint(&pool_client, &20_000);
+    stellar_token.mint(&borrower, &20_000);
+
+    manager.set_liquidation_threshold(&15_000);
+
+    let loan_id = manager.request_loan(&borrower, &1_000, &17_280);
+    manager.approve_loan(&loan_id);
+    manager.deposit_collateral(&loan_id, &900);
+
+    let borrower_balance_before = token_client.balance(&borrower);
+    let liquidator_balance_before = token_client.balance(&liquidator);
+    let pool_balance_before = token_client.balance(&pool_client);
+
+    manager.liquidate(&liquidator, &loan_id);
+
+    let liquidated_loan = manager.get_loan(&loan_id);
+    assert_eq!(liquidated_loan.status, LoanStatus::Liquidated);
+    assert_eq!(liquidated_loan.principal_paid, 900);
+    assert_eq!(manager.get_collateral(&loan_id), 0);
+    assert_eq!(manager.get_borrower_loan_count(&borrower), 0);
+    assert_eq!(token_client.balance(&pool_client), pool_balance_before + 900);
+    assert_eq!(
+        token_client.balance(&liquidator),
+        liquidator_balance_before
+    );
+    assert_eq!(token_client.balance(&borrower), borrower_balance_before);
+}
+
+#[test]
+fn test_liquidate_rejects_repaid_loan() {
+    let env = Env::default();
+    env.mock_all_auths_allowing_non_root_auth();
+
+    let (manager, nft_client, pool_client, token_id, _token_admin) = setup_test(&env);
+    let borrower = Address::generate(&env);
+    let liquidator = Address::generate(&env);
+
+    let history_hash = soroban_sdk::BytesN::from_array(&env, &[2u8; 32]);
+    nft_client.mint(
+        &borrower,
+        &700,
+        &history_hash,
+        &String::from_str(&env, "ipfs://QmRepaid"),
+        &None,
+    );
+
+    let stellar_token = StellarAssetClient::new(&env, &token_id);
+    stellar_token.mint(&pool_client, &20_000);
+    stellar_token.mint(&borrower, &20_000);
+
+    let loan_id = manager.request_loan(&borrower, &1_000, &17_280);
+    manager.approve_loan(&loan_id);
+    manager.deposit_collateral(&loan_id, &400);
+
+    let loan = manager.get_loan(&loan_id);
+    let repay_amount = loan.amount + loan.accrued_interest + loan.accrued_late_fee;
+    manager.repay(&borrower, &loan_id, &repay_amount);
+
+    let result = manager.try_liquidate(&liquidator, &loan_id);
+    assert_eq!(result, Err(Ok(LoanError::LoanNotActive)));
+    assert_eq!(manager.get_loan(&loan_id).status, LoanStatus::Repaid);
+}
+
+#[test]
+fn test_liquidate_emits_loan_liquidated_event_with_expected_amounts() {
+    let env = Env::default();
+    env.mock_all_auths_allowing_non_root_auth();
+
+    let (manager, nft_client, pool_client, token_id, _token_admin) = setup_test(&env);
+    let borrower = Address::generate(&env);
+    let liquidator = Address::generate(&env);
+
+    let history_hash = soroban_sdk::BytesN::from_array(&env, &[3u8; 32]);
+    nft_client.mint(
+        &borrower,
+        &640,
+        &history_hash,
+        &String::from_str(&env, "ipfs://QmLiquidationEvent"),
+        &None,
+    );
+
+    let stellar_token = StellarAssetClient::new(&env, &token_id);
+    stellar_token.mint(&pool_client, &20_000);
+    stellar_token.mint(&borrower, &20_000);
+
+    manager.set_liquidation_threshold(&14_500);
+    manager.set_liquidation_bonus_bps(&1_000);
+
+    let loan_id = manager.request_loan(&borrower, &1_000, &17_280);
+    manager.approve_loan(&loan_id);
+    manager.deposit_collateral(&loan_id, &1_400);
+
+    manager.liquidate(&liquidator, &loan_id);
+
+    let events = env.events().all();
+    let loan_liquidated_event = events.get(events.len() - 1).unwrap();
+    let liquidation_data =
+        soroban_sdk::Vec::<i128>::try_from_val(&env, &loan_liquidated_event.2).unwrap();
+
+    assert_eq!(liquidation_data.get(0).unwrap(), 1_000);
+    assert_eq!(liquidation_data.get(1).unwrap(), 140);
+    assert_eq!(liquidation_data.get(2).unwrap(), 260);
+}
+
+#[test]
 fn test_late_fee_cap_at_total_debt_limit() {
     let env = Env::default();
     env.mock_all_auths_allowing_non_root_auth();
