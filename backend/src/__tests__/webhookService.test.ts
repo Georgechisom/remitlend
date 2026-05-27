@@ -211,28 +211,33 @@ describe("WebhookService", () => {
   });
 
   describe("HMAC signature", () => {
-    it("generates correct HMAC signature when secret is provided", async () => {
-      const fetchMock: any = jest.fn(async () => ({
-        ok: true,
-        status: 200,
-      }));
+    it("sets X-RemitLend-Signature with sha256= prefix for a known body+secret", async () => {
+      const secret = "test-secret-key";
+      const knownBody = JSON.stringify({ eventId: "evt-known", eventType: "LoanApproved" });
+
+      const crypto = await import("node:crypto");
+      const expectedHex = crypto
+        .createHmac("sha256", secret)
+        .update(knownBody)
+        .digest("hex");
+      const expectedHeader = `sha256=${expectedHex}`;
+
+      // Directly inspect the header value by spying on fetch
+      const fetchMock: any = jest.fn(async (_url: string, opts: RequestInit) => {
+        const hdrs = opts.headers as Record<string, string>;
+        expect(hdrs["x-remitlend-signature"]).toBe(expectedHeader);
+        return { ok: true, status: 200 };
+      });
       global.fetch = fetchMock as typeof fetch;
 
-      const secret = "test-secret-key";
       mockQuery
         .mockResolvedValueOnce({
-          rows: [
-            {
-              id: 1,
-              callback_url: "https://consumer.example",
-              secret,
-            },
-          ],
+          rows: [{ id: 1, callback_url: "https://consumer.example", secret }],
         })
         .mockResolvedValueOnce({ rows: [], rowCount: 1 });
 
       const service = new WebhookService();
-      const event = {
+      await service.dispatch({
         eventId: "evt-hmac-test",
         eventType: "LoanApproved" as const,
         loanId: 42,
@@ -243,24 +248,80 @@ describe("WebhookService", () => {
         contractId: "contract-123",
         topics: [],
         value: "value-xdr",
-      };
-
-      await service.dispatch(event);
+      });
 
       expect(fetchMock).toHaveBeenCalledTimes(1);
-      const callArgs = fetchMock.mock.calls[0];
-      const headers = callArgs[1]?.headers;
-      const body = callArgs[1]?.body;
+    });
 
-      expect(headers["x-remitlend-signature"]).toBeDefined();
+    it("header value starts with 'sha256=' and matches HMAC-SHA256 of the request body", async () => {
+      const secret = "another-secret";
+      const fetchMock: any = jest.fn(async () => ({ ok: true, status: 200 }));
+      global.fetch = fetchMock as typeof fetch;
 
-      // Verify the signature is correct
+      mockQuery
+        .mockResolvedValueOnce({
+          rows: [{ id: 1, callback_url: "https://hook.example", secret }],
+        })
+        .mockResolvedValueOnce({ rows: [], rowCount: 1 });
+
+      const service = new WebhookService();
+      await service.dispatch({
+        eventId: "evt-prefix-check",
+        eventType: "LoanRepaid" as const,
+        loanId: 7,
+        address: "GBORROWER456",
+        ledger: 200,
+        ledgerClosedAt: new Date("2025-06-01T00:00:00.000Z"),
+        txHash: "tx-prefix",
+        contractId: "contract-456",
+        topics: [],
+        value: "xdr-val",
+      });
+
+      const callOpts = fetchMock.mock.calls[0][1] as RequestInit;
+      const hdrs = callOpts.headers as Record<string, string>;
+      const sigHeader = hdrs["x-remitlend-signature"];
+
+      // Must start with the algorithm prefix
+      expect(sigHeader).toMatch(/^sha256=[a-f0-9]{64}$/);
+
+      // The hex part must equal HMAC-SHA256(secret, body)
       const crypto = await import("node:crypto");
-      const expectedSignature = crypto
+      const sentBody = callOpts.body as string;
+      const expectedHex = crypto
         .createHmac("sha256", secret)
-        .update(body)
+        .update(sentBody)
         .digest("hex");
-      expect(headers["x-remitlend-signature"]).toBe(expectedSignature);
+      expect(sigHeader).toBe(`sha256=${expectedHex}`);
+    });
+
+    it("omits X-RemitLend-Signature when no secret is configured", async () => {
+      const fetchMock: any = jest.fn(async () => ({ ok: true, status: 200 }));
+      global.fetch = fetchMock as typeof fetch;
+
+      mockQuery
+        .mockResolvedValueOnce({
+          rows: [{ id: 1, callback_url: "https://nosecret.example", secret: null }],
+        })
+        .mockResolvedValueOnce({ rows: [], rowCount: 1 });
+
+      const service = new WebhookService();
+      await service.dispatch({
+        eventId: "evt-no-secret",
+        eventType: "LoanApproved" as const,
+        loanId: 1,
+        address: "GBORROWER789",
+        ledger: 300,
+        ledgerClosedAt: new Date("2025-01-01T00:00:00.000Z"),
+        txHash: "tx-nosecret",
+        contractId: "contract-789",
+        topics: [],
+        value: "xdr",
+      });
+
+      const callOpts = fetchMock.mock.calls[0][1] as RequestInit;
+      const hdrs = callOpts.headers as Record<string, string>;
+      expect(hdrs["x-remitlend-signature"]).toBeUndefined();
     });
   });
 

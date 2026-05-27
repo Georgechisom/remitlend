@@ -266,7 +266,10 @@ async function postWebhook(
       method: "POST",
       headers: {
         "content-type": "application/json",
-        ...(signature && { "x-remitlend-signature": signature }),
+        // X-RemitLend-Signature uses the GitHub/Stripe-style "sha256=<hex>"
+        // format so subscribers can verify payload integrity (see
+        // docs/wiki/webhook-signatures.md for the verification recipe).
+        ...(signature && { "x-remitlend-signature": `sha256=${signature}` }),
       },
       body,
       signal: controller.signal,
