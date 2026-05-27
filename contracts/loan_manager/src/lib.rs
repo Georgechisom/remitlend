@@ -594,7 +594,9 @@ impl LoanManager {
             .checked_mul(Self::MAX_PENALTY_MULTIPLIER)
             .expect("debt cap overflow");
 
-        let current_total_debt = debt_before_late_fees
+        let current_total_debt = remaining_principal
+            .checked_add(loan.accrued_interest)
+            .expect("debt overflow")
             .checked_add(loan.accrued_late_fee)
             .expect("debt overflow");
 
