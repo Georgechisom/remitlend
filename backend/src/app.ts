@@ -20,6 +20,7 @@ import poolRoutes from "./routes/poolRoutes.js";
 import indexerRoutes from "./routes/indexerRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
+import userRoutes from "./routes/userRoutes.js";
 import notificationsRoutes from "./routes/notificationsRoutes.js";
 import eventRoutes from "./routes/eventRoutes.js";
 import remittanceRoutes from "./routes/remittanceRoutes.js";
@@ -177,6 +178,7 @@ app.use("/api/v1/indexer", indexerRoutes);
 app.use("/api/v1/admin", adminRoutes);
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/remittances", remittanceRoutes);
+app.use("/user", userRoutes);
 
 // ── Diagnostic / Test Routes ─────────────────────────────────────
 // Only exposed in test environment to verify centralized error handling.
