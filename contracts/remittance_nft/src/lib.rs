@@ -1137,6 +1137,7 @@ impl RemittanceNFT {
     }
 
     pub fn accept_admin(env: Env) -> Result<(), NftError> {
+        let previous_admin = Self::admin(&env);
         let proposed_admin: Address = env
             .storage()
             .instance()
@@ -1150,8 +1151,13 @@ impl RemittanceNFT {
         env.storage().instance().remove(&DataKey::ProposedAdmin);
         Self::bump_instance_ttl(&env);
 
-        env.events()
-            .publish((Symbol::new(&env, "AdminTransferred"),), proposed_admin);
+        env.events().publish(
+            (
+                Symbol::new(&env, "AdminTransferred"),
+                Symbol::new(&env, "accept"),
+            ),
+            (previous_admin, proposed_admin),
+        );
         Ok(())
     }
 
@@ -1163,8 +1169,13 @@ impl RemittanceNFT {
         env.storage().instance().remove(&DataKey::ProposedAdmin);
         Self::bump_instance_ttl(&env);
 
-        env.events()
-            .publish((Symbol::new(&env, "AdminTransferred"),), new_admin);
+        env.events().publish(
+            (
+                Symbol::new(&env, "AdminTransferred"),
+                Symbol::new(&env, "govern"),
+            ),
+            (current_admin, new_admin),
+        );
     }
 }
 

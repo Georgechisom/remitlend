@@ -2,7 +2,7 @@ use crate::{events, LendingPool, LendingPoolClient};
 use soroban_sdk::testutils::{Address as _, Events as _, Ledger as _};
 use soroban_sdk::token::Client as TokenClient;
 use soroban_sdk::token::StellarAssetClient;
-use soroban_sdk::{Address, BytesN, Env, IntoVal, TryFromVal};
+use soroban_sdk::{Address, BytesN, Env, FromVal, IntoVal, TryFromVal};
 
 fn create_token_contract<'a>(
     env: &Env,
@@ -622,6 +622,14 @@ fn test_admin_transfer_flow() {
     pool_client.propose_admin(&new_admin);
     pool_client.accept_admin();
 
+    let events = env.events().all();
+    let event = events.get(events.len() - 1).unwrap();
+    let topic_0 = soroban_sdk::Symbol::from_val(&env, &event.1.get(0).unwrap());
+    let topic_1 = soroban_sdk::Symbol::from_val(&env, &event.1.get(1).unwrap());
+    let admins = <(Address, Address)>::from_val(&env, &event.2);
+    assert_eq!(topic_0, soroban_sdk::Symbol::new(&env, "AdminTransferred"));
+    assert_eq!(topic_1, soroban_sdk::Symbol::new(&env, "accept"));
+    assert_eq!(admins, (token_admin, new_admin.clone()));
     assert_eq!(pool_client.get_admin(), new_admin);
 }
 
@@ -638,6 +646,14 @@ fn test_set_admin_updates_admin_immediately() {
     let new_admin = Address::generate(&env);
     pool_client.set_admin(&new_admin);
 
+    let events = env.events().all();
+    let event = events.get(events.len() - 1).unwrap();
+    let topic_0 = soroban_sdk::Symbol::from_val(&env, &event.1.get(0).unwrap());
+    let topic_1 = soroban_sdk::Symbol::from_val(&env, &event.1.get(1).unwrap());
+    let admins = <(Address, Address)>::from_val(&env, &event.2);
+    assert_eq!(topic_0, soroban_sdk::Symbol::new(&env, "AdminTransferred"));
+    assert_eq!(topic_1, soroban_sdk::Symbol::new(&env, "govern"));
+    assert_eq!(admins, (admin, new_admin.clone()));
     assert_eq!(pool_client.get_admin(), new_admin);
 }
 

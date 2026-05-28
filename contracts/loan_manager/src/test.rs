@@ -81,6 +81,50 @@ fn test_set_admin_updates_admin_immediately() {
 }
 
 #[test]
+fn test_set_min_score_valid_update_emits_event() {
+    let env = Env::default();
+    env.mock_all_auths_allowing_non_root_auth();
+
+    let (manager, _nft_client, _pool, _token, _admin) = setup_test(&env);
+
+    manager.set_min_score(&650);
+
+    let events = env.events().all();
+    let event = events.get(events.len() - 1).unwrap();
+    let topic_0 = soroban_sdk::Symbol::from_val(&env, &event.1.get(0).unwrap());
+    let scores = <(u32, u32)>::from_val(&env, &event.2);
+
+    assert_eq!(topic_0, soroban_sdk::Symbol::new(&env, "MinScoreUpdated"));
+    assert_eq!(scores, (500, 650));
+    assert_eq!(manager.get_min_score(), 650);
+}
+
+#[test]
+fn test_set_min_score_rejects_above_nft_max() {
+    let env = Env::default();
+    env.mock_all_auths_allowing_non_root_auth();
+
+    let (manager, _nft_client, _pool, _token, _admin) = setup_test(&env);
+
+    let result = manager.try_set_min_score(&851);
+
+    assert_eq!(result, Err(Ok(LoanError::InvalidConfiguration)));
+    assert_eq!(manager.get_min_score(), 500);
+}
+
+#[test]
+fn test_set_min_score_accepts_nft_max_boundary() {
+    let env = Env::default();
+    env.mock_all_auths_allowing_non_root_auth();
+
+    let (manager, _nft_client, _pool, _token, _admin) = setup_test(&env);
+
+    manager.set_min_score(&850);
+
+    assert_eq!(manager.get_min_score(), 850);
+}
+
+#[test]
 fn test_get_proposed_admin_returns_none_when_no_proposal() {
     let env = Env::default();
     env.mock_all_auths_allowing_non_root_auth();
@@ -1237,6 +1281,7 @@ fn test_check_defaults_batch() {
     let loan_id1 = manager.request_loan(&borrower1, &1000, &17280);
     let loan_id2 = manager.request_loan(&borrower2, &1000, &17280);
     let loan_id3 = manager.request_loan(&borrower3, &1000, &17280);
+    let loan_id4 = manager.request_loan(&borrower3, &1000, &17280);
 
     manager.approve_loan(&loan_id1);
     manager.approve_loan(&loan_id2);
@@ -1247,12 +1292,14 @@ fn test_check_defaults_batch() {
     env.ledger()
         .set_sequence_number(due_date + default_window + 1);
 
-    let loan_ids = soroban_sdk::vec![&env, loan_id1, loan_id2, loan_id3];
-    manager.check_defaults(&loan_ids);
+    let loan_ids = soroban_sdk::vec![&env, loan_id1, loan_id2, loan_id3, loan_id4, 999];
+    let defaulted_count = manager.check_defaults(&loan_ids);
+    assert_eq!(defaulted_count, 3);
 
     assert_eq!(manager.get_loan(&loan_id1).status, LoanStatus::Defaulted);
     assert_eq!(manager.get_loan(&loan_id2).status, LoanStatus::Defaulted);
     assert_eq!(manager.get_loan(&loan_id3).status, LoanStatus::Defaulted);
+    assert_eq!(manager.get_loan(&loan_id4).status, LoanStatus::Pending);
 
     assert_eq!(nft_client.get_score(&borrower1), 550);
     assert_eq!(nft_client.get_score(&borrower2), 550);
@@ -1260,6 +1307,57 @@ fn test_check_defaults_batch() {
     assert!(nft_client.is_seized(&borrower1));
     assert!(nft_client.is_seized(&borrower2));
     assert!(nft_client.is_seized(&borrower3));
+}
+
+#[test]
+fn test_check_defaults_empty_batch_returns_zero() {
+    let env = Env::default();
+    env.mock_all_auths_allowing_non_root_auth();
+
+    let (manager, _nft_client, _pool_client, _token_id, _token_admin) = setup_test(&env);
+
+    let loan_ids = soroban_sdk::vec![&env];
+    let defaulted_count = manager.check_defaults(&loan_ids);
+
+    assert_eq!(defaulted_count, 0);
+}
+
+#[test]
+fn test_check_defaults_all_ineligible_returns_zero() {
+    let env = Env::default();
+    env.mock_all_auths_allowing_non_root_auth();
+
+    let (manager, nft_client, pool_client, token_id, _token_admin) = setup_test(&env);
+    let borrower = Address::generate(&env);
+
+    let history_hash = soroban_sdk::BytesN::from_array(&env, &[0u8; 32]);
+    nft_client.mint(
+        &borrower,
+        &600,
+        &history_hash,
+        &String::from_str(&env, "ipfs://QmTest"),
+        &None,
+    );
+
+    let stellar_token = soroban_sdk::token::StellarAssetClient::new(&env, &token_id);
+    stellar_token.mint(&pool_client, &10_000);
+
+    let pending_loan_id = manager.request_loan(&borrower, &1000, &17280);
+    let approved_loan_id = manager.request_loan(&borrower, &1000, &17280);
+    manager.approve_loan(&approved_loan_id);
+
+    let loan_ids = soroban_sdk::vec![&env, pending_loan_id, approved_loan_id, 999];
+    let defaulted_count = manager.check_defaults(&loan_ids);
+
+    assert_eq!(defaulted_count, 0);
+    assert_eq!(
+        manager.get_loan(&pending_loan_id).status,
+        LoanStatus::Pending
+    );
+    assert_eq!(
+        manager.get_loan(&approved_loan_id).status,
+        LoanStatus::Approved
+    );
 }
 
 #[test]

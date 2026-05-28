@@ -159,6 +159,7 @@ impl LoanManager {
     const MAX_RATIO_BPS: u32 = 10_000;
     const LATE_REPAYMENT_SCORE_PENALTY: i32 = 10;
     const DEFAULT_SCORE_PENALTY_POINTS: u32 = 50;
+    const NFT_MAX_SCORE: u32 = 850;
     const DEFAULT_MIN_REPAYMENT_AMOUNT: i128 = 100;
     const MAX_EXTENSIONS: u32 = 3;
     const EXTENSION_FEE_BPS: u32 = 100; // 1% of remaining principal
@@ -2034,7 +2035,11 @@ impl LoanManager {
         Self::default_window_ledgers(&env)
     }
 
-    pub fn set_min_score(env: Env, min_score: u32) {
+    pub fn set_min_score(env: Env, min_score: u32) -> Result<(), LoanError> {
+        if min_score > Self::NFT_MAX_SCORE {
+            return Err(LoanError::InvalidConfiguration);
+        }
+
         let admin = Self::admin(&env);
         admin.require_auth();
 
@@ -2046,6 +2051,7 @@ impl LoanManager {
         env.storage().instance().set(&DataKey::MinScore, &min_score);
         Self::bump_instance_ttl(&env);
         events::min_score_updated(&env, admin, old_score, min_score);
+        Ok(())
     }
 
     pub fn set_max_loan_amount(env: Env, amount: i128) -> Result<(), LoanError> {
@@ -2570,9 +2576,10 @@ impl LoanManager {
         Ok(())
     }
 
-    pub fn check_defaults(env: Env, loan_ids: Vec<u32>) -> Result<(), LoanError> {
+    pub fn check_defaults(env: Env, loan_ids: Vec<u32>) -> Result<u32, LoanError> {
         Self::admin(&env).require_auth();
         Self::require_not_paused(&env)?;
+        let mut defaulted_count = 0u32;
 
         for loan_id in loan_ids.iter() {
             let loan_key = DataKey::Loan(loan_id);
@@ -2617,9 +2624,12 @@ impl LoanManager {
             nft_client.record_default(&loan.borrower, &Some(env.current_contract_address()));
 
             events::loan_defaulted(&env, loan_id, loan.borrower.clone());
+            defaulted_count = defaulted_count
+                .checked_add(1)
+                .expect("defaulted count overflow");
         }
 
-        Ok(())
+        Ok(defaulted_count)
     }
 }
 

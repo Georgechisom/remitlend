@@ -1,5 +1,8 @@
 use super::*;
-use soroban_sdk::{testutils::Address as _, testutils::Ledger as _, Address, BytesN, Env, String};
+use soroban_sdk::{
+    testutils::Address as _, testutils::Events as _, testutils::Ledger as _, Address, BytesN, Env,
+    FromVal, String,
+};
 
 fn create_test_hash(env: &Env, value: u8) -> BytesN<32> {
     let mut hash_bytes = [0u8; 32];
@@ -1178,6 +1181,14 @@ fn test_propose_and_accept_admin() {
     client.propose_admin(&new_admin);
     client.accept_admin();
 
+    let events = env.events().all();
+    let event = events.get(events.len() - 1).unwrap();
+    let topic_0 = Symbol::from_val(&env, &event.1.get(0).unwrap());
+    let topic_1 = Symbol::from_val(&env, &event.1.get(1).unwrap());
+    let admins = <(Address, Address)>::from_val(&env, &event.2);
+    assert_eq!(topic_0, Symbol::new(&env, "AdminTransferred"));
+    assert_eq!(topic_1, Symbol::new(&env, "accept"));
+    assert_eq!(admins, (admin, new_admin.clone()));
     assert_eq!(client.get_admin(), new_admin);
 }
 
@@ -1195,6 +1206,14 @@ fn test_set_admin_updates_admin_immediately() {
     client.initialize(&admin);
     client.set_admin(&new_admin);
 
+    let events = env.events().all();
+    let event = events.get(events.len() - 1).unwrap();
+    let topic_0 = Symbol::from_val(&env, &event.1.get(0).unwrap());
+    let topic_1 = Symbol::from_val(&env, &event.1.get(1).unwrap());
+    let admins = <(Address, Address)>::from_val(&env, &event.2);
+    assert_eq!(topic_0, Symbol::new(&env, "AdminTransferred"));
+    assert_eq!(topic_1, Symbol::new(&env, "govern"));
+    assert_eq!(admins, (admin, new_admin.clone()));
     assert_eq!(client.get_admin(), new_admin);
 }
 

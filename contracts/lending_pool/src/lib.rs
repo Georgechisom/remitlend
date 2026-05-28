@@ -635,6 +635,7 @@ impl LendingPool {
     }
 
     pub fn accept_admin(env: Env) -> Result<(), PoolError> {
+        let previous_admin = Self::admin(&env);
         let proposed_admin: Address = env
             .storage()
             .instance()
@@ -648,7 +649,12 @@ impl LendingPool {
         env.storage().instance().remove(&DataKey::ProposedAdmin);
         Self::bump_instance_ttl(&env);
 
-        admin_transferred(&env, proposed_admin.clone());
+        admin_transferred(
+            &env,
+            previous_admin,
+            proposed_admin.clone(),
+            Symbol::new(&env, "accept"),
+        );
         Ok(())
     }
 
@@ -660,7 +666,7 @@ impl LendingPool {
         env.storage().instance().remove(&DataKey::ProposedAdmin);
         Self::bump_instance_ttl(&env);
 
-        admin_transferred(&env, new_admin);
+        admin_transferred(&env, current_admin, new_admin, Symbol::new(&env, "govern"));
     }
 
     pub fn pause(env: Env) {
