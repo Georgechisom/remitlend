@@ -62,6 +62,7 @@
     "dashboard": "Dashboard",
     "activity": "Activity",
     "notifications": "Notifications",
+    "liquidations": "Liquidations",
     "adminDisputes": "Disputes"
   },
   "Loans": {
@@ -266,5 +267,36 @@
   },
   "Lend": {
     "cooldownActive": "Withdraw available in about {minutes} minute(s) while cooldown is active."
+  },
+  "Liquidations": {
+    "eyebrow": "Liquidator Console",
+    "title": "Liquidatable Loans",
+    "description": "Review active positions below the liquidation threshold and submit liquidation transactions.",
+    "refresh": "Refresh",
+    "liquidate": "Liquidate",
+    "liquidating": "Liquidating...",
+    "pending": "Building liquidation transaction...",
+    "success": "Liquidation submitted",
+    "unknownBorrower": "Unknown borrower",
+    "walletRequired": {
+      "title": "Connect wallet",
+      "description": "Connect a liquidator wallet before submitting liquidation transactions."
+    },
+    "empty": {
+      "title": "No liquidatable loans",
+      "description": "Active loans are currently above the liquidation threshold."
+    },
+    "error": {
+      "title": "Unable to load liquidations",
+      "description": "Check the liquidations API and try again."
+    },
+    "table": {
+      "loan": "Loan",
+      "borrower": "Borrower",
+      "collateral": "Collateral",
+      "debt": "Total debt",
+      "health": "Health",
+      "action": "Action"
+    }
   }
 }

@@ -111,6 +111,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
+          targets: wasm32-unknown-unknown
           components: rustfmt, clippy
       - name: Cache dependencies
         uses: Swatinem/rust-cache@v2
@@ -125,6 +126,39 @@ jobs:
       - name: Run tests
         run: cargo test -- --test-threads=1
         working-directory: contracts
+      - name: Build contracts for wasm32 and enforce size budget
+        run: |
+          set -euo pipefail
+
+          cargo build --target wasm32-unknown-unknown --release
+
+          # Generous initial budget: 256 KiB per contract. Tighten after baseline optimization.
+          max_bytes=$((256 * 1024))
+          shopt -s nullglob
+          wasm_files=(target/wasm32-unknown-unknown/release/*.wasm)
+
+          if [ "${#wasm_files[@]}" -eq 0 ]; then
+            echo "::error::No wasm artifacts were produced."
+            exit 1
+          fi
+
+          for wasm in "${wasm_files[@]}"; do
+            size_bytes=$(stat -c%s "$wasm")
+            size_kib=$(( (size_bytes + 1023) / 1024 ))
+            echo "$(basename "$wasm"): ${size_bytes} bytes (${size_kib} KiB), budget ${max_bytes} bytes"
+
+            if [ "$size_bytes" -gt "$max_bytes" ]; then
+              echo "::error file=$wasm::WASM artifact exceeds the 256 KiB per-contract budget."
+              exit 1
+            fi
+          done
+        working-directory: contracts
+      - name: Upload wasm artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: contracts-wasm
+          path: contracts/target/wasm32-unknown-unknown/release/*.wasm
+          if-no-files-found: error
       - name: Install tarpaulin
         run: cargo install cargo-tarpaulin
       - name: Run coverage

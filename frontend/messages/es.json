@@ -62,6 +62,7 @@
     "dashboard": "Tablero",
     "activity": "Actividad",
     "notifications": "Notificaciones",
+    "liquidations": "Liquidaciones",
     "adminDisputes": "Disputas"
   },
   "Loans": {
@@ -266,5 +267,36 @@
   },
   "Lend": {
     "cooldownActive": "Retiro disponible en aproximadamente {minutes} minuto(s) mientras el enfriamiento está activo."
+  },
+  "Liquidations": {
+    "eyebrow": "Consola de liquidadores",
+    "title": "Prestamos liquidables",
+    "description": "Revise posiciones activas bajo el umbral de liquidacion y envie transacciones de liquidacion.",
+    "refresh": "Actualizar",
+    "liquidate": "Liquidar",
+    "liquidating": "Liquidando...",
+    "pending": "Construyendo transaccion de liquidacion...",
+    "success": "Liquidacion enviada",
+    "unknownBorrower": "Prestatario desconocido",
+    "walletRequired": {
+      "title": "Conecte la billetera",
+      "description": "Conecte una billetera de liquidador antes de enviar transacciones de liquidacion."
+    },
+    "empty": {
+      "title": "No hay prestamos liquidables",
+      "description": "Los prestamos activos estan actualmente por encima del umbral de liquidacion."
+    },
+    "error": {
+      "title": "No se pudieron cargar las liquidaciones",
+      "description": "Revise la API de liquidaciones e intente de nuevo."
+    },
+    "table": {
+      "loan": "Prestamo",
+      "borrower": "Prestatario",
+      "collateral": "Garantia",
+      "debt": "Deuda total",
+      "health": "Salud",
+      "action": "Accion"
+    }
   }
 }
