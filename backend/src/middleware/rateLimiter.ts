@@ -5,6 +5,8 @@ export const createRateLimiter = (max: number, windowMinutes: number = 15) =>
     windowMs: windowMinutes * 60 * 1000,
     max,
     message: { error: "Too many requests, please try again later." },
+    standardHeaders: true,
+    legacyHeaders: false,
   });
 
 export const globalRateLimiter = createRateLimiter(100);

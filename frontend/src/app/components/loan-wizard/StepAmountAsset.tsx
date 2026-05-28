@@ -5,7 +5,13 @@ import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/Card";
 import type { LoanWizardData } from "./LoanApplicationWizard";
-import { buildAmountHelperText, getPrecisionError, sanitizeAmountInput } from "../../utils/amount";
+import {
+  buildAmountHelperText,
+  getPrecisionError,
+  sanitizeAmountInput,
+  formatAmountOnBlur,
+  getAssetDecimals,
+} from "../../utils/amount";
 
 const TERM_OPTIONS = [
   { label: "30 days", days: 30 as const },
@@ -44,8 +50,10 @@ interface StepAmountAssetProps {
 export function StepAmountAsset({ data, onChange, onNext, error, onError }: StepAmountAssetProps) {
   const amountNumber = Number(data.amount || "0");
   const minAmount = 100;
-  const precisionError = getPrecisionError(data.amount, data.asset || "USDC");
-  const helperText = buildAmountHelperText(data.amount, data.asset || "USDC");
+  const asset = data.asset || "USDC";
+  const decimals = getAssetDecimals(asset);
+  const precisionError = getPrecisionError(data.amount, asset);
+  const helperText = buildAmountHelperText(data.amount, asset, decimals);
 
   const validate = (): boolean => {
     if (!data.amount || Number.isNaN(amountNumber) || amountNumber <= 0) {
@@ -120,15 +128,22 @@ export function StepAmountAsset({ data, onChange, onNext, error, onError }: Step
 
             {/* Amount */}
             <Input
-              label={`Amount (${data.asset})`}
+              label={`Amount (${asset})`}
               type="text"
               inputMode="decimal"
               min={minAmount}
               max={data.maxAmount || undefined}
+              step={Math.pow(10, -decimals)}
               value={data.amount}
               onChange={(e) => {
                 onChange({ amount: sanitizeAmountInput(e.target.value) });
                 onError(null);
+              }}
+              onBlur={(e) => {
+                const formatted = formatAmountOnBlur(e.target.value, asset);
+                if (formatted && formatted !== e.target.value) {
+                  onChange({ amount: formatted });
+                }
               }}
               placeholder="1000"
               required
@@ -137,7 +152,7 @@ export function StepAmountAsset({ data, onChange, onNext, error, onError }: Step
                 helperText ||
                 (data.maxAmount === 0
                   ? "Not eligible"
-                  : `Eligible range: ${formatMoney(minAmount)} – ${formatMoney(data.maxAmount)}`)
+                  : `Eligible range: ${formatMoney(minAmount)} – ${formatMoney(data.maxAmount)} • Max ${decimals} decimal places`)
               }
               error={precisionError || undefined}
             />

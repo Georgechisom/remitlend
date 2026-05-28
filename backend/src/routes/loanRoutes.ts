@@ -14,8 +14,10 @@ import {
   releaseCollateral,
   refinanceLoan,
   extendLoan,
+  buildLiquidateLoan,
   submitTransaction,
 } from "../controllers/loanController.js";
+import { getLoanEvents } from "../controllers/indexerController.js";
 import {
   requireJwtAuth,
   requireScopes,
@@ -29,6 +31,7 @@ import {
   validate,
   validateBody,
   validateParams,
+  validateQuery,
 } from "../middleware/validation.js";
 import { idempotencyMiddleware } from "../middleware/idempotency.js";
 import { borrowerParamSchema } from "../schemas/stellarSchemas.js";
@@ -42,6 +45,8 @@ import {
   releaseCollateralSchema,
   refinanceLoanSchema,
   extendLoanSchema,
+  liquidateLoanSchema,
+  borrowerLoansQuerySchema,
 } from "../schemas/loanSchemas.js";
 
 const router = Router();
@@ -134,8 +139,9 @@ router.post(
  *   get:
  *     summary: Get loans for a specific borrower
  *     description: >
- *       Returns loans for the authenticated wallet only; `borrower` must match
- *       the JWT Stellar public key.
+ *       Returns cursor-paginated loans for the authenticated wallet.
+ *       `borrower` must match the JWT Stellar public key.
+ *       Supports filtering by `status` and an approved-at date range (`from` / `to`).
  *     tags: [Loans]
  *     security:
  *       - BearerAuth: []
@@ -150,8 +156,33 @@ router.post(
  *         name: status
  *         schema:
  *           type: string
- *           enum: [active, repaid, all]
- *           default: active
+ *           enum: [active, repaid, defaulted, liquidated, pending, all]
+ *         description: Filter by loan status (omit or "all" to return every status)
+ *       - in: query
+ *         name: from
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *         description: ISO-8601 start of approved_at date range (inclusive)
+ *       - in: query
+ *         name: to
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *         description: ISO-8601 end of approved_at date range (inclusive)
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 50
+ *         description: Number of results per page
+ *       - in: query
+ *         name: cursor
+ *         schema:
+ *           type: string
+ *         description: Opaque cursor from the previous response for pagination
  *     responses:
  *       200:
  *         description: Loans retrieved successfully
@@ -159,6 +190,8 @@ router.post(
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/BorrowerLoansResponse'
+ *       400:
+ *         description: Invalid query parameters
  *       401:
  *         description: Missing or invalid Bearer token
  *       403:
@@ -170,6 +203,7 @@ router.get(
   requireScopes("read:loans"),
   requireWalletOwnership,
   validate(borrowerParamSchema),
+  validateQuery(borrowerLoansQuerySchema),
   getBorrowerLoans,
 );
 
@@ -219,6 +253,48 @@ router.get(
   requireScopes("read:loans"),
   requireLoanBorrowerAccess,
   getLoanAmortizationSchedule,
+);
+
+/**
+ * @swagger
+ * /loans/{loanId}/events:
+ *   get:
+ *     summary: Get events for a specific loan
+ *     description: >
+ *       Returns chronological loan events for the authenticated borrower.
+ *     tags: [Loans]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: loanId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Loan ID
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 50
+ *       - in: query
+ *         name: cursor
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Loan events retrieved successfully
+ *       401:
+ *         description: Missing or invalid Bearer token
+ *       404:
+ *         description: Loan not found or not accessible
+ */
+router.get(
+  "/:loanId/events",
+  requireJwtAuth,
+  requireScopes("read:loans"),
+  requireLoanBorrowerAccess,
+  getLoanEvents,
 );
 
 /**
@@ -483,6 +559,55 @@ router.post(
   validateBody(extendLoanSchema),
   idempotencyMiddleware,
   extendLoan,
+);
+
+/**
+ * @swagger
+ * /loans/{loanId}/liquidate/build:
+ *   post:
+ *     summary: Build an unsigned liquidate transaction
+ *     description: >
+ *       Builds an unsigned Soroban `liquidate(liquidator, loan_id)` transaction XDR.
+ *       The liquidator signs it and submits via POST /api/loans/submit.
+ *     tags: [Loans]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: loanId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Loan ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - liquidatorPublicKey
+ *             properties:
+ *               liquidatorPublicKey:
+ *                 type: string
+ *                 description: Liquidator's Stellar public key
+ *     responses:
+ *       200:
+ *         description: Unsigned liquidate transaction XDR returned
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Missing or invalid Bearer token
+ *       403:
+ *         description: liquidatorPublicKey does not match authenticated wallet
+ */
+router.post(
+  "/:loanId/liquidate/build",
+  requireJwtAuth,
+  validateParams(repayLoanParamsSchema),
+  validateBody(liquidateLoanSchema),
+  idempotencyMiddleware,
+  buildLiquidateLoan,
 );
 
 /**

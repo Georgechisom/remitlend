@@ -37,7 +37,9 @@ export const queryKeys = {
   loans: {
     all: () => ["loans"] as const,
     detail: (id: string) => ["loans", id] as const,
+    events: (id: string) => ["loans", id, "events"] as const,
     config: () => ["loans", "config"] as const,
+    liquidatable: () => ["loans", "liquidatable"] as const,
     borrowerPage: (address: string, params: Record<string, unknown>) =>
       ["loans", "borrower", address, params] as const,
   },
@@ -52,6 +54,17 @@ export const queryKeys = {
   },
   notifications: {
     all: () => ["notifications"] as const,
+    list: (params: Record<string, unknown>) => ["notifications", params] as const,
+  },
+  adminDisputes: {
+    all: () => ["admin", "disputes"] as const,
+    detail: (id: string) => ["admin", "disputes", id] as const,
+  },
+  auth: {
+    verify: () => ["auth", "verify"] as const,
+  },
+  score: {
+    breakdown: (userId: string) => ["scoreBreakdown", userId] as const,
   },
   borrowerLoans: {
     byAddress: (address: string) => ["borrowerLoans", address] as const,
@@ -59,6 +72,14 @@ export const queryKeys = {
   pool: {
     stats: () => ["pool", "stats"] as const,
     depositor: (address: string) => ["pool", "depositor", address] as const,
+  },
+  transactions: {
+    all: () => ["transactions"] as const,
+    mine: (params: Record<string, unknown>) => ["transactions", "me", params] as const,
+  },
+  governance: {
+    all: () => ["admin", "governance"] as const,
+    pending: () => ["admin", "governance", "pending"] as const,
   },
 } as const;
 
@@ -147,6 +168,15 @@ export interface UserProfile {
   kycVerified: boolean;
 }
 
+export type UserRole = "admin" | "borrower" | "lender";
+
+export interface AuthSession {
+  publicKey?: string;
+  role?: UserRole;
+  scopes?: string[];
+  valid: boolean;
+}
+
 export interface UserBalance {
   available: number;
   locked: number;
@@ -164,6 +194,41 @@ export interface CreditScoreResponse {
   userId: string;
   score: number;
   band: string;
+}
+
+export interface ScoreBreakdownMetrics {
+  totalLoans: number;
+  repaidOnTime: number;
+  repaidLate: number;
+  defaulted: number;
+  totalRepaid: number;
+  averageRepaymentTime: string;
+  longestStreak: number;
+  currentStreak: number;
+}
+
+export interface ScoreBreakdownResponse {
+  success: boolean;
+  userId: string;
+  score: number;
+  band: string;
+  breakdown: ScoreBreakdownMetrics;
+  history: Array<{ date: string | null; score: number; event: string }>;
+}
+
+export interface RemittanceNftMetadata {
+  score: number;
+  historyHash: string;
+  metadataUri: string;
+  defaultCount: number;
+  transferCooldownRemaining: number;
+  lastUpdateLedger: number;
+}
+
+interface RemittanceNftResponse {
+  success: boolean;
+  walletAddress: string;
+  nft: RemittanceNftMetadata | null;
 }
 
 export interface LoanConfig {
@@ -189,6 +254,7 @@ export interface BorrowerLoan {
   status: LoanStatus;
   borrower: string;
   approvedAt?: string;
+  latestEventType?: string;
 }
 
 export interface LoanEvent {
@@ -211,6 +277,127 @@ export interface LoanDetails {
   events: LoanEvent[];
   lateFees?: number;
   collateralLocked?: number;
+  collateralRatio?: number;
+  healthFactor?: number;
+  liquidationThreshold?: number;
+  healthSource?: "contract" | "backend";
+}
+
+export interface LiquidatableLoan {
+  loanId: number;
+  borrower: string;
+  collateral: number;
+  totalDebt: number;
+  healthFactor: number;
+  collateralRatio: number;
+  liquidationThreshold: number;
+  source: "contract" | "backend";
+}
+
+type RawLiquidatableLoan = Record<string, unknown>;
+
+export interface AdminDisputeLoanSummary {
+  loanId: number;
+  principal?: number;
+  accruedInterest?: number;
+  totalRepaid?: number;
+  totalOwed?: number;
+  interestRate?: number;
+  status?: LoanStatus | "disputed";
+  nextPaymentDeadline?: string;
+  approvedAt?: string;
+}
+
+export interface AdminDispute {
+  id: string;
+  loanId: number;
+  borrower: string;
+  reason: string;
+  status: "open" | "resolved" | "rejected";
+  createdAt: string;
+  submittedAt?: string;
+  resolution?: string;
+  resolvedAt?: string;
+  loan?: AdminDisputeLoanSummary;
+}
+
+type RawAdminDispute = Record<string, unknown>;
+
+function stringFrom(value: unknown, fallback: string | undefined = ""): string | undefined {
+  return typeof value === "string" ? value : fallback;
+}
+
+function numberFrom(value: unknown, fallback = 0): number {
+  const parsed = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function normalizeDispute(row: RawAdminDispute): AdminDispute {
+  const loan = row.loan;
+  const normalizedLoan =
+    loan && typeof loan === "object"
+      ? ({
+          loanId: numberFrom((loan as RawAdminDispute).loanId ?? (loan as RawAdminDispute).loan_id),
+          principal:
+            (loan as RawAdminDispute).principal !== undefined
+              ? numberFrom((loan as RawAdminDispute).principal)
+              : undefined,
+          accruedInterest:
+            (loan as RawAdminDispute).accruedInterest !== undefined ||
+            (loan as RawAdminDispute).accrued_interest !== undefined
+              ? numberFrom(
+                  (loan as RawAdminDispute).accruedInterest ??
+                    (loan as RawAdminDispute).accrued_interest,
+                )
+              : undefined,
+          totalRepaid:
+            (loan as RawAdminDispute).totalRepaid !== undefined ||
+            (loan as RawAdminDispute).total_repaid !== undefined
+              ? numberFrom(
+                  (loan as RawAdminDispute).totalRepaid ?? (loan as RawAdminDispute).total_repaid,
+                )
+              : undefined,
+          totalOwed:
+            (loan as RawAdminDispute).totalOwed !== undefined ||
+            (loan as RawAdminDispute).total_owed !== undefined
+              ? numberFrom(
+                  (loan as RawAdminDispute).totalOwed ?? (loan as RawAdminDispute).total_owed,
+                )
+              : undefined,
+          interestRate:
+            (loan as RawAdminDispute).interestRate !== undefined ||
+            (loan as RawAdminDispute).interest_rate !== undefined
+              ? numberFrom(
+                  (loan as RawAdminDispute).interestRate ?? (loan as RawAdminDispute).interest_rate,
+                )
+              : undefined,
+          status: stringFrom((loan as RawAdminDispute).status) as AdminDisputeLoanSummary["status"],
+          nextPaymentDeadline: stringFrom(
+            (loan as RawAdminDispute).nextPaymentDeadline ??
+              (loan as RawAdminDispute).next_payment_deadline,
+            undefined,
+          ),
+          approvedAt: stringFrom(
+            (loan as RawAdminDispute).approvedAt ?? (loan as RawAdminDispute).approved_at,
+            undefined,
+          ),
+        } satisfies AdminDisputeLoanSummary)
+      : undefined;
+
+  const loanId = numberFrom(row.loanId ?? row.loan_id ?? normalizedLoan?.loanId);
+  return {
+    id: String(row.id ?? ""),
+    loanId,
+    borrower: stringFrom(row.borrower ?? row.borrowerAddress ?? row.borrower_address) ?? "",
+    reason: stringFrom(row.reason) ?? "",
+    status: stringFrom(row.status, "open") as AdminDispute["status"],
+    createdAt:
+      stringFrom(row.createdAt ?? row.created_at ?? row.submittedAt ?? row.submitted_at) ?? "",
+    submittedAt: stringFrom(row.submittedAt ?? row.submitted_at, undefined),
+    resolution: stringFrom(row.resolution, undefined),
+    resolvedAt: stringFrom(row.resolvedAt ?? row.resolved_at, undefined),
+    loan: normalizedLoan ?? { loanId },
+  };
 }
 
 export interface LoanAmortizationScheduleRow {
@@ -242,6 +429,7 @@ export interface PoolStats {
   apy: number;
   activeLoansCount: number;
   poolTokenAddress?: string;
+  withdrawalCooldownLedgers?: number;
 }
 
 export interface DepositorPortfolio {
@@ -251,6 +439,7 @@ export interface DepositorPortfolio {
   estimatedYield: number;
   apy: number;
   firstDepositAt: string | null;
+  lastDepositAt?: string | null;
 }
 
 export interface LoanStats {
@@ -258,6 +447,38 @@ export interface LoanStats {
   totalOwed: number;
   nextPaymentDue: string | null;
   overdueCount: number;
+}
+
+export interface MyTransaction {
+  id: number;
+  txHash: string;
+  status: string;
+  submittedAt: string;
+  submittedBy: string | null;
+  transactionType: string;
+  resultXdr?: string | null;
+}
+
+export interface GovernanceSigner {
+  address: string;
+  approved: boolean;
+}
+
+export interface GovernancePendingProposal {
+  id: string;
+  targetContract: string;
+  proposedAdmin: string;
+  approvalCount: number;
+  threshold: number;
+  executableAt: string | null;
+  expiresAt: string | null;
+  signers: GovernanceSigner[];
+}
+
+export interface GovernancePendingResponse {
+  currentAdmin: string | null;
+  targetContract: string | null;
+  pendingProposal: GovernancePendingProposal | null;
 }
 
 export interface CursorPageInfo {
@@ -290,10 +511,11 @@ interface RawPaginatedResponse<T> {
   total_count?: number | null;
 }
 
-interface CursorListParams {
+interface CursorListParams extends Record<string, unknown> {
   limit?: number;
   cursor?: string | null;
   status?: string;
+  enabled?: boolean;
 }
 
 interface BorrowerLoansPageResponse {
@@ -336,11 +558,43 @@ function normalizePaginatedList<T>(response: RawPaginatedResponse<T[]>): Paginat
   };
 }
 
+function normalizeLiquidatableLoan(row: RawLiquidatableLoan): LiquidatableLoan {
+  const healthFactor = numberFrom(row.healthFactor ?? row.health_factor ?? row.health);
+  const collateralRatio = numberFrom(row.collateralRatio ?? row.collateral_ratio ?? row.ratio);
+
+  return {
+    loanId: numberFrom(row.loanId ?? row.loan_id ?? row.id),
+    borrower: stringFrom(row.borrower ?? row.borrowerAddress ?? row.borrower_address) ?? "",
+    collateral: numberFrom(row.collateral ?? row.collateralLocked ?? row.collateral_locked),
+    totalDebt: numberFrom(row.totalDebt ?? row.total_debt ?? row.totalOwed ?? row.total_owed),
+    healthFactor: healthFactor || collateralRatio,
+    collateralRatio: collateralRatio || healthFactor,
+    liquidationThreshold: numberFrom(
+      row.liquidationThreshold ?? row.liquidation_threshold ?? row.threshold,
+    ),
+    source: row.source === "contract" ? "contract" : "backend",
+  };
+}
+
 async function fetchRemittancesPage(
   params: CursorListParams = {},
 ): Promise<PaginatedListResult<Remittance>> {
   const response = await apiFetch<RawPaginatedResponse<Remittance[]>>(
     `/remittances${toQueryString({
+      limit: params.limit,
+      cursor: params.cursor,
+      status: params.status,
+    })}`,
+  );
+
+  return normalizePaginatedList(response);
+}
+
+async function fetchMyTransactionsPage(
+  params: CursorListParams = {},
+): Promise<PaginatedListResult<MyTransaction>> {
+  const response = await apiFetch<RawPaginatedResponse<MyTransaction[]>>(
+    `/transactions/me${toQueryString({
       limit: params.limit,
       cursor: params.cursor,
       status: params.status,
@@ -500,6 +754,75 @@ export function useLoanAmortizationPreview(
       return response;
     },
     enabled: Boolean(params),
+    ...options,
+  });
+}
+
+export function useLiquidatableLoans(
+  options?: Omit<UseQueryOptions<LiquidatableLoan[]>, "queryKey" | "queryFn">,
+) {
+  return useQuery<LiquidatableLoan[]>({
+    queryKey: queryKeys.loans.liquidatable(),
+    queryFn: async () => {
+      const response = await apiFetch<
+        | { success: boolean; data: RawLiquidatableLoan[]; source?: "contract" | "backend" }
+        | { success: boolean; loans: RawLiquidatableLoan[]; source?: "contract" | "backend" }
+        | RawLiquidatableLoan[]
+      >("/loans/liquidatable");
+
+      const loans = Array.isArray(response)
+        ? response
+        : "loans" in response
+          ? response.loans
+          : response.data;
+
+      const fallbackSource = Array.isArray(response) ? undefined : response.source;
+      return loans.map((loan) =>
+        normalizeLiquidatableLoan({ source: fallbackSource ?? "backend", ...loan }),
+      );
+    },
+    staleTime: 30_000,
+    ...options,
+  });
+}
+
+/**
+ * Fetches chronological events for a specific loan.
+ * Returns mapped LoanEvent[] for use with the LoanTimeline component.
+ */
+export function useLoanEvents(
+  loanId: string | undefined,
+  options?: Omit<UseQueryOptions<LoanEvent[]>, "queryKey" | "queryFn">,
+) {
+  return useQuery<LoanEvent[]>({
+    queryKey: queryKeys.loans.events(loanId ?? ""),
+    queryFn: async () => {
+      interface RawEvent {
+        event_id: number;
+        event_type: string;
+        amount: string;
+        ledger_closed_at: string;
+        tx_hash?: string;
+      }
+      interface LoanEventsResponse {
+        success: boolean;
+        data: {
+          loanId: number;
+          events: RawEvent[];
+        };
+      }
+      const response = await apiFetch<LoanEventsResponse>(`/loans/${loanId}/events`);
+      if (response?.success && response.data?.events) {
+        return response.data.events.map((e) => ({
+          type: e.event_type,
+          amount: e.amount,
+          timestamp: e.ledger_closed_at,
+          txHash: e.tx_hash,
+        }));
+      }
+      return [];
+    },
+    enabled: !!loanId,
     ...options,
   });
 }
@@ -668,6 +991,33 @@ export function useCreditScoreHistory(
   });
 }
 
+export function useScoreBreakdown(
+  userId: string | undefined,
+  options?: Omit<UseQueryOptions<ScoreBreakdownResponse>, "queryKey" | "queryFn">,
+) {
+  return useQuery<ScoreBreakdownResponse>({
+    queryKey: queryKeys.score.breakdown(userId ?? ""),
+    queryFn: async () => apiFetch<ScoreBreakdownResponse>(`/score/${userId}/breakdown`),
+    enabled: !!userId,
+    ...options,
+  });
+}
+
+export function useRemittanceNft(
+  walletAddress: string | undefined,
+  options?: Omit<UseQueryOptions<RemittanceNftMetadata | null>, "queryKey" | "queryFn">,
+) {
+  return useQuery<RemittanceNftMetadata | null>({
+    queryKey: ["remittanceNft", walletAddress],
+    queryFn: async () => {
+      const response = await apiFetch<RemittanceNftResponse>(`/score/${walletAddress}/nft`);
+      return response.nft;
+    },
+    enabled: !!walletAddress,
+    ...options,
+  });
+}
+
 /**
  * Fetches the current credit score for the authenticated borrower.
  */
@@ -791,13 +1141,29 @@ export function useCreditScore(
  */
 export function useYieldHistory(
   userId: string | undefined,
-  options?: Omit<UseQueryOptions<YieldHistory[]>, "queryKey" | "queryFn">,
+  options?: Omit<UseQueryOptions<YieldHistory[]>, "queryKey" | "queryFn"> & {
+    days?: 7 | 30 | 90;
+  },
 ) {
+  const { days = 30, ...queryOptions } = options ?? {};
+
   return useQuery<YieldHistory[]>({
-    queryKey: ["yieldHistory", userId],
-    queryFn: () => apiFetch<YieldHistory[]>(`/yield/${userId}/history`),
+    queryKey: ["yieldHistory", userId, days],
+    queryFn: async () => {
+      const response = await apiFetch<
+        PoolApiResponse<
+          Array<{
+            date: string;
+            earnings: number;
+            apy: number;
+            principal?: number;
+          }>
+        >
+      >(`/pool/depositor/${userId}/yield-history?days=${days}`);
+      return response.data;
+    },
     enabled: !!userId,
-    ...options,
+    ...queryOptions,
   });
 }
 
@@ -927,23 +1293,68 @@ interface NotificationsResponse {
   unreadCount: number;
 }
 
+export interface NotificationsQueryParams {
+  limit?: number;
+  unread?: boolean;
+  type?: NotificationType | "all";
+  page?: number;
+}
+
 /**
  * Fetches the authenticated user's notifications.
  * Polls every 60s as a fallback alongside the SSE stream.
  */
 export function useNotifications(
+  params: NotificationsQueryParams = {},
   options?: Omit<UseQueryOptions<NotificationsResponse>, "queryKey" | "queryFn">,
 ) {
   return useQuery<NotificationsResponse>({
-    queryKey: queryKeys.notifications.all(),
+    queryKey: queryKeys.notifications.list(params as Record<string, unknown>),
     queryFn: async () => {
+      const searchParams = new URLSearchParams();
+      searchParams.set("limit", String(params.limit ?? 50));
+      if (params.unread !== undefined) searchParams.set("unread", String(params.unread));
+      if (params.type && params.type !== "all") searchParams.set("type", params.type);
+      if (params.page) searchParams.set("page", String(params.page));
+
       const res = await apiFetch<{ success: boolean; data: NotificationsResponse }>(
-        "/notifications?limit=50",
+        `/notifications?${searchParams.toString()}`,
       );
       return res.data;
     },
     refetchInterval: 60_000,
     ...options,
+  });
+}
+
+export interface NotificationPreferences {
+  emailEnabled: boolean;
+  smsEnabled: boolean;
+  phone: string | null;
+  perTypeOverrides: Record<string, boolean>;
+}
+
+export function useNotificationPreferences(
+  options?: Omit<UseQueryOptions<NotificationPreferences>, "queryKey" | "queryFn">,
+) {
+  return useQuery<NotificationPreferences>({
+    queryKey: ["notificationPreferences"],
+    queryFn: async () => apiFetch<NotificationPreferences>("/notifications/preferences"),
+    ...options,
+  });
+}
+
+export function useUpdateNotificationPreferences() {
+  const queryClient = useQueryClient();
+  return useMutation<NotificationPreferences, Error, NotificationPreferences>({
+    mutationFn: (payload) =>
+      apiFetch<NotificationPreferences>("/notifications/preferences", {
+        method: "PUT",
+        body: JSON.stringify(payload),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["notificationPreferences"] });
+    },
   });
 }
 
@@ -973,6 +1384,88 @@ export function useMarkAllNotificationsRead() {
     mutationFn: () => apiFetch<void>("/notifications/mark-all-read", { method: "POST" }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all() });
+    },
+  });
+}
+
+export function useVerifySession(
+  options?: Omit<UseQueryOptions<AuthSession>, "queryKey" | "queryFn">,
+) {
+  return useQuery<AuthSession>({
+    queryKey: queryKeys.auth.verify(),
+    queryFn: async () => {
+      const response = await apiFetch<{ success: boolean; data: AuthSession }>("/auth/verify");
+      return response.data;
+    },
+    retry: false,
+    ...options,
+  });
+}
+
+export function useAdminDisputes(
+  options?: Omit<UseQueryOptions<AdminDispute[]>, "queryKey" | "queryFn">,
+) {
+  return useQuery<AdminDispute[]>({
+    queryKey: queryKeys.adminDisputes.all(),
+    queryFn: async () => {
+      const response = await apiFetch<
+        | { success: boolean; disputes: RawAdminDispute[] }
+        | { success: boolean; data: RawAdminDispute[] }
+        | RawAdminDispute[]
+      >("/admin/disputes");
+
+      const disputes = Array.isArray(response)
+        ? response
+        : "disputes" in response
+          ? response.disputes
+          : response.data;
+
+      return disputes.map(normalizeDispute);
+    },
+    refetchInterval: 60_000,
+    ...options,
+  });
+}
+
+export function useAdminDispute(
+  id: string | undefined,
+  options?: Omit<UseQueryOptions<AdminDispute>, "queryKey" | "queryFn">,
+) {
+  return useQuery<AdminDispute>({
+    queryKey: queryKeys.adminDisputes.detail(id ?? ""),
+    queryFn: async () => {
+      const response = await apiFetch<
+        | { success: boolean; dispute: RawAdminDispute }
+        | { success: boolean; data: RawAdminDispute }
+        | RawAdminDispute
+      >(`/admin/disputes/${id}`);
+
+      const dispute = (
+        "dispute" in response ? response.dispute : "data" in response ? response.data : response
+      ) as RawAdminDispute;
+      return normalizeDispute(dispute);
+    },
+    enabled: !!id,
+    ...options,
+  });
+}
+
+export function useResolveAdminDispute() {
+  const queryClient = useQueryClient();
+
+  return useMutation<
+    { success: boolean; message?: string },
+    Error,
+    { id: string; action: "resolve" | "reject"; note: string }
+  >({
+    mutationFn: ({ id, action, note }) =>
+      apiFetch<{ success: boolean; message?: string }>(`/admin/disputes/${id}/${action}`, {
+        method: "POST",
+        body: JSON.stringify({ note, resolution: note }),
+      }),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.adminDisputes.all() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.adminDisputes.detail(variables.id) });
     },
   });
 }
@@ -1223,5 +1716,70 @@ export async function submitLoanTransaction(signedTxXdr: string) {
   return apiFetch<{ txHash: string; status: string; resultXdr?: string }>("/loans/submit", {
     method: "POST",
     body: JSON.stringify({ signedTxXdr }),
+  });
+}
+
+interface BuildLoanTxResponse {
+  success: boolean;
+  loanId: number;
+  unsignedTxXdr: string;
+  networkPassphrase: string;
+}
+
+export async function buildRefinanceLoanTransaction(params: {
+  loanId: string | number;
+  borrowerPublicKey: string;
+  newAmount: number;
+  newTerm: number;
+}) {
+  return apiFetch<BuildLoanTxResponse>(`/loans/${params.loanId}/build-refinance`, {
+    method: "POST",
+    body: JSON.stringify({
+      borrowerPublicKey: params.borrowerPublicKey,
+      newAmount: params.newAmount,
+      newTerm: params.newTerm,
+    }),
+  });
+}
+
+export async function buildExtendLoanTransaction(params: {
+  loanId: string | number;
+  borrowerPublicKey: string;
+  extraLedgers: number;
+}) {
+  return apiFetch<BuildLoanTxResponse>(`/loans/${params.loanId}/build-extend`, {
+    method: "POST",
+    body: JSON.stringify({
+      borrowerPublicKey: params.borrowerPublicKey,
+      extraLedgers: params.extraLedgers,
+    }),
+  });
+}
+
+export async function buildLiquidateLoanTransaction(params: {
+  loanId: string | number;
+  liquidatorPublicKey: string;
+}) {
+  return apiFetch<BuildLoanTxResponse>(`/loans/${params.loanId}/liquidate/build`, {
+    method: "POST",
+    body: JSON.stringify({
+      liquidatorPublicKey: params.liquidatorPublicKey,
+    }),
+  });
+}
+
+export function useMyTransactions(params: CursorListParams = {}) {
+  return useQuery({
+    queryKey: queryKeys.transactions.mine(params),
+    queryFn: () => fetchMyTransactionsPage(params),
+    enabled: params.enabled ?? true,
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useAdminGovernancePending() {
+  return useQuery({
+    queryKey: queryKeys.governance.pending(),
+    queryFn: () => apiFetch<GovernancePendingResponse>("/admin/governance/pending"),
   });
 }

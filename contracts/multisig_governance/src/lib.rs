@@ -3,8 +3,8 @@
 #[cfg(test)]
 mod test;
 use soroban_sdk::{
-    contract, contractimpl, contracttype, symbol_short, Address, BytesN, Env, IntoVal, Map, Symbol,
-    Vec,
+    contract, contracterror, contractimpl, contracttype, symbol_short, Address, BytesN, Env,
+    IntoVal, Map, Symbol, Vec,
 };
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -31,6 +31,30 @@ const REPROPOSAL_COOLDOWN_SECONDS: u64 = 3600; // 1 hour
 const CURRENT_VERSION: u32 = 1;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
+
+#[contracterror]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum GovernanceError {
+    AlreadyInitialized = 4001,
+    NotInitialized = 4002,
+    TargetNotSet = 4003,
+    NoPendingTransfer = 4004,
+    TransferAlreadyPending = 4005,
+    ThresholdExceedsSignerCount = 4006,
+    ThresholdTooLow = 4007,
+    TooManySigners = 4008,
+    SignerNotAllowed = 4009,
+    TimelockNotElapsed = 4010,
+    ThresholdNotMet = 4011,
+    DelayTooShort = 4012,
+    EmptySignerList = 4013,
+    ReproposalCooldownActive = 4015,
+    ProposalExpired = 4016,
+    ProposalNotExpired = 4017,
+    ProposalIdMismatch = 4018,
+    ProposalNotActive = 4019,
+    DuplicateSigner = 4020,
+}
 
 /// Status of a pending admin transfer proposal.
 #[contracttype]
@@ -135,22 +159,27 @@ impl GovernanceContract {
     /// `admin`           — current RemitLend admin.
     /// `target_contract` — the RemitLend contract whose admin will be updated
     ///                     when finalize_admin_transfer is called.
-    pub fn initialize(env: Env, admin: Address, target_contract: Address) {
+    pub fn initialize(
+        env: Env,
+        admin: Address,
+        target_contract: Address,
+    ) -> Result<(), GovernanceError> {
         if env.storage().instance().has(&KEY_ADMIN) {
-            panic!("already initialized");
+            return Err(GovernanceError::AlreadyInitialized);
         }
         env.storage().instance().set(&KEY_ADMIN, &admin);
         env.storage().instance().set(&KEY_TARGET, &target_contract);
         env.storage().instance().set(&KEY_VERSION, &CURRENT_VERSION);
         env.storage().instance().set(&KEY_PROPOSAL_COUNT, &0u32);
+        Ok(())
     }
 
     pub fn version(env: Env) -> u32 {
         env.storage().instance().get(&KEY_VERSION).unwrap_or(0)
     }
 
-    pub fn upgrade(env: Env, new_wasm_hash: BytesN<32>) {
-        let admin = Self::read_admin(&env);
+    pub fn upgrade(env: Env, new_wasm_hash: BytesN<32>) -> Result<(), GovernanceError> {
+        let admin = Self::read_admin(&env)?;
         admin.require_auth();
 
         let old_version = Self::version(env.clone());
@@ -162,6 +191,7 @@ impl GovernanceContract {
         );
 
         env.deployer().update_current_contract_wasm(new_wasm_hash);
+        Ok(())
     }
 
     // ── Propose ───────────────────────────────────────────────────────────────
@@ -179,8 +209,8 @@ impl GovernanceContract {
         signers: Vec<Address>,
         threshold: u32,
         delay_seconds: u64,
-    ) {
-        let admin = Self::read_admin(&env);
+    ) -> Result<(), GovernanceError> {
+        let admin = Self::read_admin(&env)?;
         admin.require_auth();
 
         if let Some(pending) = env
@@ -189,7 +219,7 @@ impl GovernanceContract {
             .get::<Symbol, PendingTransfer>(&KEY_PENDING)
         {
             if pending.status == ProposalStatus::Active {
-                panic!("transfer already pending — cancel first (4005)");
+                return Err(GovernanceError::TransferAlreadyPending);
             }
         }
 
@@ -200,17 +230,14 @@ impl GovernanceContract {
         {
             let now = env.ledger().timestamp();
             if now < last_cancelled_at.saturating_add(REPROPOSAL_COOLDOWN_SECONDS) {
-                panic!(
-                    "must wait at least {} seconds after cancellation before re-proposing (4015)",
-                    REPROPOSAL_COOLDOWN_SECONDS
-                );
+                return Err(GovernanceError::ReproposalCooldownActive);
             }
         }
         if signers.is_empty() {
-            panic!("signer list must not be empty (4013)");
+            return Err(GovernanceError::EmptySignerList);
         }
         if signers.len() > MAX_SIGNERS {
-            panic!("signer list exceeds MAX_SIGNERS of 20 (4008)");
+            return Err(GovernanceError::TooManySigners);
         }
         // Ensure signer list contains unique addresses. Duplicates would allow
         // the same key to be listed multiple times and potentially bypass
@@ -222,18 +249,18 @@ impl GovernanceContract {
             if unique_signers.iter().any(|x| x == s) {
                 // Explicitly reject proposals containing duplicate signer
                 // entries to avoid any ambiguity in quorum semantics.
-                panic!("duplicate signer in signer list (4020)");
+                return Err(GovernanceError::DuplicateSigner);
             }
             unique_signers.push_back(s.clone());
         }
         if threshold < 1 {
-            panic!("threshold must be >= 1 (4007)");
+            return Err(GovernanceError::ThresholdTooLow);
         }
         if threshold > signers.len() {
-            panic!("threshold exceeds signer count (4006)");
+            return Err(GovernanceError::ThresholdExceedsSignerCount);
         }
         if delay_seconds < MIN_TIMELOCK_SECONDS {
-            panic!("delay must be >= 86400 seconds (24 hours) (4012)");
+            return Err(GovernanceError::DelayTooShort);
         }
 
         let now = env.ledger().timestamp();
@@ -274,6 +301,7 @@ impl GovernanceContract {
                 timestamp: now,
             },
         );
+        Ok(())
     }
 
     // ── Approve ───────────────────────────────────────────────────────────────
@@ -282,22 +310,22 @@ impl GovernanceContract {
     ///
     /// Idempotent — calling twice from the same signer records one approval.
     /// Soroban's require_auth guarantees the caller genuinely controls `signer`.
-    pub fn approve_transfer(env: Env, signer: Address) {
+    pub fn approve_transfer(env: Env, signer: Address) -> Result<(), GovernanceError> {
         signer.require_auth();
 
         let mut pending: PendingTransfer = env
             .storage()
             .instance()
             .get(&KEY_PENDING)
-            .expect("no pending transfer (4004)");
+            .ok_or(GovernanceError::NoPendingTransfer)?;
 
         if pending.status != ProposalStatus::Active {
-            panic!("proposal is not active (4019)");
+            return Err(GovernanceError::ProposalNotActive);
         }
 
         let is_valid = pending.signers.iter().any(|s| s == signer);
         if !is_valid {
-            panic!("caller is not in the signer list (4009)");
+            return Err(GovernanceError::SignerNotAllowed);
         }
 
         // Map::set is idempotent — duplicate calls do not increment the count
@@ -319,6 +347,7 @@ impl GovernanceContract {
                 timestamp: env.ledger().timestamp(),
             },
         );
+        Ok(())
     }
 
     // ── Finalize ──────────────────────────────────────────────────────────────
@@ -333,17 +362,17 @@ impl GovernanceContract {
     /// invocation. The target must expose:
     ///   pub fn set_admin(env: Env, new_admin: Address)
     /// and must verify the caller is this governance contract address.
-    pub fn finalize_admin_transfer(env: Env, caller: Address) {
+    pub fn finalize_admin_transfer(env: Env, caller: Address) -> Result<(), GovernanceError> {
         caller.require_auth();
 
         let pending: PendingTransfer = env
             .storage()
             .instance()
             .get(&KEY_PENDING)
-            .expect("no pending transfer (4004)");
+            .ok_or(GovernanceError::NoPendingTransfer)?;
 
         if pending.status != ProposalStatus::Active {
-            panic!("proposal is not active (4019)");
+            return Err(GovernanceError::ProposalNotActive);
         }
 
         // Get target early to prevent archiving issues in tests
@@ -351,25 +380,25 @@ impl GovernanceContract {
             .storage()
             .instance()
             .get(&KEY_TARGET)
-            .expect("target contract not set");
+            .ok_or(GovernanceError::TargetNotSet)?;
 
         let now = env.ledger().timestamp();
 
         // INV-1: timelock must have elapsed
         if now < pending.executable_after {
-            panic!("timelock not elapsed — wait until executable_after (4010)");
+            return Err(GovernanceError::TimelockNotElapsed);
         }
 
         // INV-3: proposal must not have expired
         let expiry_time = pending.proposed_at.saturating_add(PROPOSAL_TTL_SECONDS);
         if now >= expiry_time {
-            panic!("proposal has expired (4016)");
+            return Err(GovernanceError::ProposalExpired);
         }
 
         // INV-2: threshold must be met
         let approval_count = pending.approvals.len();
         if approval_count < pending.threshold {
-            panic!("threshold not met — more approvals required (4011)");
+            return Err(GovernanceError::ThresholdNotMet);
         }
 
         let new_admin = pending.proposed_admin.clone();
@@ -399,24 +428,25 @@ impl GovernanceContract {
                 timestamp: now,
             },
         );
+        Ok(())
     }
 
     // ── Cancel ────────────────────────────────────────────────────────────────
 
     /// Cancel a pending transfer. Only the current admin may do this.
     /// After cancellation the process must restart from propose_admin_transfer.
-    pub fn cancel_admin_transfer(env: Env) {
-        let admin = Self::read_admin(&env);
+    pub fn cancel_admin_transfer(env: Env) -> Result<(), GovernanceError> {
+        let admin = Self::read_admin(&env)?;
         admin.require_auth();
 
         let mut pending: PendingTransfer = env
             .storage()
             .instance()
             .get(&KEY_PENDING)
-            .expect("no pending transfer to cancel (4004)");
+            .ok_or(GovernanceError::NoPendingTransfer)?;
 
         if pending.status == ProposalStatus::Cancelled {
-            return;
+            return Ok(());
         }
 
         pending.status = ProposalStatus::Cancelled;
@@ -433,6 +463,7 @@ impl GovernanceContract {
                 timestamp: env.ledger().timestamp(),
             },
         );
+        Ok(())
     }
 
     /// Forcefully cancel any open proposal regardless of its approval count.
@@ -441,22 +472,22 @@ impl GovernanceContract {
         env: Env,
         proposal_id: u32,
         reason: Option<soroban_sdk::String>,
-    ) {
-        let admin = Self::read_admin(&env);
+    ) -> Result<(), GovernanceError> {
+        let admin = Self::read_admin(&env)?;
         admin.require_auth();
 
         let mut pending: PendingTransfer = env
             .storage()
             .instance()
             .get(&KEY_PENDING)
-            .expect("no pending transfer to cancel (4004)");
+            .ok_or(GovernanceError::NoPendingTransfer)?;
 
         if pending.id != proposal_id {
-            panic!("proposal ID mismatch (4018)");
+            return Err(GovernanceError::ProposalIdMismatch);
         }
 
         if pending.status == ProposalStatus::Cancelled {
-            return;
+            return Ok(());
         }
 
         pending.status = ProposalStatus::Cancelled;
@@ -476,6 +507,7 @@ impl GovernanceContract {
                 timestamp: env.ledger().timestamp(),
             },
         );
+        Ok(())
     }
 
     // ── Expire ─────────────────────────────────────────────────────────────────
@@ -484,24 +516,24 @@ impl GovernanceContract {
     ///
     /// Anyone can call this function once the proposal has passed its TTL.
     /// This cleans up stale proposals and allows new ones to be created.
-    pub fn expire_proposal(env: Env, caller: Address) {
+    pub fn expire_proposal(env: Env, caller: Address) -> Result<(), GovernanceError> {
         caller.require_auth();
 
         let pending: PendingTransfer = env
             .storage()
             .instance()
             .get(&KEY_PENDING)
-            .expect("no pending transfer to expire (4004)");
+            .ok_or(GovernanceError::NoPendingTransfer)?;
 
         if pending.status != ProposalStatus::Active {
-            panic!("proposal is not active (4019)");
+            return Err(GovernanceError::ProposalNotActive);
         }
 
         let now = env.ledger().timestamp();
         let expiry_time = pending.proposed_at.saturating_add(PROPOSAL_TTL_SECONDS);
 
         if now < expiry_time {
-            panic!("proposal has not yet expired (4017)");
+            return Err(GovernanceError::ProposalNotExpired);
         }
 
         env.storage().instance().remove(&KEY_PENDING);
@@ -514,30 +546,31 @@ impl GovernanceContract {
                 expiry_timestamp: now,
             },
         );
+        Ok(())
     }
 
     // ── Views ─────────────────────────────────────────────────────────────────
 
-    pub fn get_current_admin(env: Env) -> Address {
+    pub fn get_current_admin(env: Env) -> Result<Address, GovernanceError> {
         Self::read_admin(&env)
     }
 
-    pub fn get_admin(env: Env) -> Address {
+    pub fn get_admin(env: Env) -> Result<Address, GovernanceError> {
         Self::read_admin(&env)
     }
 
-    pub fn get_target(env: Env) -> Address {
+    pub fn get_target(env: Env) -> Result<Address, GovernanceError> {
         env.storage()
             .instance()
             .get(&KEY_TARGET)
-            .expect("target contract not set")
+            .ok_or(GovernanceError::TargetNotSet)
     }
 
-    pub fn get_pending_transfer(env: Env) -> PendingTransfer {
+    pub fn get_pending_transfer(env: Env) -> Result<PendingTransfer, GovernanceError> {
         env.storage()
             .instance()
             .get(&KEY_PENDING)
-            .expect("no pending transfer (4004)")
+            .ok_or(GovernanceError::NoPendingTransfer)
     }
 
     pub fn get_pending(env: Env) -> Option<PendingTransfer> {
@@ -556,13 +589,13 @@ impl GovernanceContract {
         }
     }
 
-    pub fn get_approval_count(env: Env) -> u32 {
+    pub fn get_approval_count(env: Env) -> Result<u32, GovernanceError> {
         let pending: PendingTransfer = env
             .storage()
             .instance()
             .get(&KEY_PENDING)
-            .expect("no pending transfer (4004)");
-        pending.approvals.len()
+            .ok_or(GovernanceError::NoPendingTransfer)?;
+        Ok(pending.approvals.len())
     }
 
     /// Returns seconds remaining until the timelock expires.
@@ -585,12 +618,46 @@ impl GovernanceContract {
         }
     }
 
+    pub fn get_proposal_count(env: Env) -> u32 {
+        env.storage()
+            .instance()
+            .get(&KEY_PROPOSAL_COUNT)
+            .unwrap_or(0)
+    }
+
+    pub fn get_signers(env: Env) -> Result<Vec<Address>, GovernanceError> {
+        let pending: PendingTransfer = env
+            .storage()
+            .instance()
+            .get(&KEY_PENDING)
+            .ok_or(GovernanceError::NoPendingTransfer)?;
+        Ok(pending.signers)
+    }
+
+    pub fn get_threshold(env: Env) -> Result<u32, GovernanceError> {
+        let pending: PendingTransfer = env
+            .storage()
+            .instance()
+            .get(&KEY_PENDING)
+            .ok_or(GovernanceError::NoPendingTransfer)?;
+        Ok(pending.threshold)
+    }
+
+    pub fn has_approved(env: Env, signer: Address) -> Result<bool, GovernanceError> {
+        let pending: PendingTransfer = env
+            .storage()
+            .instance()
+            .get(&KEY_PENDING)
+            .ok_or(GovernanceError::NoPendingTransfer)?;
+        Ok(pending.approvals.get(signer).unwrap_or(false))
+    }
+
     // ── Private helpers ───────────────────────────────────────────────────────
 
-    fn read_admin(env: &Env) -> Address {
+    fn read_admin(env: &Env) -> Result<Address, GovernanceError> {
         env.storage()
             .instance()
             .get(&KEY_ADMIN)
-            .expect("contract not initialized (4002)")
+            .ok_or(GovernanceError::NotInitialized)
     }
 }

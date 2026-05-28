@@ -19,6 +19,7 @@ import {
 import { sorobanService } from "./sorobanService.js";
 import { updateUserScoresBulk } from "./scoresService.js";
 import { AppError } from "../errors/AppError.js";
+import { recordIndexerLedgers } from "../middleware/metrics.js";
 
 const EVENT_TYPE_ALIASES: Record<string, WebhookEventType> = {
   Mint: "NFTMinted",
@@ -26,13 +27,32 @@ const EVENT_TYPE_ALIASES: Record<string, WebhookEventType> = {
   ScoreUpd: "ScoreUpdated",
   Seized: "NFTSeized",
   NftBurned: "NFTBurned",
+  MinScore: "MinScoreUpdated",
   GovProp: "ProposalCreated",
   GovAppr: "ProposalApproved",
   GovFin: "ProposalFinalized",
   GovCncl: "ProposalCancelled",
   GovEmerg: "ProposalCancelled",
   GovExp: "ProposalCancelled",
+  ColDep: "CollateralDeposited",
+  ColRel: "CollateralReleased",
 };
+
+const ADMIN_CONFIG_EVENT_TYPES: ReadonlySet<WebhookEventType> = new Set([
+  "MinScoreUpdated",
+  "InterestRateUpdated",
+  "DefaultTermUpdated",
+  "TermLimitsUpdated",
+  "LateFeeRateUpdated",
+  "GracePeriodUpdated",
+  "DefaultWindowUpdated",
+  "MaxLoanAmountUpdated",
+  "MinRepaymentUpdated",
+  "MaxLoansPerBorrower",
+  "MinRateBpsUpdated",
+  "MaxRateBpsUpdated",
+  "RateOracleUpdated",
+]);
 
 export interface SorobanRawEvent {
   id: string;
@@ -49,6 +69,14 @@ interface ContractEvent extends IndexedLoanEvent {
   amount?: string;
   loanId?: number;
   address?: string;
+  /**
+   * Admin address captured from the LoanApprv event topic[1].
+   * Used to record the approving admin in audit_logs (actor field).
+   * Only populated for LoanApprv events.
+   */
+  adminAddress?: string;
+  /** Borrower refund amount decoded from a LoanLiquidated event value tuple (index 2). */
+  borrowerRefund?: string;
   ledger: number;
   ledgerClosedAt: Date;
   txHash: string;
@@ -239,6 +267,7 @@ export class EventIndexer {
     const latestLedger = await this.getLatestLedgerSequence();
 
     if (latestLedger <= lastIndexedLedger) {
+      recordIndexerLedgers(lastIndexedLedger, latestLedger);
       return;
     }
 
@@ -247,6 +276,7 @@ export class EventIndexer {
 
     const result = await this.processChunk(fromLedger, toLedger);
     await this.updateLastIndexedLedger(result.lastProcessedLedger);
+    recordIndexerLedgers(result.lastProcessedLedger, latestLedger);
   }
 
   private async getLatestLedgerSequence(): Promise<number> {
@@ -496,6 +526,56 @@ export class EventIndexer {
         if ((insertResult.rowCount ?? 0) > 0) {
           insertedEvents.push(event);
 
+          if (this.isAdminConfigEventType(event.eventType)) {
+            await client.query(
+              `INSERT INTO audit_logs (actor, action, target, payload, ip_address)
+               VALUES ($1, $2, $3, $4::jsonb, $5)`,
+              [
+                event.address ?? "SYSTEM",
+                `ADMIN_CONFIG_${event.eventType}`,
+                `contract:${event.contractId}`,
+                JSON.stringify({
+                  eventId: event.eventId,
+                  eventType: event.eventType,
+                  loanId: event.loanId ?? null,
+                  amount: event.amount ?? null,
+                  ledger: event.ledger,
+                  txHash: event.txHash,
+                }),
+                null,
+              ],
+            );
+          }
+
+          /**
+           * LoanApprv audit row — records which admin approved a loan.
+           *
+           * audit_logs shape:
+           *   actor     — admin Stellar address (topic[1] of the LoanApprv event)
+           *   action    — 'loan_approved'
+           *   target    — 'loan:<loanId>'
+           *   payload   — { eventId, loanId, borrower, txHash }
+           *   ip_address — null (on-chain action, no HTTP request IP)
+           */
+          if (event.eventType === "LoanApprv") {
+            await client.query(
+              `INSERT INTO audit_logs (actor, action, target, payload, ip_address)
+               VALUES ($1, $2, $3, $4::jsonb, $5)`,
+              [
+                event.adminAddress ?? "SYSTEM",
+                "loan_approved",
+                `loan:${event.loanId ?? "unknown"}`,
+                JSON.stringify({
+                  eventId: event.eventId,
+                  loanId: event.loanId ?? null,
+                  borrower: event.address ?? null,
+                  txHash: event.txHash,
+                }),
+                null,
+              ],
+            );
+          }
+
           // Aggregate score deltas per borrower; a single bulk upsert at
           // the end of the transaction avoids N+1 score updates.
           if (event.eventType === "LoanRepaid") {
@@ -571,11 +651,14 @@ export class EventIndexer {
     let amount: string | undefined;
     let interestRateBps: number | undefined;
     let termLedgers: number | undefined;
+    let borrowerRefund: string | undefined;
 
     if (type === "LoanRequested") {
-      // (type, borrower), amount
-      if (!event.topic[1]) return null;
-      address = this.decodeAddress(event.topic[1]);
+      // (type, loan_id, borrower), amount
+      if (!event.topic[1] || !event.topic[2]) return null;
+      loanId = this.decodeLoanId(event.topic[1]);
+      if (loanId === undefined) return null;
+      address = this.decodeAddress(event.topic[2]);
       amount = this.decodeAmount(event.value);
     } else if (type === "LoanApproved") {
       // (type, loan_id, borrower), [interest_rate_bps, term_ledgers]
@@ -705,17 +788,86 @@ export class EventIndexer {
       if (Array.isArray(data) && data.length >= 2) {
         amount = data[1].toString();
       }
+    } else if (type === "MinScoreUpdated") {
+      // (type, admin), [old_score, new_score]
+      if (event.topic[1]) {
+        address = this.decodeAddress(event.topic[1]);
+      }
+      amount = this.decodeTupleSecondNumericValue(event.value);
+    } else if (type === "InterestRateUpdated") {
+      // (type), [old_rate, new_rate]
+      amount = this.decodeTupleSecondNumericValue(event.value);
+    } else if (type === "DefaultTermUpdated") {
+      // (type), [old_term, new_term]
+      amount = this.decodeTupleSecondNumericValue(event.value);
+    } else if (type === "TermLimitsUpdated") {
+      // (type), [min_term, max_term]
+      amount = this.decodeTupleSecondNumericValue(event.value);
+    } else if (type === "LateFeeRateUpdated") {
+      // (type, admin), [old_rate, new_rate]
+      if (event.topic[1]) {
+        address = this.decodeAddress(event.topic[1]);
+      }
+      amount = this.decodeTupleSecondNumericValue(event.value);
+    } else if (type === "GracePeriodUpdated") {
+      // (type, admin), [old_ledgers, new_ledgers]
+      if (event.topic[1]) {
+        address = this.decodeAddress(event.topic[1]);
+      }
+      amount = this.decodeTupleSecondNumericValue(event.value);
+    } else if (type === "DefaultWindowUpdated") {
+      // (type, admin), [old_ledgers, new_ledgers]
+      if (event.topic[1]) {
+        address = this.decodeAddress(event.topic[1]);
+      }
+      amount = this.decodeTupleSecondNumericValue(event.value);
+    } else if (type === "MaxLoanAmountUpdated") {
+      // (type, admin), [old_amount, new_amount]
+      if (event.topic[1]) {
+        address = this.decodeAddress(event.topic[1]);
+      }
+      amount = this.decodeTupleSecondNumericValue(event.value);
+    } else if (type === "MinRepaymentUpdated") {
+      // (type, admin), [old_amount, new_amount]
+      if (event.topic[1]) {
+        address = this.decodeAddress(event.topic[1]);
+      }
+      amount = this.decodeTupleSecondNumericValue(event.value);
+    } else if (type === "MaxLoansPerBorrower") {
+      // (type, admin), [old_max, new_max]
+      if (event.topic[1]) {
+        address = this.decodeAddress(event.topic[1]);
+      }
+      amount = this.decodeTupleSecondNumericValue(event.value);
+    } else if (type === "MinRateBpsUpdated") {
+      // (type, admin), [old_rate, new_rate]
+      if (event.topic[1]) {
+        address = this.decodeAddress(event.topic[1]);
+      }
+      amount = this.decodeTupleSecondNumericValue(event.value);
+    } else if (type === "MaxRateBpsUpdated") {
+      // (type, admin), [old_rate, new_rate]
+      if (event.topic[1]) {
+        address = this.decodeAddress(event.topic[1]);
+      }
+      amount = this.decodeTupleSecondNumericValue(event.value);
+    } else if (type === "RateOracleUpdated") {
+      // (type), [old_oracle, new_oracle]
+      address = this.decodeTupleSecondAddress(event.value);
     } else if (type === "PoolPaused" || type === "PoolUnpaused") {
       // (type)
-    } else if (type === "ColDep" || type === "ColRel") {
-      // (loan_id, borrower), amount
+    } else if (
+      type === "CollateralDeposited" ||
+      type === "CollateralReleased"
+    ) {
+      // (type, borrower, loan_id), amount/()
       if (event.topic[1]) {
-        loanId = this.decodeLoanId(event.topic[1]);
+        address = this.decodeAddress(event.topic[1]);
       }
       if (event.topic[2]) {
-        address = this.decodeAddress(event.topic[2]);
+        loanId = this.decodeLoanId(event.topic[2]);
       }
-      if (type === "ColDep") {
+      if (type === "CollateralDeposited") {
         amount = this.decodeAmount(event.value);
       }
     } else if (type === "ScoreDecr") {
@@ -728,17 +880,30 @@ export class EventIndexer {
       }
     } else if (type === "LoanApprv") {
       // (type, admin), (loan_id, borrower)
+      // topic[1] = admin address who approved the loan
       const data = scValToNative(event.value);
       if (Array.isArray(data) && data.length >= 2) {
         loanId = Number(data[0]);
-        address = data[1].toString();
+        address = data[1].toString(); // borrower
       }
+      // adminAddress is decoded separately and attached below
     } else if (type === "LoanLiquidated") {
       // (type, loan_id, borrower, liquidator), (debt_repaid, liquidator_bonus, borrower_refund)
       if (!event.topic[1] || !event.topic[2]) return null;
       loanId = this.decodeLoanId(event.topic[1]);
       address = this.decodeAddress(event.topic[2]);
       amount = this.decodeTupleFirstNumericValue(event.value);
+      borrowerRefund = this.decodeTupleThirdNumericValue(event.value);
+    }
+
+    // Decode admin address for LoanApprv events (topic[1] = approving admin)
+    let adminAddress: string | undefined;
+    if (type === "LoanApprv" && event.topic[1]) {
+      try {
+        adminAddress = this.decodeAddress(event.topic[1]);
+      } catch {
+        // Admin address decode failed; audit row will fall back to "SYSTEM"
+      }
     }
 
     return {
@@ -755,6 +920,8 @@ export class EventIndexer {
       ...(interestRateBps !== undefined ? { interestRateBps } : {}),
       ...(termLedgers !== undefined ? { termLedgers } : {}),
       ...(address !== undefined ? { address } : {}),
+      ...(adminAddress !== undefined ? { adminAddress } : {}),
+      ...(borrowerRefund !== undefined ? { borrowerRefund } : {}),
     };
   }
 
@@ -815,6 +982,18 @@ export class EventIndexer {
           ? `Collateral for loan #${event.loanId} has been seized due to default.`
           : "Collateral has been seized due to a loan default.";
         break;
+      case "LoanLiquidated": {
+        type = "loan_liquidated";
+        title = "Loan Liquidated";
+        const refundPart =
+          event.borrowerRefund && BigInt(event.borrowerRefund) > 0n
+            ? `A refund of ${event.borrowerRefund} has been returned to you.`
+            : "No refund is owed.";
+        message = event.loanId
+          ? `Loan #${event.loanId} has been liquidated. Your debt has been cleared. ${refundPart}`
+          : `Your loan has been liquidated. Your debt has been cleared. ${refundPart}`;
+        break;
+      }
       default:
         return;
     }
@@ -866,6 +1045,46 @@ export class EventIndexer {
       return first.toString();
     }
     return undefined;
+  }
+
+  private decodeTupleSecondNumericValue(value: xdr.ScVal): string | undefined {
+    const native = scValToNative(value);
+    if (!Array.isArray(native) || native.length < 2) {
+      return undefined;
+    }
+    const second = native[1];
+    if (typeof second === "bigint" || typeof second === "number") {
+      return second.toString();
+    }
+    return undefined;
+  }
+
+  private decodeTupleThirdNumericValue(value: xdr.ScVal): string | undefined {
+    const native = scValToNative(value);
+    if (!Array.isArray(native) || native.length < 3) {
+      return undefined;
+    }
+    const third = native[2];
+    if (typeof third === "bigint" || typeof third === "number") {
+      return third.toString();
+    }
+    return undefined;
+  }
+
+  private decodeTupleSecondAddress(value: xdr.ScVal): string | undefined {
+    const native = scValToNative(value);
+    if (!Array.isArray(native) || native.length < 2) {
+      return undefined;
+    }
+    const second = native[1];
+    if (typeof second === "string") {
+      return second;
+    }
+    return undefined;
+  }
+
+  private isAdminConfigEventType(eventType: WebhookEventType): boolean {
+    return ADMIN_CONFIG_EVENT_TYPES.has(eventType);
   }
 
   private async quarantineEvent(

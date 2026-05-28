@@ -16,6 +16,10 @@ import {
 import logger from "../utils/logger.js";
 import { cacheService } from "../services/cacheService.js";
 import { notificationService } from "../services/notificationService.js";
+import {
+  invalidateOnRepay,
+  invalidateOnLoanRequest,
+} from "../utils/cacheKeys.js";
 
 // ─── Test/Dev Only ────────────────────────────────────────────────────────────
 
@@ -153,6 +157,7 @@ type BorrowerLoan = {
   status: "active" | "repaid" | "defaulted" | "pending_indexing";
   borrower: string;
   approvedAt: string | null;
+  latestEventType?: string;
 };
 
 const getLatestLedger = async (): Promise<number> => {
@@ -273,6 +278,19 @@ export const getBorrowerLoans = asyncHandler(
     const { limit, cursor, sort, status, dateRange, amountRange } =
       parseCursorQueryParams(req);
 
+    // `from` and `to` are validated by the Zod middleware; merge into dateRange
+    const fromParam =
+      typeof req.query.from === "string" ? new Date(req.query.from) : null;
+    const toParam =
+      typeof req.query.to === "string" ? new Date(req.query.to) : null;
+    const effectiveDateRange =
+      fromParam !== null || toParam !== null
+        ? {
+            start: fromParam ?? new Date(0),
+            end: toParam ?? new Date(),
+          }
+        : dateRange;
+
     const currentLedger = await getLatestLedger();
 
     const loansQuery = `
@@ -286,7 +304,13 @@ export const getBorrowerLoans = asyncHandler(
           MAX(CASE WHEN event_type = 'LoanApproved' THEN interest_rate_bps END) as rate_bps,
           MAX(CASE WHEN event_type = 'LoanApproved' THEN term_ledgers END) as term_ledgers,
           SUM(CASE WHEN event_type = 'LoanRepaid' THEN amount::numeric ELSE 0 END) as total_repaid,
-          MAX(CASE WHEN event_type = 'LoanDefaulted' THEN 1 ELSE 0 END) as is_defaulted
+          MAX(CASE WHEN event_type = 'LoanDefaulted' THEN 1 ELSE 0 END) as is_defaulted,
+          (
+            ARRAY_AGG(
+              event_type
+              ORDER BY COALESCE(ledger, 0) DESC, ledger_closed_at DESC, id DESC
+            )
+          )[1] as latest_event_type
         FROM contract_events
         WHERE address = $1 AND loan_id IS NOT NULL
         GROUP BY loan_id, address
@@ -340,8 +364,8 @@ export const getBorrowerLoans = asyncHandler(
       status && status !== "all" ? status : null,
       amountRange?.min ?? null,
       amountRange?.max ?? null,
-      dateRange?.start ?? null,
-      dateRange?.end ?? null,
+      effectiveDateRange?.start ?? null,
+      effectiveDateRange?.end ?? null,
       cursorValue,
       limit + 1,
     ];
@@ -372,10 +396,14 @@ export const getBorrowerLoans = asyncHandler(
           | "repaid"
           | "defaulted"
           | "pending_indexing",
-        borrower: row.borrower,
+        borrower: row.address,
         approvedAt: row.approved_at
           ? new Date(row.approved_at).toISOString()
           : null,
+        latestEventType:
+          typeof row.latest_event_type === "string"
+            ? row.latest_event_type
+            : undefined,
       };
     });
 
@@ -674,6 +702,9 @@ export const requestLoan = asyncHandler(async (req: Request, res: Response) => {
   // Cache for 60 seconds to prevent sequence number collisions from rapid requests
   await cacheService.set(cacheKey, result, 60);
 
+  // Invalidate stale read-cache keys now that a loan request has been built
+  await invalidateOnLoanRequest(borrowerPublicKey);
+
   logger.info("Loan request transaction built", {
     borrower: borrowerPublicKey,
     amount,
@@ -743,6 +774,9 @@ export const repayLoan = asyncHandler(async (req: Request, res: Response) => {
 
   // Cache for 60 seconds
   await cacheService.set(cacheKey, result, 60);
+
+  // Invalidate stale read-cache keys now that a repayment has been initiated
+  await invalidateOnRepay(borrowerPublicKey, loanIdNum);
 
   logger.info("Repay transaction built", {
     borrower: borrowerPublicKey,
@@ -1040,6 +1074,73 @@ export const extendLoan = asyncHandler(async (req: Request, res: Response) => {
     networkPassphrase: result.networkPassphrase,
   });
 });
+
+/**
+ * POST /api/loans/:loanId/liquidate/build
+ */
+export const buildLiquidateLoan = asyncHandler(
+  async (req: Request, res: Response) => {
+    const loanId = req.params.loanId as string;
+    const { liquidatorPublicKey } = req.body as {
+      liquidatorPublicKey: string;
+    };
+
+    if (liquidatorPublicKey !== req.user?.publicKey) {
+      throw AppError.forbidden(
+        "liquidatorPublicKey must match your authenticated wallet",
+        ErrorCode.ACCESS_DENIED,
+      );
+    }
+
+    const loanIdNum = Number.parseInt(loanId, 10);
+    if (!Number.isFinite(loanIdNum) || loanIdNum <= 0) {
+      throw AppError.badRequest(
+        "Invalid loan ID",
+        ErrorCode.INVALID_LOAN_ID,
+        "loanId",
+      );
+    }
+
+    const cacheKey = `pending_liquidate_tx:${liquidatorPublicKey}:${loanIdNum}`;
+    const cachedTx = await cacheService.get<{
+      unsignedTxXdr: string;
+      networkPassphrase: string;
+    }>(cacheKey);
+
+    if (cachedTx) {
+      logger.info("Returning cached unsigned liquidate tx", {
+        liquidator: liquidatorPublicKey,
+        loanId: loanIdNum,
+      });
+      res.json({
+        success: true,
+        loanId: loanIdNum,
+        unsignedTxXdr: cachedTx.unsignedTxXdr,
+        networkPassphrase: cachedTx.networkPassphrase,
+      });
+      return;
+    }
+
+    const result = await sorobanService.buildLiquidateTx(
+      liquidatorPublicKey,
+      loanIdNum,
+    );
+
+    await cacheService.set(cacheKey, result, 60);
+
+    logger.info("Liquidate loan transaction built", {
+      liquidator: liquidatorPublicKey,
+      loanId: loanIdNum,
+    });
+
+    res.json({
+      success: true,
+      loanId: loanIdNum,
+      unsignedTxXdr: result.unsignedTxXdr,
+      networkPassphrase: result.networkPassphrase,
+    });
+  },
+);
 
 /**
  * POST /api/loans/submit

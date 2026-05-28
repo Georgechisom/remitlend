@@ -64,6 +64,31 @@ describe("Idempotency Middleware", () => {
     expect(next).not.toHaveBeenCalled();
   });
 
+  it("sets X-Idempotent-Replayed: true on a cache hit (replayed response)", async () => {
+    const key = "replay-key";
+    const cachedResponse = { status: 200, body: { id: 99 } };
+    asMock(req.header).mockReturnValue(key);
+    (cacheService.get as jest.Mock<() => Promise<any>>).mockResolvedValue(
+      cachedResponse,
+    );
+
+    await idempotencyMiddleware(req as Request, res as Response, next);
+
+    expect(res.set).toHaveBeenCalledWith("X-Idempotent-Replayed", "true");
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it("sets X-Idempotent-Replayed: false on a fresh (cache miss) execution", async () => {
+    const key = "fresh-key";
+    asMock(req.header).mockReturnValue(key);
+    (cacheService.get as jest.Mock<() => Promise<any>>).mockResolvedValue(null);
+
+    await idempotencyMiddleware(req as Request, res as Response, next);
+
+    expect(res.set).toHaveBeenCalledWith("X-Idempotent-Replayed", "false");
+    expect(next).toHaveBeenCalled();
+  });
+
   it("should proceed and intercept response on cache miss", async () => {
     const key = "new-key";
     asMock(req.header).mockReturnValue(key);

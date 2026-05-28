@@ -9,6 +9,7 @@ import {
   Tooltip,
   ResponsiveContainer,
   Legend,
+  TooltipProps,
 } from "recharts";
 import { Card, CardHeader, CardTitle, CardContent } from "../ui/Card";
 import { TrendingUp, TrendingDown } from "lucide-react";
@@ -33,9 +34,9 @@ export function CreditScoreTrendChart({ data, className }: CreditScoreTrendChart
   const isPositive = scoreDiff >= 0;
 
   // Custom tooltip
-  const CustomTooltip = ({ active, payload }: any) => {
+  const CustomTooltip = ({ active, payload }: TooltipProps<CreditScoreDataPoint, string>) => {
     if (active && payload && payload.length) {
-      const data = payload[0].payload;
+      const data = (payload[0] as unknown as { payload: CreditScoreDataPoint }).payload;
       return (
         <div className="rounded-lg border border-gray-200 bg-white p-3 shadow-lg dark:border-zinc-800 dark:bg-zinc-950">
           <p className="text-sm font-medium text-gray-900 dark:text-zinc-100">{data.date}</p>

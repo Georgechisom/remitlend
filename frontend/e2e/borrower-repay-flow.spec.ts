@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page, type Route } from "@playwright/test";
 
 /**
  * E2E Test Suite for Borrower Repayment Flow
@@ -30,12 +30,31 @@ function connectedWalletState(usdc: string) {
 
 test.describe("Borrower Repayment Flow", () => {
   test.beforeEach(async ({ page }: { page: Page }) => {
-    await page.addInitScript((state: any) => {
-      window.localStorage.setItem("remitlend-wallet", JSON.stringify(state));
-    }, connectedWalletState("5000.00"));
+    const walletStateJson = JSON.stringify(connectedWalletState("5000.00"));
+    await page.addInitScript((stateJson: string) => {
+      window.localStorage.setItem("remitlend-wallet", stateJson);
+    }, walletStateJson);
+    await page.addInitScript(() => {
+      window.localStorage.setItem(
+        "remitlend-user",
+        JSON.stringify({
+          state: {
+            user: {
+              id: "borrower-user-1",
+              email: "borrower@example.com",
+              walletAddress: MOCK_BORROWER_ADDRESS,
+              kycVerified: true,
+            },
+            authToken: "test-jwt-token",
+            isAuthenticated: true,
+          },
+          version: 0,
+        }),
+      );
+    });
 
     // Active (approved) loan with an outstanding balance the borrower can repay.
-    await page.route("**/api/loans/borrower/**", async (route: any) => {
+    await page.route("**/api/loans/borrower/**", async (route: Route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -75,7 +94,7 @@ test.describe("Borrower Repayment Flow", () => {
     await page.fill('input[type="number"]', "500");
 
     // Mock the repayment submission.
-    await page.route(`**/api/loans/${MOCK_LOAN_ID}/repay`, async (route: any) => {
+    await page.route(`**/api/loans/${MOCK_LOAN_ID}/repay`, async (route: Route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -89,9 +108,10 @@ test.describe("Borrower Repayment Flow", () => {
     });
 
     // Wallet balance after paying 500 USDC.
-    await page.evaluate((state: any) => {
-      window.localStorage.setItem("remitlend-wallet", JSON.stringify(state));
-    }, connectedWalletState("4500.00"));
+    const updatedWalletStateJson = JSON.stringify(connectedWalletState("4500.00"));
+    await page.evaluate((stateJson: string) => {
+      window.localStorage.setItem("remitlend-wallet", stateJson);
+    }, updatedWalletStateJson);
 
     await page.click('button:has-text("Review Repayment")');
     await page.click('button:has-text("Confirm Payment")');
@@ -125,5 +145,86 @@ test.describe("Borrower Repayment Flow", () => {
         await review.click();
         await expect(page.locator("text=/exceeds|too (large|high)|maximum/i")).toBeVisible();
       });
+  });
+
+  test("updates loan detail page in real time after repayment SSE event", async ({
+    page,
+  }: {
+    page: Page;
+  }) => {
+    let detailReads = 0;
+    await page.route(`**/api/loans/${MOCK_LOAN_ID}`, async (route: Route) => {
+      detailReads += 1;
+      const repaid = detailReads > 1;
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          loanId: MOCK_LOAN_ID,
+          principal: 1000,
+          accruedInterest: repaid ? 0 : 80,
+          totalRepaid: repaid ? 1080 : 580,
+          totalOwed: repaid ? 0 : 500,
+          interestRate: 8,
+          status: repaid ? "repaid" : "active",
+          requestedAt: "2026-01-01T00:00:00.000Z",
+          approvedAt: "2026-01-02T00:00:00.000Z",
+          events: [
+            {
+              type: "LoanRequested",
+              amount: "1000",
+              timestamp: "2026-01-01T00:00:00.000Z",
+              txHash: "tx-request",
+            },
+            {
+              type: repaid ? "LoanRepaid" : "LoanApproved",
+              amount: repaid ? "1080" : null,
+              timestamp: "2026-01-03T00:00:00.000Z",
+              txHash: repaid ? "tx-repaid" : "tx-approved",
+            },
+          ],
+        }),
+      });
+    });
+
+    await page.route(`**/api/loans/${MOCK_LOAN_ID}/amortization-schedule`, async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          principal: 1000,
+          interestRateBps: 800,
+          termLedgers: 365,
+          totalInterest: 80,
+          totalDue: 1080,
+          schedule: [],
+        }),
+      });
+    });
+
+    await page.route("**/api/events/stream?borrower=**", async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        headers: {
+          "content-type": "text/event-stream",
+          "cache-control": "no-cache",
+          connection: "keep-alive",
+        },
+        body: `data: ${JSON.stringify({
+          eventId: "evt-loan-repaid",
+          eventType: "LoanRepaid",
+          loanId: MOCK_LOAN_ID,
+          address: MOCK_BORROWER_ADDRESS,
+          ledger: 999,
+          ledgerClosedAt: new Date().toISOString(),
+          txHash: "tx-repaid",
+        })}\n\n`,
+      });
+    });
+
+    await page.goto(`/en/loans/${MOCK_LOAN_ID}`);
+    await expect(page.locator("text=Total owed")).toBeVisible();
+    await expect(page.locator("text=$500.00")).toBeVisible({ timeout: 10000 });
+    await expect(page.locator("text=$0.00")).toBeVisible({ timeout: 10000 });
   });
 });

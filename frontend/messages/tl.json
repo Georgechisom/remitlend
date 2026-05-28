@@ -60,7 +60,10 @@
     "loans": "Mga Loan",
     "repay": "Bayaran",
     "dashboard": "Dashboard",
-    "activity": "Aktibidad"
+    "activity": "Aktibidad",
+    "notifications": "Mga Notification",
+    "liquidations": "Liquidations",
+    "adminDisputes": "Mga Dispute"
   },
   "Loans": {
     "title": "Mga Loan",
@@ -107,7 +110,56 @@
     "unlockedCount": "{unlocked} / {total}",
     "progress": "Pag-unlad",
     "unlocked": "I-unlock {date}",
-    "repaymentProgress": "Pag-unlad ng Pagbabayad"
+    "repaymentProgress": "Pag-unlad ng Pagbabayad",
+    "nft": {
+      "eyebrow": "Credit Asset",
+      "title": "Remittance NFT",
+      "description": "Tingnan ang on-chain credit asset na nabuo mula sa iyong remittance at repayment history.",
+      "connectTitle": "Ikonekta ang wallet",
+      "connectDescription": "Lalabas dito ang iyong Remittance NFT kapag nakakonekta na ang wallet mo.",
+      "error": "Hindi ma-load ang iyong Remittance NFT ngayon.",
+      "emptyTitle": "Wala pang Remittance NFT",
+      "emptyDescription": "Ipadala ang unang remittance para simulan ang paggawa ng on-chain credit asset.",
+      "emptyAction": "Send first remittance",
+      "score": "Score",
+      "historyHash": "History hash",
+      "defaultCount": "Default count",
+      "cooldownRemaining": "Natitirang transfer cooldown",
+      "lastUpdateLedger": "Huling update ledger",
+      "metadataUri": "Metadata URI",
+      "ledgers": "{count} ledgers",
+      "notAvailable": "Hindi available"
+    }
+  },
+  "Notifications": {
+    "eyebrow": "Inbox",
+    "title": "Mga Notification",
+    "description": "Suriin ang repayment reminders, score changes, loan updates, at alerts sa iisang lugar.",
+    "viewAll": "Tingnan lahat ng notifications",
+    "unread": "Unread",
+    "markRead": "Markahan read",
+    "markAllVisibleRead": "Markahan ang unread bilang read",
+    "filters": {
+      "title": "Mga Filter",
+      "unreadOnly": "Unread lang"
+    },
+    "types": {
+      "all": "Lahat",
+      "loan_approved": "Naaprubahang loan",
+      "repayment_due": "Due na repayment",
+      "repayment_confirmed": "Nakumpirmang repayment",
+      "loan_defaulted": "Defaulted na loan",
+      "score_changed": "Nagbago ang score"
+    },
+    "empty": {
+      "title": "Walang notification",
+      "description": "Lalabas dito ang mga bagong alert at reminder.",
+      "action": "Bumalik sa dashboard"
+    },
+    "error": "Hindi ma-load ang notifications. Subukan ulit.",
+    "pagination": {
+      "summary": "Ipinapakita ang {count} sa {total} notification sa page {page}"
+    }
   },
   "LoanCard": {
     "totalOwed": "Kabuuang Utang",
@@ -128,8 +180,146 @@
     "viewDetails": "Tingnan ang Mga Detalye",
     "details": "Mga Detalye"
   },
+  "AdminDisputes": {
+    "eyebrow": "Admin Review",
+    "title": "Mga Dispute",
+    "description": "Suriin ang bukas na default disputes at itala ang pinal na resolusyon.",
+    "checkingAccess": "Sinusuri ang admin access...",
+    "refresh": "I-refresh",
+    "loading": "Naglo-load ng disputes...",
+    "review": "Suriin",
+    "empty": {
+      "title": "Walang bukas na dispute",
+      "description": "Lalabas dito ang bagong borrower disputes kapag naisumite."
+    },
+    "error": {
+      "title": "Hindi ma-load ang disputes",
+      "description": "Suriin ang iyong admin session at subukan muli."
+    },
+    "table": {
+      "borrower": "Borrower",
+      "loanId": "Loan ID",
+      "reason": "Buod ng dahilan",
+      "submitted": "Isinumite",
+      "action": "Aksyon"
+    },
+    "detail": {
+      "title": "Dispute #{id}",
+      "submitted": "Isinumite ni {borrower} noong {date}",
+      "loading": "Naglo-load ng dispute...",
+      "back": "Bumalik sa disputes",
+      "error": "Hindi ma-load ang dispute na ito.",
+      "reason": "Dahilan ng borrower",
+      "noteLabel": "Resolution note",
+      "notePlaceholder": "Ipaliwanag kung bakit kinukumpirma o binabaligtad ang default.",
+      "noteHelp": "Maglagay ng hindi bababa sa 5 character.",
+      "confirmDefault": "Kumpirmahin ang default",
+      "reverseDefault": "Baligtarin ang default",
+      "loan": {
+        "title": "Buod ng kaugnay na loan",
+        "openLoan": "Buksan ang loan",
+        "principal": "Principal",
+        "totalOwed": "Kabuuang utang",
+        "totalRepaid": "Kabuuang nabayaran",
+        "status": "Status",
+        "nextPayment": "Susunod na bayad"
+      },
+      "modal": {
+        "confirmTitle": "Kumpirmahin ang default na ito?",
+        "confirmDescription": "Mananatiling default ang loan at ise-save ang resolution note.",
+        "reverseTitle": "Baligtarin ang default na ito?",
+        "reverseDescription": "Binabaligtad nito ang default outcome at ise-save ang resolution note.",
+        "close": "Isara",
+        "cancel": "Kanselahin",
+        "submit": "Isumite",
+        "submitting": "Isinusumite..."
+      }
+    }
+  },
   "Settings": {
     "language": "Wika",
     "selectLanguage": "Piliin ang Wika"
+  },
+  "LoanDetails": {
+    "actions": {
+      "refinance": "Refinance",
+      "requestExtension": "Humiling ng extension"
+    },
+    "common": {
+      "cancel": "Kanselahin",
+      "confirming": "Kinukumpirma..."
+    },
+    "health": {
+      "title": "Loan health",
+      "loading": "Naglo-load ng health factor...",
+      "unavailableTitle": "Hindi available ang health data",
+      "unavailableDescription": "Hindi pa available ang collateral at debt data para sa loan na ito.",
+      "collateral": "Collateral",
+      "totalDebt": "Kabuuang utang",
+      "threshold": "Liquidation threshold",
+      "sourceContract": "Gamit ang contract health view",
+      "sourceBackend": "Gamit ang backend-computed health data",
+      "sourceDerived": "Derived mula sa collateral at kabuuang utang",
+      "cta": "Magdagdag ng collateral",
+      "states": {
+        "healthy": "Healthy",
+        "watch": "Bantayan",
+        "atRisk": "Nasa panganib"
+      },
+      "descriptions": {
+        "healthy": "Ang collateral coverage ay komportableng nasa itaas ng liquidation threshold.",
+        "watch": "Malapit na ang collateral coverage sa safety margin. Isaalang-alang ang pagdagdag ng collateral.",
+        "atRisk": "Ang loan na ito ay nasa panganib ng liquidation. Magdagdag ng collateral para maibalik ang coverage."
+      }
+    },
+    "refinance": {
+      "title": "I-refinance ang loan",
+      "principal": "Bagong principal na halaga",
+      "interestRate": "Interest rate (%)",
+      "term": "Termino",
+      "previewTitle": "Projected amortization",
+      "previewDescription": "Preview ng inaasahang repayment schedule bago pumirma.",
+      "submit": "I-build, Pirmahan at Isumite"
+    },
+    "extension": {
+      "title": "Humiling ng extension",
+      "extraLedgers": "Dagdag na ledgers",
+      "newDueDate": "Bagong due date",
+      "submit": "I-build, Pirmahan at Isumite"
+    }
+  },
+  "Lend": {
+    "cooldownActive": "Available ang withdraw sa humigit-kumulang {minutes} minuto habang aktibo ang cooldown."
+  },
+  "Liquidations": {
+    "eyebrow": "Liquidator Console",
+    "title": "Mga Liquidatable Loan",
+    "description": "Suriin ang active positions na mababa sa liquidation threshold at magsumite ng liquidation transactions.",
+    "refresh": "I-refresh",
+    "liquidate": "I-liquidate",
+    "liquidating": "Nili-liquidate...",
+    "pending": "Binubuo ang liquidation transaction...",
+    "success": "Naisumite ang liquidation",
+    "unknownBorrower": "Hindi kilalang borrower",
+    "walletRequired": {
+      "title": "Ikonekta ang wallet",
+      "description": "Ikonekta ang liquidator wallet bago magsumite ng liquidation transactions."
+    },
+    "empty": {
+      "title": "Walang liquidatable loans",
+      "description": "Ang active loans ay kasalukuyang nasa itaas ng liquidation threshold."
+    },
+    "error": {
+      "title": "Hindi ma-load ang liquidations",
+      "description": "Suriin ang liquidations API at subukan muli."
+    },
+    "table": {
+      "loan": "Loan",
+      "borrower": "Borrower",
+      "collateral": "Collateral",
+      "debt": "Kabuuang utang",
+      "health": "Health",
+      "action": "Aksyon"
+    }
   }
 }

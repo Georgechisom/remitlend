@@ -376,3 +376,30 @@ export const getOnChainScoreHistory = asyncHandler(
     res.json({ success: true, ...response });
   },
 );
+
+/**
+ * GET /api/score/:walletAddress/nft
+ *
+ * Reads the user's RemittanceNFT metadata and adjacent counters from the
+ * RemittanceNFT contract. Returns `nft: null` when no NFT exists yet.
+ */
+export const getRemittanceNft = asyncHandler(
+  async (req: Request, res: Response) => {
+    const { walletAddress } = req.params as { walletAddress: string };
+
+    const cacheKey = `score:nft:${walletAddress}`;
+    const cached = await cacheService.get<Record<string, unknown>>(cacheKey);
+    if (cached) {
+      res.json({ success: true, walletAddress, nft: cached });
+      return;
+    }
+
+    const nft = await sorobanService.getRemittanceNftMetadata(walletAddress);
+
+    if (nft) {
+      await cacheService.set(cacheKey, nft, 60);
+    }
+
+    res.json({ success: true, walletAddress, nft });
+  },
+);

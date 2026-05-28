@@ -5,18 +5,28 @@ import {
   getInactiveBorrowers,
   applyScoreDecay,
 } from "../services/scoreDecayService.js";
+import { jobMetricsService } from "../services/jobMetricsService.js";
+import logger from "../utils/logger.js";
 
 async function runScoreDecayJob() {
+  const startTime = Date.now();
+  const jobName = "scoreDecayJob";
+
   try {
     const borrowers = await getInactiveBorrowers();
     for (const borrower of borrowers) {
       await applyScoreDecay(borrower);
     }
-    console.log(
-      `Score decay applied to ${borrowers.length} inactive borrowers.`,
-    );
+    const durationMs = Date.now() - startTime;
+    jobMetricsService.recordSuccess(jobName, durationMs);
+    logger.info("Score decay job completed", {
+      borrowersProcessed: borrowers.length,
+      durationMs,
+    });
   } catch (err) {
-    console.error("Score decay job failed:", err);
+    const durationMs = Date.now() - startTime;
+    jobMetricsService.recordFailure(jobName, err as Error | string, durationMs);
+    logger.error("Score decay job failed:", { err, durationMs });
   }
 }
 

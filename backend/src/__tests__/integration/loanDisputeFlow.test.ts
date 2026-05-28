@@ -5,8 +5,8 @@ process.env.NODE_ENV = "test";
 import { jest } from "@jest/globals";
 
 const mockQuery: any = jest.fn();
-const mockNotifyAdmins = jest.fn();
-const mockCreateNotification = jest.fn();
+const mockNotifyAdmins: any = jest.fn();
+const mockCreateNotification: any = jest.fn();
 
 jest.unstable_mockModule("../../db/connection.js", () => ({
   query: mockQuery,

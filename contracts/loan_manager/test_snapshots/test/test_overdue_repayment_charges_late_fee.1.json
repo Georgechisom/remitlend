@@ -88,6 +88,9 @@
                 {
                   "bytes": "0000000000000000000000000000000000000000000000000000000000000000"
                 },
+                {
+                  "string": "ipfs://QmTest"
+                },
                 "void"
               ]
             }
@@ -679,6 +682,52 @@
             "key": {
               "vec": [
                 {
+                  "symbol": "AuthorizedMinters"
+                }
+              ]
+            },
+            "durability": "persistent"
+          }
+        },
+        [
+          {
+            "last_modified_ledger_seq": 0,
+            "data": {
+              "contract_data": {
+                "ext": "v0",
+                "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
+                "key": {
+                  "vec": [
+                    {
+                      "symbol": "AuthorizedMinters"
+                    }
+                  ]
+                },
+                "durability": "persistent",
+                "val": {
+                  "vec": [
+                    {
+                      "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM"
+                    },
+                    {
+                      "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMDR4"
+                    }
+                  ]
+                }
+              }
+            },
+            "ext": "v0"
+          },
+          518400
+        ]
+      ],
+      [
+        {
+          "contract_data": {
+            "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
+            "key": {
+              "vec": [
+                {
                   "symbol": "Metadata"
                 },
                 {
@@ -715,6 +764,14 @@
                       },
                       "val": {
                         "bytes": "0000000000000000000000000000000000000000000000000000000000000000"
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "metadata_uri"
+                      },
+                      "val": {
+                        "string": "ipfs://QmTest"
                       }
                     },
                     {
@@ -1184,7 +1241,7 @@
                       "val": {
                         "i128": {
                           "hi": 0,
-                          "lo": 22
+                          "lo": 19
                         }
                       }
                     },
@@ -1287,7 +1344,7 @@
                       "val": {
                         "i128": {
                           "hi": 0,
-                          "lo": 7
+                          "lo": 6
                         }
                       }
                     },
@@ -1298,7 +1355,7 @@
                       "val": {
                         "i128": {
                           "hi": 0,
-                          "lo": 248
+                          "lo": 249
                         }
                       }
                     },

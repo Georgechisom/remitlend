@@ -59,6 +59,34 @@ export function CreditScoreGauge({
 }: CreditScoreGaugeProps) {
   const numericScore = typeof score === "number" && Number.isFinite(score) ? score : null;
 
+  const band = useMemo(() => (numericScore == null ? BANDS[0] : getBand(numericScore)), [
+    numericScore,
+  ]);
+  const delta = previousScore != null && numericScore != null ? numericScore - previousScore : null;
+
+  const cx = 120;
+  const cy = 120;
+  const r = 100;
+  const startAngle = -120;
+  const endAngle = 120;
+  const totalArc = endAngle - startAngle;
+
+  const clampedScore = numericScore != null ? Math.max(min, Math.min(max, numericScore)) : min;
+  const fraction = (clampedScore - min) / (max - min);
+  const scoreAngle = startAngle + fraction * totalArc;
+
+  // Background arc segments per band
+  const bandArcs = useMemo(() => {
+    return BANDS.map((b) => {
+      const bStart = startAngle + ((b.range[0] - min) / (max - min)) * totalArc;
+      const bEnd = startAngle + ((Math.min(b.range[1], max) - min) / (max - min)) * totalArc;
+      return { ...b, path: describeArc(cx, cy, r, bStart, bEnd) };
+    });
+  }, [min, max]);
+
+  // Active arc from start to current score
+  const activePath = describeArc(cx, cy, r, startAngle, scoreAngle);
+
   // Loading state
   if (isLoading) {
     return (

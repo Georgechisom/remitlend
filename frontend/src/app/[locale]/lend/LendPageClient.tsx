@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   Activity,
@@ -13,7 +13,7 @@ import {
   Wifi,
   WifiOff,
 } from "lucide-react";
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { ErrorBoundary } from "../../components/global_ui/ErrorBoundary";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { YieldEarningsChart } from "../../components/charts/YieldEarningsChart";
@@ -37,6 +37,8 @@ import {
   getPrecisionError,
   parseAmount,
   sanitizeAmountInput,
+  formatAmountOnBlur,
+  getAssetDecimals,
 } from "../../utils/amount";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
@@ -51,8 +53,10 @@ function formatPercent(value: number) {
 
 export function LendPageClient() {
   const locale = useLocale();
+  const t = useTranslations("Lend");
   const [depositAmount, setDepositAmount] = useState("100");
   const [withdrawAmount, setWithdrawAmount] = useState("50");
+  const [cooldownRemainingSeconds, setCooldownRemainingSeconds] = useState(0);
   const address = useWalletStore(selectWalletAddress);
 
   const depositOp = useDepositOperation();
@@ -72,8 +76,10 @@ export function LendPageClient() {
 
   const depositPrecisionError = getPrecisionError(depositAmount, "USDC");
   const withdrawPrecisionError = getPrecisionError(withdrawAmount, "USDC");
-  const depositHelper = buildAmountHelperText(depositAmount, "USDC");
-  const withdrawHelper = buildAmountHelperText(withdrawAmount, "USDC");
+  const depositDecimals = getAssetDecimals("USDC");
+  const withdrawDecimals = getAssetDecimals("USDC");
+  const depositHelper = buildAmountHelperText(depositAmount, "USDC", depositDecimals);
+  const withdrawHelper = buildAmountHelperText(withdrawAmount, "USDC", withdrawDecimals);
 
   const handleDeposit = async () => {
     const amount = parseAmount(depositAmount);
@@ -121,6 +127,34 @@ export function LendPageClient() {
       })),
     [yieldHistory],
   );
+
+  const cooldownLedgers = poolStats?.withdrawalCooldownLedgers ?? 0;
+  const cooldownSeconds = Math.max(0, cooldownLedgers) * 5;
+  const lastDepositTimestamp = depositor?.lastDepositAt
+    ? new Date(depositor.lastDepositAt).getTime()
+    : null;
+
+  useEffect(() => {
+    if (!lastDepositTimestamp || cooldownSeconds <= 0) {
+      // Reset the displayed countdown when there is no active cooldown.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setCooldownRemainingSeconds(0);
+      return;
+    }
+
+    const updateRemaining = () => {
+      const elapsed = Math.floor((Date.now() - lastDepositTimestamp) / 1000);
+      const remaining = Math.max(0, cooldownSeconds - elapsed);
+      setCooldownRemainingSeconds(remaining);
+    };
+
+    updateRemaining();
+    const intervalId = window.setInterval(updateRemaining, 1000);
+    return () => window.clearInterval(intervalId);
+  }, [lastDepositTimestamp, cooldownSeconds]);
+
+  const isWithdrawCooldownActive = cooldownRemainingSeconds > 0;
+  const cooldownMinutes = Math.ceil(cooldownRemainingSeconds / 60);
 
   if (!address) {
     return (
@@ -312,9 +346,15 @@ export function LendPageClient() {
                     type="text"
                     inputMode="decimal"
                     min="0"
-                    step="0.0000001"
+                    step={Math.pow(10, -depositDecimals)}
                     value={depositAmount}
                     onChange={(event) => setDepositAmount(sanitizeAmountInput(event.target.value))}
+                    onBlur={(event) => {
+                      const formatted = formatAmountOnBlur(event.target.value, "USDC");
+                      if (formatted && formatted !== event.target.value) {
+                        setDepositAmount(formatted);
+                      }
+                    }}
                     aria-invalid={depositPrecisionError ? true : undefined}
                     className={`w-full rounded-xl border bg-zinc-50 px-3 py-2 text-sm outline-none focus:border-indigo-500 dark:border-zinc-800 dark:bg-zinc-900 ${
                       depositPrecisionError ? "border-red-500" : "border-zinc-200"
@@ -327,7 +367,9 @@ export function LendPageClient() {
                         : "text-zinc-500 dark:text-zinc-400"
                     }`}
                   >
-                    {depositPrecisionError ?? depositHelper ?? "Up to 7 decimal places supported."}
+                    {depositPrecisionError ??
+                      depositHelper ??
+                      `Up to ${depositDecimals} decimal places supported.`}
                   </p>
                   <button
                     type="submit"
@@ -358,9 +400,15 @@ export function LendPageClient() {
                     type="text"
                     inputMode="decimal"
                     min="0"
-                    step="0.0000001"
+                    step={Math.pow(10, -withdrawDecimals)}
                     value={withdrawAmount}
                     onChange={(event) => setWithdrawAmount(sanitizeAmountInput(event.target.value))}
+                    onBlur={(event) => {
+                      const formatted = formatAmountOnBlur(event.target.value, "USDC");
+                      if (formatted && formatted !== event.target.value) {
+                        setWithdrawAmount(formatted);
+                      }
+                    }}
                     aria-invalid={withdrawPrecisionError ? true : undefined}
                     className={`w-full rounded-xl border bg-zinc-50 px-3 py-2 text-sm outline-none focus:border-indigo-500 dark:border-zinc-800 dark:bg-zinc-900 ${
                       withdrawPrecisionError ? "border-red-500" : "border-zinc-200"
@@ -375,16 +423,31 @@ export function LendPageClient() {
                   >
                     {withdrawPrecisionError ??
                       withdrawHelper ??
-                      "Up to 7 decimal places supported."}
+                      `Up to ${withdrawDecimals} decimal places supported.`}
                   </p>
                   <button
                     type="submit"
-                    disabled={withdrawalOp.isLoading || !!withdrawPrecisionError}
+                    disabled={
+                      withdrawalOp.isLoading || !!withdrawPrecisionError || isWithdrawCooldownActive
+                    }
+                    aria-describedby={
+                      isWithdrawCooldownActive ? "withdraw-cooldown-help" : undefined
+                    }
                     className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-zinc-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
                   >
                     <ArrowDownLeft className="h-4 w-4" />
                     {withdrawalOp.isLoading ? "Withdrawing..." : "Withdraw"}
                   </button>
+                  {isWithdrawCooldownActive ? (
+                    <p
+                      id="withdraw-cooldown-help"
+                      role="status"
+                      aria-live="polite"
+                      className="text-xs text-amber-700 dark:text-amber-300"
+                    >
+                      {t("cooldownActive", { minutes: cooldownMinutes })}
+                    </p>
+                  ) : null}
                   <OperationProgress transaction={withdrawalOp.transaction} type="withdrawal" />
                 </form>
               </div>

@@ -1,14 +1,20 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { ChevronRight, Clock, Wallet } from "lucide-react";
+import { useTranslations } from "next-intl";
+import { ChevronRight, Clock, Wallet, Wifi, WifiOff } from "lucide-react";
 import { LoanDetailSkeleton } from "../../../components/skeletons/LoanDetailSkeleton";
-import { useLoan, useLoanAmortizationSchedule } from "../../../hooks/useApi";
+import { useLoan, useLoanAmortizationSchedule, useLoanEvents } from "../../../hooks/useApi";
+import { useLoanStream } from "../../../hooks/useLoanStream";
 import { RepaymentScheduleTable } from "../../../components/loan-wizard/RepaymentScheduleTable";
+import { RefinanceLoanModal } from "../../../components/loan-wizard/RefinanceLoanModal";
+import { ExtensionLoanModal } from "../../../components/loan-wizard/ExtensionLoanModal";
 import { RepaymentProgress } from "../../../components/ui/RepaymentProgress";
 import { LoanTimeline } from "../../../components/ui/LoanTimeline";
 import { TxHashLink } from "../../../components/ui/TxHashLink";
+import { LoanHealth } from "../../../components/loan/LoanHealth";
 import { downloadCsv, rowsToCsv } from "../../../utils/csv";
 
 function formatCurrency(value: number) {
@@ -31,12 +37,17 @@ function getDaysRemaining(deadline: string | undefined): number | null {
 }
 
 export function LoanDetailsPageClient() {
+  const t = useTranslations("LoanDetails");
   const params = useParams<{ loanId: string }>();
   const loanId = params.loanId;
+  const [isRefinanceOpen, setIsRefinanceOpen] = useState(false);
+  const [isExtensionOpen, setIsExtensionOpen] = useState(false);
+  const realtimeStatus = useLoanStream(loanId);
   const { data: loan, isLoading, isError } = useLoan(loanId);
   const amortizationQuery = useLoanAmortizationSchedule(loanId, {
     retry: false,
   });
+  const { data: events, isLoading: eventsLoading, isError: eventsError } = useLoanEvents(loanId);
 
   if (isLoading) {
     return <LoanDetailSkeleton />;
@@ -72,9 +83,12 @@ export function LoanDetailsPageClient() {
   const nextDeadline = (loanData as unknown as { nextPaymentDeadline?: string })
     .nextPaymentDeadline;
   const daysRemaining = getDaysRemaining(nextDeadline);
+  const normalizedStatus = String(loan.status).toLowerCase();
+  const canManageApprovedLoan = normalizedStatus === "approved" || normalizedStatus === "active";
 
   function exportCsv() {
-    const rows = loanData.events.map((event) => ({
+    const sourceEvents = events ?? loanData.events;
+    const rows = sourceEvents.map((event) => ({
       date: event.timestamp,
       type: event.type,
       amount: event.amount,
@@ -116,11 +130,35 @@ export function LoanDetailsPageClient() {
               Track repayment timing, lender terms, and the current outstanding balance for this
               loan.
             </p>
+            <div
+              className={`mt-3 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${
+                realtimeStatus === "connected"
+                  ? "bg-green-50 text-green-700 dark:bg-green-500/10 dark:text-green-400"
+                  : realtimeStatus === "polling"
+                    ? "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300"
+                    : realtimeStatus === "disconnected"
+                      ? "bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-300"
+                      : "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
+              }`}
+            >
+              {realtimeStatus === "connected" ? (
+                <Wifi className="h-3.5 w-3.5" />
+              ) : (
+                <WifiOff className="h-3.5 w-3.5" />
+              )}
+              {realtimeStatus === "connected"
+                ? "Live loan updates"
+                : realtimeStatus === "polling"
+                  ? "Polling while reconnecting"
+                  : realtimeStatus === "disconnected"
+                    ? "Realtime temporarily unavailable"
+                    : "Connecting to live updates"}
+            </div>
           </div>
           <button
             type="button"
             onClick={exportCsv}
-            disabled={loan.events.length === 0}
+            disabled={!events || events.length === 0}
             className="inline-flex items-center justify-center rounded-full border border-zinc-300 bg-white px-4 py-2 text-xs font-semibold text-zinc-700 transition hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-200 dark:hover:bg-zinc-900"
           >
             Export CSV
@@ -188,7 +226,28 @@ export function LoanDetailsPageClient() {
               Repayment timeline
             </h3>
             <div className="mt-3">
-              <LoanTimeline events={loan.events} />
+              {eventsLoading ? (
+                <div className="animate-pulse space-y-3">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="flex gap-3">
+                      <div className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-zinc-200 dark:bg-zinc-700" />
+                      <div className="flex-1 rounded-xl border border-zinc-200 p-3 dark:border-zinc-800">
+                        <div className="h-4 w-24 rounded bg-zinc-200 dark:bg-zinc-700" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : eventsError ? (
+                <p className="text-sm text-red-500 dark:text-red-400">
+                  Failed to load loan events.
+                </p>
+              ) : events && events.length > 0 ? (
+                <LoanTimeline events={events} />
+              ) : (
+                <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                  No loan events recorded yet.
+                </p>
+              )}
             </div>
           </div>
 
@@ -211,6 +270,36 @@ export function LoanDetailsPageClient() {
         </article>
 
         <aside className="space-y-4">
+          <LoanHealth
+            loan={loan}
+            isLoading={isLoading}
+            isError={isError}
+            topUpHref="#collateral-top-up"
+            labels={{
+              title: t("health.title"),
+              loading: t("health.loading"),
+              unavailableTitle: t("health.unavailableTitle"),
+              unavailableDescription: t("health.unavailableDescription"),
+              collateral: t("health.collateral"),
+              totalDebt: t("health.totalDebt"),
+              threshold: t("health.threshold"),
+              sourceContract: t("health.sourceContract"),
+              sourceBackend: t("health.sourceBackend"),
+              sourceDerived: t("health.sourceDerived"),
+              cta: t("health.cta"),
+              states: {
+                healthy: t("health.states.healthy"),
+                watch: t("health.states.watch"),
+                atRisk: t("health.states.atRisk"),
+              },
+              descriptions: {
+                healthy: t("health.descriptions.healthy"),
+                watch: t("health.descriptions.watch"),
+                atRisk: t("health.descriptions.atRisk"),
+              },
+            }}
+          />
+
           {loan.status === "active" && daysRemaining !== null && (
             <div className="rounded-3xl border border-zinc-200 bg-white p-5 shadow-sm shadow-zinc-200/50 dark:border-zinc-800 dark:bg-zinc-950 dark:shadow-none">
               <div className="flex items-center gap-2 text-zinc-700 dark:text-zinc-300">
@@ -264,6 +353,24 @@ export function LoanDetailsPageClient() {
                     <ChevronRight className="h-4 w-4" />
                   </Link>
                 )}
+              {canManageApprovedLoan && (
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsRefinanceOpen(true)}
+                    className="inline-flex items-center rounded-full border border-indigo-200 bg-white px-3 py-1.5 text-xs font-semibold text-indigo-700 transition hover:bg-indigo-50 dark:border-indigo-800 dark:bg-zinc-950 dark:text-indigo-300 dark:hover:bg-zinc-900"
+                  >
+                    {t("actions.refinance")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsExtensionOpen(true)}
+                    className="inline-flex items-center rounded-full border border-indigo-200 bg-white px-3 py-1.5 text-xs font-semibold text-indigo-700 transition hover:bg-indigo-50 dark:border-indigo-800 dark:bg-zinc-950 dark:text-indigo-300 dark:hover:bg-zinc-900"
+                  >
+                    {t("actions.requestExtension")}
+                  </button>
+                </div>
+              )}
 
               {latestTxHash && (
                 <div className="mt-3">
@@ -292,6 +399,42 @@ export function LoanDetailsPageClient() {
           </div>
         </aside>
       </div>
+
+      <RefinanceLoanModal
+        isOpen={isRefinanceOpen}
+        onClose={() => setIsRefinanceOpen(false)}
+        onSuccess={() => {
+          amortizationQuery.refetch();
+        }}
+        loanId={loanId}
+        currentPrincipal={loan.principal}
+        currentInterestRate={loan.interestRate}
+        title={t("refinance.title")}
+        submitLabel={t("refinance.submit")}
+        cancelLabel={t("common.cancel")}
+        principalLabel={t("refinance.principal")}
+        interestRateLabel={t("refinance.interestRate")}
+        termLabel={t("refinance.term")}
+        previewTitle={t("refinance.previewTitle")}
+        previewDescription={t("refinance.previewDescription")}
+        busyLabel={t("common.confirming")}
+      />
+
+      <ExtensionLoanModal
+        isOpen={isExtensionOpen}
+        onClose={() => setIsExtensionOpen(false)}
+        onSuccess={() => {
+          amortizationQuery.refetch();
+        }}
+        loanId={loanId}
+        currentDueDate={nextDeadline}
+        title={t("extension.title")}
+        submitLabel={t("extension.submit")}
+        cancelLabel={t("common.cancel")}
+        ledgersLabel={t("extension.extraLedgers")}
+        newDueDateLabel={t("extension.newDueDate")}
+        busyLabel={t("common.confirming")}
+      />
     </section>
   );
 }

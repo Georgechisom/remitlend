@@ -1,5 +1,8 @@
 use super::*;
-use soroban_sdk::{testutils::Address as _, testutils::Ledger as _, Address, BytesN, Env, String};
+use soroban_sdk::{
+    testutils::Address as _, testutils::Events as _, testutils::Ledger as _, Address, BytesN, Env,
+    FromVal, String,
+};
 
 fn create_test_hash(env: &Env, value: u8) -> BytesN<32> {
     let mut hash_bytes = [0u8; 32];
@@ -158,14 +161,44 @@ fn test_authorized_minter() {
 
     // Admin should be authorized by default
     assert!(client.is_authorized_minter(&admin));
+    let initial_minters = client.get_authorized_minters();
+    assert_eq!(initial_minters.len(), 1);
+    assert_eq!(initial_minters.get(0).unwrap(), admin);
 
     // Authorize a contract
     client.authorize_minter(&authorized_contract);
     assert!(client.is_authorized_minter(&authorized_contract));
+    let after_authorize = client.get_authorized_minters();
+    assert_eq!(after_authorize.len(), 2);
 
     // Revoke authorization
     client.revoke_minter(&authorized_contract);
     assert!(!client.is_authorized_minter(&authorized_contract));
+    let after_revoke = client.get_authorized_minters();
+    assert_eq!(after_revoke.len(), 1);
+    assert_eq!(after_revoke.get(0).unwrap(), admin);
+}
+
+#[test]
+fn test_authorized_minter_limit_enforced() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let admin = Address::generate(&env);
+
+    let contract_id = env.register(RemittanceNFT, ());
+    let client = RemittanceNFTClient::new(&env, &contract_id);
+    client.initialize(&admin);
+
+    // Admin is already in the list, so only 31 more can be added.
+    for _ in 0..(RemittanceNFT::MAX_AUTHORIZED_MINTERS - 1) {
+        let minter = Address::generate(&env);
+        client.authorize_minter(&minter);
+    }
+
+    let overflow_minter = Address::generate(&env);
+    let result = client.try_authorize_minter(&overflow_minter);
+    assert_eq!(result, Err(Ok(NftError::MinterLimitReached)));
 }
 
 #[test]
@@ -1148,6 +1181,14 @@ fn test_propose_and_accept_admin() {
     client.propose_admin(&new_admin);
     client.accept_admin();
 
+    let events = env.events().all();
+    let event = events.get(events.len() - 1).unwrap();
+    let topic_0 = Symbol::from_val(&env, &event.1.get(0).unwrap());
+    let topic_1 = Symbol::from_val(&env, &event.1.get(1).unwrap());
+    let admins = <(Address, Address)>::from_val(&env, &event.2);
+    assert_eq!(topic_0, Symbol::new(&env, "AdminTransferred"));
+    assert_eq!(topic_1, Symbol::new(&env, "accept"));
+    assert_eq!(admins, (admin, new_admin.clone()));
     assert_eq!(client.get_admin(), new_admin);
 }
 
@@ -1165,6 +1206,14 @@ fn test_set_admin_updates_admin_immediately() {
     client.initialize(&admin);
     client.set_admin(&new_admin);
 
+    let events = env.events().all();
+    let event = events.get(events.len() - 1).unwrap();
+    let topic_0 = Symbol::from_val(&env, &event.1.get(0).unwrap());
+    let topic_1 = Symbol::from_val(&env, &event.1.get(1).unwrap());
+    let admins = <(Address, Address)>::from_val(&env, &event.2);
+    assert_eq!(topic_0, Symbol::new(&env, "AdminTransferred"));
+    assert_eq!(topic_1, Symbol::new(&env, "govern"));
+    assert_eq!(admins, (admin, new_admin.clone()));
     assert_eq!(client.get_admin(), new_admin);
 }
 

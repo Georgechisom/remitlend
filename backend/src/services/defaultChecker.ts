@@ -15,6 +15,7 @@ import {
 } from "../config/stellar.js";
 
 import { cacheService } from "./cacheService.js";
+import { jobMetricsService } from "./jobMetricsService.js";
 
 /**
  * Mirrors `LoanManager::DEFAULT_TERM_LEDGERS` in `contracts/loan_manager/src/lib.rs`.
@@ -419,6 +420,9 @@ export class DefaultChecker {
   async checkOverdueLoans(
     loanIds?: number[],
   ): Promise<DefaultCheckRunResult | null> {
+    const startTime = Date.now();
+    const jobName = "defaultChecker";
+
     // Try to acquire distributed lock to prevent overlapping runs
     const lockAcquired = await this.acquireLock();
     if (!lockAcquired) {
@@ -510,6 +514,10 @@ export class DefaultChecker {
         ledgersPastOldestDue: stats.ledgersPastOldestDue,
       });
 
+      // Record success metrics
+      const durationMs = Date.now() - startTime;
+      jobMetricsService.recordSuccess(jobName, durationMs);
+
       return {
         runId,
         currentLedger,
@@ -526,6 +534,15 @@ export class DefaultChecker {
           : {}),
         batches: batchResults,
       };
+    } catch (error) {
+      // Record failure metrics
+      const durationMs = Date.now() - startTime;
+      jobMetricsService.recordFailure(
+        jobName,
+        error as Error | string,
+        durationMs,
+      );
+      throw error;
     } finally {
       // Always release the lock, even if the run failed
       await this.releaseLock();

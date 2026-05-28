@@ -182,6 +182,9 @@ export const remittanceService = {
     limit: number = 20,
     cursor: string | null = null,
     status?: string,
+    from?: string,
+    to?: string,
+    q?: string,
   ): Promise<{
     remittances: Remittance[];
     total: number;
@@ -190,10 +193,39 @@ export const remittanceService = {
     try {
       let whereClause = "sender_id = $1";
       const params: (string | number)[] = [userId];
+      let paramIndex = 2;
 
-      if (status && status !== "all") {
-        whereClause += " AND status = $2";
+      if (status) {
+        whereClause += ` AND status = $${paramIndex}`;
         params.push(status);
+        paramIndex++;
+      }
+
+      if (from) {
+        const fromDate = new Date(from);
+        if (Number.isNaN(fromDate.getTime())) {
+          throw AppError.badRequest("Invalid 'from' date format");
+        }
+        whereClause += ` AND created_at >= $${paramIndex}`;
+        params.push(fromDate.toISOString());
+        paramIndex++;
+      }
+
+      if (to) {
+        const toDate = new Date(to);
+        if (Number.isNaN(toDate.getTime())) {
+          throw AppError.badRequest("Invalid 'to' date format");
+        }
+        whereClause += ` AND created_at <= $${paramIndex}`;
+        params.push(toDate.toISOString());
+        paramIndex++;
+      }
+
+      if (q) {
+        const searchTerm = `%${q}%`;
+        whereClause += ` AND (recipient_address ILIKE $${paramIndex} OR memo ILIKE $${paramIndex + 1})`;
+        params.push(searchTerm, searchTerm);
+        paramIndex += 2;
       }
 
       const cursorValue = cursor ? new Date(cursor) : null;
@@ -202,15 +234,16 @@ export const remittanceService = {
       }
 
       if (cursorValue) {
-        whereClause += ` AND created_at < $${params.length + 1}`;
+        whereClause += ` AND created_at < $${paramIndex}`;
         params.push(cursorValue.toISOString());
+        paramIndex++;
       }
 
       const result = await query(
         `SELECT * FROM remittances 
          WHERE ${whereClause}
          ORDER BY created_at DESC, id DESC
-         LIMIT $${params.length + 1}`,
+         LIMIT $${paramIndex}`,
         [...params, limit + 1],
       );
 

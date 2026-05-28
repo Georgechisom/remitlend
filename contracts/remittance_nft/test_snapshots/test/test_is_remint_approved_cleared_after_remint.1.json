@@ -24,6 +24,9 @@
                 {
                   "bytes": "0101010101010101010101010101010101010101010101010101010101010101"
                 },
+                {
+                  "string": "ipfs://QmTest123"
+                },
                 "void"
               ]
             }
@@ -89,6 +92,9 @@
                 },
                 {
                   "bytes": "2222222222222222222222222222222222222222222222222222222222222222"
+                },
+                {
+                  "string": "ipfs://QmTest123"
                 }
               ]
             }
@@ -161,6 +167,49 @@
             "key": {
               "vec": [
                 {
+                  "symbol": "AuthorizedMinters"
+                }
+              ]
+            },
+            "durability": "persistent"
+          }
+        },
+        [
+          {
+            "last_modified_ledger_seq": 0,
+            "data": {
+              "contract_data": {
+                "ext": "v0",
+                "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+                "key": {
+                  "vec": [
+                    {
+                      "symbol": "AuthorizedMinters"
+                    }
+                  ]
+                },
+                "durability": "persistent",
+                "val": {
+                  "vec": [
+                    {
+                      "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
+                    }
+                  ]
+                }
+              }
+            },
+            "ext": "v0"
+          },
+          518400
+        ]
+      ],
+      [
+        {
+          "contract_data": {
+            "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+            "key": {
+              "vec": [
+                {
                   "symbol": "Metadata"
                 },
                 {
@@ -197,6 +246,14 @@
                       },
                       "val": {
                         "bytes": "2222222222222222222222222222222222222222222222222222222222222222"
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "metadata_uri"
+                      },
+                      "val": {
+                        "string": "ipfs://QmTest123"
                       }
                     },
                     {

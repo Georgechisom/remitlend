@@ -4,11 +4,16 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { AppError } from "../errors/AppError.js";
 import { parseCappedLimit } from "../utils/queryHelpers.js";
 import logger from "../utils/logger.js";
+import {
+  updateNotificationPreferencesSchema,
+  validateNotificationPhone,
+} from "../schemas/notificationSchemas.js";
 
 /**
  * GET /api/notifications
  * Returns the authenticated user's notifications (newest first).
- * Optional query param: ?limit=N (default 50, max 100)
+ * Supports filtering by type, status, and date range.
+ * Optional query params: ?type=X&status=Y&from=ISO&to=ISO&limit=N (default 50, max 100)
  */
 export const getNotifications = asyncHandler(
   async (req: Request, res: Response) => {
@@ -16,9 +21,28 @@ export const getNotifications = asyncHandler(
     if (!userId) throw AppError.unauthorized("Authentication required");
 
     const limit = parseCappedLimit(req, 50);
+    const type = req.query.type as string | undefined;
+    const status = req.query.status as string | undefined;
+    const from = req.query.from as string | undefined;
+    const to = req.query.to as string | undefined;
+
+    // Validate date formats
+    if (from && Number.isNaN(Date.parse(from))) {
+      throw AppError.badRequest("Invalid 'from' date format");
+    }
+    if (to && Number.isNaN(Date.parse(to))) {
+      throw AppError.badRequest("Invalid 'to' date format");
+    }
 
     const [notifications, unreadCount] = await Promise.all([
-      notificationService.getNotificationsForUser(userId, limit),
+      notificationService.getNotificationsForUser(
+        userId,
+        limit,
+        type,
+        status,
+        from,
+        to,
+      ),
       notificationService.getUnreadCount(userId),
     ]);
 
@@ -55,6 +79,48 @@ export const markAllRead = asyncHandler(async (req: Request, res: Response) => {
   await notificationService.markAllRead(userId);
   res.json({ success: true });
 });
+
+export const getNotificationPreferences = asyncHandler(
+  async (req: Request, res: Response) => {
+    const userId = req.user?.publicKey;
+    if (!userId) throw AppError.unauthorized("Authentication required");
+
+    const preferences =
+      await notificationService.getNotificationPreferences(userId);
+    res.json(preferences);
+  },
+);
+
+export const updateNotificationPreferences = asyncHandler(
+  async (req: Request, res: Response) => {
+    const userId = req.user?.publicKey;
+    if (!userId) throw AppError.unauthorized("Authentication required");
+
+    const parsed = updateNotificationPreferencesSchema.parse(req.body);
+    const phone = parsed.phone?.trim() ? parsed.phone.trim() : null;
+
+    if (!validateNotificationPhone(phone)) {
+      throw AppError.badRequest("Phone must be a valid E.164-like number");
+    }
+
+    if (parsed.smsEnabled && !phone) {
+      throw AppError.badRequest(
+        "Phone is required when SMS notifications are enabled",
+      );
+    }
+
+    const preferences = await notificationService.updateNotificationPreferences(
+      userId,
+      {
+        emailEnabled: parsed.emailEnabled,
+        smsEnabled: parsed.smsEnabled,
+        phone,
+      },
+    );
+
+    res.json(preferences);
+  },
+);
 
 /**
  * GET /api/notifications/stream

@@ -75,6 +75,131 @@ function makeRawRepaidEvent(id = "event-001"): Record<string, unknown> {
   };
 }
 
+function makeRawAdminConfigEvent(
+  id = "admin-evt-001",
+): Record<string, unknown> {
+  const makeSym = (name: string) => ({
+    sym: () => ({ toString: () => name }),
+    toXDR: (_enc: string) => `xdr:${name}`,
+  });
+
+  return {
+    id,
+    pagingToken: id,
+    topic: [
+      makeSym("LateFeeRateUpdated"),
+      {
+        sym: () => ({ toString: () => "admin-addr" }),
+        toXDR: () => "xdr:admin",
+      },
+    ],
+    value: {
+      _val: [10n, 25n],
+      sym: () => {
+        throw new Error("not a sym");
+      },
+      toXDR: () => "xdr:admin-val",
+    },
+    ledger: 101,
+    ledgerClosedAt: new Date().toISOString(),
+    txHash: "txhash-admin-001",
+    contractId: { toString: () => "CONTRACT001" },
+  };
+}
+
+/**
+ * Build a raw Soroban event that parses as LoanApprv.
+ * topic[0] = "LoanApprv" (event type symbol)
+ * topic[1] = admin address ("GADMIN123")
+ * value    = [loanId=42, borrower="GBORROWER123"]
+ */
+function makeRawLoanApprvEvent(id = "apprv-001"): Record<string, unknown> {
+  const makeSym = (name: string) => ({
+    sym: () => ({ toString: () => name }),
+    toXDR: (_enc: string) => `xdr:${name}`,
+  });
+
+  return {
+    id,
+    pagingToken: id,
+    topic: [
+      makeSym("LoanApprv"),
+      // admin address — _val makes scValToNative return a string
+      {
+        _val: "GADMIN123",
+        sym: () => {
+          throw new Error("not a sym");
+        },
+        toXDR: () => "xdr:admin",
+      },
+    ],
+    value: {
+      // scValToNative returns [42, "GBORROWER123"] for arrays
+      _val: [42, "GBORROWER123"],
+      sym: () => {
+        throw new Error("not a sym");
+      },
+      toXDR: () => "xdr:apprv-val",
+    },
+    ledger: 200,
+    ledgerClosedAt: new Date().toISOString(),
+    txHash: "txhash-apprv-001",
+    contractId: { toString: () => "CONTRACT001" },
+  };
+}
+
+/**
+ * Build a raw Soroban event that parses as LoanLiquidated.
+ * topic[0] = "LoanLiquidated", topic[1] = loan_id=7, topic[2] = borrower="GBORROWER456", topic[3] = liquidator
+ * value    = [debt_repaid=5000, liquidator_bonus=500, borrower_refund=200]
+ */
+function makeRawLoanLiquidatedEvent(id = "liq-001"): Record<string, unknown> {
+  const makeSym = (name: string) => ({
+    sym: () => ({ toString: () => name }),
+    toXDR: (_enc: string) => `xdr:${name}`,
+  });
+
+  return {
+    id,
+    pagingToken: id,
+    topic: [
+      makeSym("LoanLiquidated"),
+      {
+        _val: 7,
+        sym: () => {
+          throw new Error("not a sym");
+        },
+        toXDR: () => "xdr:loanid",
+      },
+      {
+        _val: "GBORROWER456",
+        sym: () => {
+          throw new Error("not a sym");
+        },
+        toXDR: () => "xdr:borrower",
+      },
+      {
+        _val: "GLIQUIDATOR789",
+        sym: () => {
+          throw new Error("not a sym");
+        },
+        toXDR: () => "xdr:liquidator",
+      },
+    ],
+    value: {
+      _val: [5000n, 500n, 200n],
+      sym: () => {
+        throw new Error("not a sym");
+      },
+      toXDR: () => "xdr:liq-val",
+    },
+    ledger: 300,
+    ledgerClosedAt: new Date().toISOString(),
+    txHash: "txhash-liq-001",
+    contractId: { toString: () => "CONTRACT001" },
+  };
+}
+
 /** Run the withTransaction callback immediately using the provided mock client. */
 function stubWithTransaction(mockClient: MockClient): void {
   mockWithTransaction.mockImplementation(async (fn: TxCallback) =>
@@ -147,8 +272,21 @@ beforeAll(async () => {
       "Paused",
       "Unpaused",
       "MinScoreUpdated",
+      "InterestRateUpdated",
+      "DefaultTermUpdated",
+      "TermLimitsUpdated",
+      "LateFeeRateUpdated",
+      "GracePeriodUpdated",
+      "DefaultWindowUpdated",
+      "MaxLoanAmountUpdated",
+      "MinRepaymentUpdated",
+      "MaxLoansPerBorrower",
+      "MinRateBpsUpdated",
+      "MaxRateBpsUpdated",
+      "RateOracleUpdated",
       "PoolPaused",
       "PoolUnpaused",
+      "LoanApprv",
     ],
   }));
 
@@ -360,5 +498,112 @@ describe("EventIndexer – transaction atomicity via ingestRawEvents", () => {
 
     // withTransaction is the entry point instead
     expect(mockWithTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  it("LoanApprv: inserts audit_logs row with actor=admin, action=loan_approved", async () => {
+    const auditInsertCalls: unknown[][] = [];
+
+    const mockClient: MockClient = {
+      query: jest
+        .fn<any>()
+        .mockImplementation(async (sql: string, params: unknown[]) => {
+          if (sql.includes("INSERT INTO loan_events")) {
+            return { rowCount: 1, rows: [{ event_id: "apprv-001" }] };
+          }
+          if (sql.includes("INSERT INTO audit_logs")) {
+            auditInsertCalls.push(params);
+            return { rowCount: 1, rows: [] };
+          }
+          return { rowCount: 0, rows: [] };
+        }),
+    };
+    stubWithTransaction(mockClient);
+
+    const result = await makeIndexer().ingestRawEvents([
+      makeRawLoanApprvEvent(),
+    ]);
+
+    // Event must be counted as inserted
+    expect(result.insertedCount).toBe(1);
+
+    // Exactly one audit_logs INSERT must have been made
+    expect(auditInsertCalls).toHaveLength(1);
+
+    const [actor, action, target, payload] = auditInsertCalls[0] as [
+      string,
+      string,
+      string,
+      string,
+    ];
+
+    // actor = admin address from topic[1]
+    expect(actor).toBe("GADMIN123");
+    // action = 'loan_approved'
+    expect(action).toBe("loan_approved");
+    // target = 'loan:<loanId>'
+    expect(target).toBe("loan:42");
+
+    // payload JSON must contain loanId, borrower, txHash
+    const parsed = JSON.parse(payload);
+    expect(parsed.loanId).toBe(42);
+    expect(parsed.borrower).toBe("GBORROWER123");
+    expect(parsed.txHash).toBe("txhash-apprv-001");
+  });
+
+  it("persists admin config events into audit_logs", async () => {
+    const mockClient: MockClient = {
+      query: jest.fn<any>().mockImplementation(async (sql: string) => {
+        if (sql.includes("INSERT INTO loan_events")) {
+          return { rowCount: 1, rows: [{ event_id: "admin-evt-001" }] };
+        }
+        if (sql.includes("INSERT INTO audit_logs")) {
+          return { rowCount: 1, rows: [] };
+        }
+        return { rowCount: 0, rows: [] };
+      }),
+    };
+    stubWithTransaction(mockClient);
+
+    const result = await makeIndexer().ingestRawEvents([
+      makeRawAdminConfigEvent(),
+    ]);
+
+    expect(result.insertedCount).toBe(1);
+    expect(
+      mockClient.query.mock.calls.some(([sql]) =>
+        String(sql).includes("INSERT INTO audit_logs"),
+      ),
+    ).toBe(true);
+  });
+
+  it("LoanLiquidated: creates a loan_liquidated notification for the borrower with refund info", async () => {
+    const mockClient: MockClient = {
+      query: jest.fn<any>().mockResolvedValue({
+        rowCount: 1,
+        rows: [{ event_id: "liq-001" }],
+      }),
+    };
+    stubWithTransaction(mockClient);
+
+    await makeIndexer().ingestRawEvents([
+      makeRawLoanLiquidatedEvent("liq-001"),
+    ]);
+
+    expect(mockNotificationCreate).toHaveBeenCalledTimes(1);
+
+    const call = mockNotificationCreate.mock.calls[0]![0] as {
+      userId: string;
+      type: string;
+      title: string;
+      message: string;
+      loanId: number;
+    };
+
+    expect(call.userId).toBe("GBORROWER456");
+    expect(call.type).toBe("loan_liquidated");
+    expect(call.title).toBe("Loan Liquidated");
+    expect(call.loanId).toBe(7);
+    expect(call.message).toContain("Loan #7");
+    expect(call.message).toContain("200");
   });
 });

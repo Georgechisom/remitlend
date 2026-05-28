@@ -58,6 +58,18 @@ const supportedWebhookEventTypes = [
   "Paused",
   "Unpaused",
   "MinScoreUpdated",
+  "InterestRateUpdated",
+  "DefaultTermUpdated",
+  "TermLimitsUpdated",
+  "LateFeeRateUpdated",
+  "GracePeriodUpdated",
+  "DefaultWindowUpdated",
+  "MaxLoanAmountUpdated",
+  "MinRepaymentUpdated",
+  "MaxLoansPerBorrower",
+  "MinRateBpsUpdated",
+  "MaxRateBpsUpdated",
+  "RateOracleUpdated",
   "PoolPaused",
   "PoolUnpaused",
 ] as const;
@@ -252,6 +264,65 @@ function makeAliasedEvent(params: {
   }
 
   throw new Error(`Unsupported aliased event type: ${params.rawType}`);
+}
+
+function makeAdminConfigEvent(params: {
+  id: string;
+  ledger: number;
+  eventType:
+    | "MinScoreUpdated"
+    | "InterestRateUpdated"
+    | "DefaultTermUpdated"
+    | "TermLimitsUpdated"
+    | "LateFeeRateUpdated"
+    | "GracePeriodUpdated"
+    | "DefaultWindowUpdated"
+    | "MaxLoanAmountUpdated"
+    | "MinRepaymentUpdated"
+    | "MaxLoansPerBorrower"
+    | "MinRateBpsUpdated"
+    | "MaxRateBpsUpdated"
+    | "RateOracleUpdated";
+  admin?: string;
+}) {
+  const admin = params.admin ?? makeAddress();
+  const base = {
+    id: params.id,
+    pagingToken: `${params.ledger}`,
+    ledger: params.ledger,
+    ledgerClosedAt: "2026-03-29T00:00:00.000Z",
+    txHash: `tx-${params.id}`,
+    contractId: "CINDEXERTEST",
+  };
+
+  const withAdminTopic = new Set([
+    "LateFeeRateUpdated",
+    "GracePeriodUpdated",
+    "DefaultWindowUpdated",
+    "MaxLoanAmountUpdated",
+    "MinRepaymentUpdated",
+    "MaxLoansPerBorrower",
+    "MinRateBpsUpdated",
+    "MaxRateBpsUpdated",
+  ]);
+
+  const topic = withAdminTopic.has(params.eventType)
+    ? [scSymbol(params.eventType), scAddress(admin)]
+    : [scSymbol(params.eventType)];
+
+  if (params.eventType === "RateOracleUpdated") {
+    return {
+      ...base,
+      topic,
+      value: nativeToScVal([makeAddress(), makeAddress()]),
+    };
+  }
+
+  return {
+    ...base,
+    topic,
+    value: nativeToScVal([10, 20]),
+  };
 }
 
 describe("EventIndexer", () => {
@@ -746,5 +817,69 @@ describe("EventIndexer", () => {
     } else {
       process.env.QUARANTINE_ALERT_THRESHOLD = previousThreshold;
     }
+  });
+
+  it("parses and persists all admin config events", async () => {
+    const insertedLoanEvents: unknown[][] = [];
+    const insertedAuditRows: unknown[][] = [];
+
+    mockQuery.mockImplementation(
+      async (sql: string, params: unknown[] = []) => {
+        if (sql.includes("INSERT INTO loan_events")) {
+          insertedLoanEvents.push(params);
+          return { rows: [{ event_id: params[0] }], rowCount: 1 };
+        }
+
+        if (sql.includes("INSERT INTO audit_logs")) {
+          insertedAuditRows.push(params);
+          return { rows: [], rowCount: 1 };
+        }
+
+        return { rows: [], rowCount: 0 };
+      },
+    );
+
+    const indexer = new EventIndexer({
+      rpcUrl: "https://rpc.test",
+      contractId: "CINDEXERTEST",
+    });
+
+    const admin = makeAddress();
+    const adminEventTypes = [
+      "MinScoreUpdated",
+      "InterestRateUpdated",
+      "DefaultTermUpdated",
+      "TermLimitsUpdated",
+      "LateFeeRateUpdated",
+      "GracePeriodUpdated",
+      "DefaultWindowUpdated",
+      "MaxLoanAmountUpdated",
+      "MinRepaymentUpdated",
+      "MaxLoansPerBorrower",
+      "MinRateBpsUpdated",
+      "MaxRateBpsUpdated",
+      "RateOracleUpdated",
+    ] as const;
+
+    (indexer as unknown as { rpc: { getEvents: unknown } }).rpc = {
+      getEvents: async () => ({
+        events: adminEventTypes.map((type, index) =>
+          makeAdminConfigEvent({
+            id: `evt-admin-${type}`,
+            ledger: 200 + index,
+            eventType: type,
+            admin,
+          }),
+        ),
+      }),
+    };
+
+    await indexer.processEvents(200, 220);
+
+    expect(insertedLoanEvents).toHaveLength(adminEventTypes.length);
+    expect(insertedLoanEvents.map((params) => params[1])).toEqual(
+      adminEventTypes,
+    );
+    expect(insertedAuditRows).toHaveLength(adminEventTypes.length);
   });
 });

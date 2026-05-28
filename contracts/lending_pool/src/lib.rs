@@ -50,6 +50,8 @@ pub enum DataKey {
     TotalDeposits(Address),
     /// token → number of active depositors
     DepositorCount(Address),
+    /// token → cumulative yield explicitly distributed to the pool
+    TotalYieldDistributed(Address),
     ProposedAdmin,
     Version,
 }
@@ -61,6 +63,7 @@ pub struct PoolStats {
     pub total_shares: i128,
     pub pool_token_balance: i128,
     pub depositor_count: u32,
+    pub total_yield_distributed: i128,
     /// Fraction of tracked principal currently out on loan, in basis points.
     /// Only positive when active loans have reduced pool_balance below
     /// total_deposits.
@@ -149,6 +152,14 @@ impl LendingPool {
         env.storage()
             .instance()
             .get(&DataKey::DepositorCount(token.clone()))
+            .unwrap_or(0)
+    }
+
+    fn total_yield_distributed(env: &Env, token: &Address) -> i128 {
+        Self::bump_instance_ttl(env);
+        env.storage()
+            .instance()
+            .get(&DataKey::TotalYieldDistributed(token.clone()))
             .unwrap_or(0)
     }
 
@@ -389,6 +400,14 @@ impl LendingPool {
         Self::total_shares(&env, &token)
     }
 
+    pub fn get_depositor_count(env: Env, token: Address) -> u32 {
+        Self::read_depositor_count(&env, &token)
+    }
+
+    pub fn get_total_yield_distributed(env: Env, token: Address) -> i128 {
+        Self::total_yield_distributed(&env, &token)
+    }
+
     pub fn get_withdrawal_cooldown(env: Env) -> u32 {
         Self::withdrawal_cooldown(&env)
     }
@@ -576,6 +595,54 @@ impl LendingPool {
         Self::redeem_shares(&env, &provider, &token, shares)
     }
 
+    // ── Cooldown views ────────────────────────────────────────────────────
+
+    /// Ledger sequence at which the provider may withdraw from `token`.
+    ///
+    /// Returns 0 when the cooldown is disabled, the provider has no deposit
+    /// timestamp, or the cooldown has already elapsed.
+    pub fn get_withdrawal_available_at(
+        env: Env,
+        provider: Address,
+        token: Address,
+    ) -> u32 {
+        let cooldown = Self::withdrawal_cooldown(&env);
+        if cooldown == 0 {
+            return 0;
+        }
+
+        let Some(deposit_ledger) = Self::read_deposit_timestamp(&env, &provider, &token) else {
+            return 0;
+        };
+
+        deposit_ledger.saturating_add(cooldown)
+    }
+
+    /// Number of ledgers remaining before the provider may withdraw from `token`.
+    ///
+    /// Returns 0 when no cooldown is active, the cooldown has already expired,
+    /// or the provider has no deposit timestamp.
+    pub fn get_withdraw_cooldown_left(
+        env: Env,
+        provider: Address,
+        token: Address,
+    ) -> u32 {
+        let available_at = Self::get_withdrawal_available_at(
+            env.clone(),
+            provider.clone(),
+            token.clone(),
+        );
+        if available_at == 0 {
+            return 0;
+        }
+
+        let current = env.ledger().sequence();
+        if current >= available_at {
+            return 0;
+        }
+        available_at - current
+    }
+
     // ── Queries ───────────────────────────────────────────────────────────
 
     pub fn get_pool_stats(env: Env, token: Address) -> PoolStats {
@@ -596,6 +663,7 @@ impl LendingPool {
             total_shares,
             pool_token_balance,
             depositor_count: Self::read_depositor_count(&env, &token),
+            total_yield_distributed: Self::total_yield_distributed(&env, &token),
             utilization_bps,
         }
     }
@@ -615,6 +683,7 @@ impl LendingPool {
     }
 
     pub fn accept_admin(env: Env) -> Result<(), PoolError> {
+        let previous_admin = Self::admin(&env);
         let proposed_admin: Address = env
             .storage()
             .instance()
@@ -628,7 +697,12 @@ impl LendingPool {
         env.storage().instance().remove(&DataKey::ProposedAdmin);
         Self::bump_instance_ttl(&env);
 
-        admin_transferred(&env, proposed_admin.clone());
+        admin_transferred(
+            &env,
+            previous_admin,
+            proposed_admin.clone(),
+            Symbol::new(&env, "accept"),
+        );
         Ok(())
     }
 
@@ -640,7 +714,7 @@ impl LendingPool {
         env.storage().instance().remove(&DataKey::ProposedAdmin);
         Self::bump_instance_ttl(&env);
 
-        admin_transferred(&env, new_admin);
+        admin_transferred(&env, current_admin, new_admin, Symbol::new(&env, "govern"));
     }
 
     pub fn pause(env: Env) {

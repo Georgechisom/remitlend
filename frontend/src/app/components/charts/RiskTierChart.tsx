@@ -9,6 +9,7 @@ import {
   Tooltip,
   ResponsiveContainer,
   Cell,
+  TooltipProps,
 } from "recharts";
 import { Card, CardHeader, CardTitle, CardContent } from "../ui/Card";
 
@@ -26,15 +27,9 @@ interface RiskTierChartProps {
 export function RiskTierChart({ data, className }: RiskTierChartProps) {
   const total = data.reduce((sum, d) => sum + d.count, 0);
 
-  const CustomTooltip = ({
-    active,
-    payload,
-  }: {
-    active?: boolean;
-    payload?: { payload: RiskTierDataPoint }[];
-  }) => {
+  const CustomTooltip = ({ active, payload }: TooltipProps<RiskTierDataPoint, string>) => {
     if (active && payload && payload.length) {
-      const d = payload[0].payload;
+      const d = (payload[0] as unknown as { payload: RiskTierDataPoint }).payload;
       const pct = total > 0 ? ((d.count / total) * 100).toFixed(1) : "0.0";
       return (
         <div className="rounded-lg border border-gray-200 bg-white p-3 shadow-lg dark:border-zinc-800 dark:bg-zinc-950">

@@ -26,6 +26,8 @@ import {
   buildAmountHelperText,
   getPrecisionError,
   sanitizeAmountInput,
+  formatAmountOnBlur,
+  getAssetDecimals,
 } from "../../../utils/amount";
 
 export default function RepayLoanPage() {
@@ -49,8 +51,9 @@ export default function RepayLoanPage() {
   const [lastError, setLastError] = useState<TransactionErrorDetails | null>(null);
 
   const amountNumber = useMemo(() => Number(amount || "0"), [amount]);
+  const decimals = getAssetDecimals("USDC");
   const precisionError = getPrecisionError(amount, "USDC");
-  const helperText = buildAmountHelperText(amount, "USDC");
+  const helperText = buildAmountHelperText(amount, "USDC", decimals);
 
   const cancelFlow = () => {
     setTrackerState("cancelled");
@@ -211,8 +214,15 @@ export default function RepayLoanPage() {
             id="repayment-amount"
             type="text"
             inputMode="decimal"
+            step={Math.pow(10, -decimals)}
             value={amount}
             onChange={(event) => setAmount(sanitizeAmountInput(event.target.value))}
+            onBlur={(event) => {
+              const formatted = formatAmountOnBlur(event.target.value, "USDC");
+              if (formatted && formatted !== event.target.value) {
+                setAmount(formatted);
+              }
+            }}
             className={`mt-2 w-full rounded-2xl border bg-zinc-50 px-4 py-3 text-zinc-900 outline-none transition focus:border-indigo-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-50 ${
               precisionError ? "border-red-500" : "border-zinc-200"
             }`}
@@ -222,7 +232,7 @@ export default function RepayLoanPage() {
               precisionError ? "text-red-600 dark:text-red-400" : "text-zinc-500 dark:text-zinc-400"
             }`}
           >
-            {precisionError ?? helperText ?? "Up to 7 decimal places supported."}
+            {precisionError ?? helperText ?? `Up to ${decimals} decimal places supported.`}
           </p>
         </div>
 
