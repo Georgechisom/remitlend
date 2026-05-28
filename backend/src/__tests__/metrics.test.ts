@@ -84,7 +84,7 @@ describe("GET /metrics", () => {
     expect(response.status).toBe(200);
     expect(response.text).not.toContain("/api/loans/123");
     expect(response.text).toMatch(
-      /http_request_duration_seconds_bucket\{le="[^"]+",route="(?:\/api\/loans)?\/:loanId",status_code="401"\}/,
+      /http_request_duration_seconds_bucket\{le="[^"]+",method="GET",route="(?:\/api\/loans)?\/:loanId",status_class="4xx"\}/,
     );
   });
 });
