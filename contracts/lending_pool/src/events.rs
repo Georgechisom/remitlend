@@ -55,7 +55,7 @@ pub fn admin_proposed(env: &Env, current_admin: Address, proposed_admin: Address
     env.events().publish(topics, proposed_admin);
 }
 
-pub fn admin_transferred(env: &Env, new_admin: Address) {
-    let topics = (Symbol::new(env, "AdminTransferred"),);
-    env.events().publish(topics, new_admin);
+pub fn admin_transferred(env: &Env, previous_admin: Address, new_admin: Address, via: Symbol) {
+    let topics = (Symbol::new(env, "AdminTransferred"), via);
+    env.events().publish(topics, (previous_admin, new_admin));
 }
