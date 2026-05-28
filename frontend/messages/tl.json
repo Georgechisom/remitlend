@@ -62,6 +62,7 @@
     "dashboard": "Dashboard",
     "activity": "Aktibidad",
     "notifications": "Mga Notification",
+    "liquidations": "Liquidations",
     "adminDisputes": "Mga Dispute"
   },
   "Loans": {
@@ -266,5 +267,36 @@
   },
   "Lend": {
     "cooldownActive": "Available ang withdraw sa humigit-kumulang {minutes} minuto habang aktibo ang cooldown."
+  },
+  "Liquidations": {
+    "eyebrow": "Liquidator Console",
+    "title": "Mga Liquidatable Loan",
+    "description": "Suriin ang active positions na mababa sa liquidation threshold at magsumite ng liquidation transactions.",
+    "refresh": "I-refresh",
+    "liquidate": "I-liquidate",
+    "liquidating": "Nili-liquidate...",
+    "pending": "Binubuo ang liquidation transaction...",
+    "success": "Naisumite ang liquidation",
+    "unknownBorrower": "Hindi kilalang borrower",
+    "walletRequired": {
+      "title": "Ikonekta ang wallet",
+      "description": "Ikonekta ang liquidator wallet bago magsumite ng liquidation transactions."
+    },
+    "empty": {
+      "title": "Walang liquidatable loans",
+      "description": "Ang active loans ay kasalukuyang nasa itaas ng liquidation threshold."
+    },
+    "error": {
+      "title": "Hindi ma-load ang liquidations",
+      "description": "Suriin ang liquidations API at subukan muli."
+    },
+    "table": {
+      "loan": "Loan",
+      "borrower": "Borrower",
+      "collateral": "Collateral",
+      "debt": "Kabuuang utang",
+      "health": "Health",
+      "action": "Aksyon"
+    }
   }
 }

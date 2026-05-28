@@ -39,6 +39,7 @@ export const queryKeys = {
     detail: (id: string) => ["loans", id] as const,
     events: (id: string) => ["loans", id, "events"] as const,
     config: () => ["loans", "config"] as const,
+    liquidatable: () => ["loans", "liquidatable"] as const,
     borrowerPage: (address: string, params: Record<string, unknown>) =>
       ["loans", "borrower", address, params] as const,
   },
@@ -270,6 +271,19 @@ export interface LoanDetails {
   lateFees?: number;
   collateralLocked?: number;
 }
+
+export interface LiquidatableLoan {
+  loanId: number;
+  borrower: string;
+  collateral: number;
+  totalDebt: number;
+  healthFactor: number;
+  collateralRatio: number;
+  liquidationThreshold: number;
+  source: "contract" | "backend";
+}
+
+type RawLiquidatableLoan = Record<string, unknown>;
 
 export interface AdminDisputeLoanSummary {
   loanId: number;
@@ -533,6 +547,24 @@ function normalizePaginatedList<T>(response: RawPaginatedResponse<T[]>): Paginat
   };
 }
 
+function normalizeLiquidatableLoan(row: RawLiquidatableLoan): LiquidatableLoan {
+  const healthFactor = numberFrom(row.healthFactor ?? row.health_factor ?? row.health);
+  const collateralRatio = numberFrom(row.collateralRatio ?? row.collateral_ratio ?? row.ratio);
+
+  return {
+    loanId: numberFrom(row.loanId ?? row.loan_id ?? row.id),
+    borrower: stringFrom(row.borrower ?? row.borrowerAddress ?? row.borrower_address) ?? "",
+    collateral: numberFrom(row.collateral ?? row.collateralLocked ?? row.collateral_locked),
+    totalDebt: numberFrom(row.totalDebt ?? row.total_debt ?? row.totalOwed ?? row.total_owed),
+    healthFactor: healthFactor || collateralRatio,
+    collateralRatio: collateralRatio || healthFactor,
+    liquidationThreshold: numberFrom(
+      row.liquidationThreshold ?? row.liquidation_threshold ?? row.threshold,
+    ),
+    source: row.source === "contract" ? "contract" : "backend",
+  };
+}
+
 async function fetchRemittancesPage(
   params: CursorListParams = {},
 ): Promise<PaginatedListResult<Remittance>> {
@@ -711,6 +743,34 @@ export function useLoanAmortizationPreview(
       return response;
     },
     enabled: Boolean(params),
+    ...options,
+  });
+}
+
+export function useLiquidatableLoans(
+  options?: Omit<UseQueryOptions<LiquidatableLoan[]>, "queryKey" | "queryFn">,
+) {
+  return useQuery<LiquidatableLoan[]>({
+    queryKey: queryKeys.loans.liquidatable(),
+    queryFn: async () => {
+      const response = await apiFetch<
+        | { success: boolean; data: RawLiquidatableLoan[]; source?: "contract" | "backend" }
+        | { success: boolean; loans: RawLiquidatableLoan[]; source?: "contract" | "backend" }
+        | RawLiquidatableLoan[]
+      >("/loans/liquidatable");
+
+      const loans = Array.isArray(response)
+        ? response
+        : "loans" in response
+          ? response.loans
+          : response.data;
+
+      const fallbackSource = Array.isArray(response) ? undefined : response.source;
+      return loans.map((loan) =>
+        normalizeLiquidatableLoan({ source: fallbackSource ?? "backend", ...loan }),
+      );
+    },
+    staleTime: 30_000,
     ...options,
   });
 }
@@ -1681,6 +1741,18 @@ export async function buildExtendLoanTransaction(params: {
     body: JSON.stringify({
       borrowerPublicKey: params.borrowerPublicKey,
       extraLedgers: params.extraLedgers,
+    }),
+  });
+}
+
+export async function buildLiquidateLoanTransaction(params: {
+  loanId: string | number;
+  liquidatorPublicKey: string;
+}) {
+  return apiFetch<BuildLoanTxResponse>(`/loans/${params.loanId}/liquidate/build`, {
+    method: "POST",
+    body: JSON.stringify({
+      liquidatorPublicKey: params.liquidatorPublicKey,
     }),
   });
 }
