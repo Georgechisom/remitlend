@@ -253,6 +253,125 @@ fn test_set_withdrawal_cooldown_rejects_values_above_maximum() {
     assert_eq!(pool_client.get_withdrawal_cooldown(), 1_440);
 }
 
+// ── Cooldown view functions ───────────────────────────────────────────────────
+
+#[test]
+fn test_get_withdrawal_available_at_fresh_deposit() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let token_admin = Address::generate(&env);
+    let (token_id, stellar_asset_client, _token_client) = create_token_contract(&env, &token_admin);
+
+    let pool_id = env.register(LendingPool, ());
+    let pool_client = LendingPoolClient::new(&env, &pool_id);
+    pool_client.initialize(&token_admin);
+    pool_client.set_withdrawal_cooldown(&5);
+    assert_eq!(pool_client.get_withdrawal_cooldown(), 5);
+
+    let provider = Address::generate(&env);
+    stellar_asset_client.mint(&provider, &5_000);
+    env.ledger().set_sequence_number(100);
+    pool_client.deposit(&provider, &token_id, &1_000);
+
+    // After fresh deposit at ledger 100, withdrawal available at 100 + 5 = 105.
+    assert_eq!(
+        pool_client.get_withdrawal_available_at(&provider, &token_id),
+        105
+    );
+    // Remaining: 105 - 101 = 4 ledgers (ledger advanced to 101 after deposit tx).
+    assert!(
+        pool_client.get_withdraw_cooldown_left(&provider, &token_id) > 0,
+        "cooldown should be active immediately after deposit"
+    );
+}
+
+#[test]
+fn test_get_withdrawal_available_at_after_cooldown() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let token_admin = Address::generate(&env);
+    let (token_id, stellar_asset_client, _token_client) = create_token_contract(&env, &token_admin);
+
+    let pool_id = env.register(LendingPool, ());
+    let pool_client = LendingPoolClient::new(&env, &pool_id);
+    pool_client.initialize(&token_admin);
+    pool_client.set_withdrawal_cooldown(&5);
+    assert_eq!(pool_client.get_withdrawal_cooldown(), 5);
+
+    let provider = Address::generate(&env);
+    stellar_asset_client.mint(&provider, &5_000);
+    env.ledger().set_sequence_number(100);
+    pool_client.deposit(&provider, &token_id, &1_000);
+
+    // Advance exactly to the available-at ledger
+    env.ledger().set_sequence_number(105);
+    // Remaining should be 0 because cooldown has elapsed
+    assert_eq!(
+        pool_client.get_withdraw_cooldown_left(&provider, &token_id),
+        0
+    );
+    // Available_at still returns the same value
+    assert_eq!(
+        pool_client.get_withdrawal_available_at(&provider, &token_id),
+        105
+    );
+}
+
+#[test]
+fn test_get_withdrawal_available_at_no_deposit() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let token_admin = Address::generate(&env);
+    let (token_id, _stellar_asset_client, _token_client) =
+        create_token_contract(&env, &token_admin);
+
+    let pool_id = env.register(LendingPool, ());
+    let pool_client = LendingPoolClient::new(&env, &pool_id);
+    pool_client.initialize(&token_admin);
+
+    let provider = Address::generate(&env);
+    assert_eq!(
+        pool_client.get_withdrawal_available_at(&provider, &token_id),
+        0
+    );
+    assert_eq!(
+        pool_client.get_withdraw_cooldown_left(&provider, &token_id),
+        0
+    );
+}
+
+#[test]
+fn test_get_withdrawal_available_at_cooldown_disabled() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let token_admin = Address::generate(&env);
+    let (token_id, stellar_asset_client, _token_client) = create_token_contract(&env, &token_admin);
+
+    let pool_id = env.register(LendingPool, ());
+    let pool_client = LendingPoolClient::new(&env, &pool_id);
+    pool_client.initialize(&token_admin);
+    pool_client.set_withdrawal_cooldown(&0);
+    assert_eq!(pool_client.get_withdrawal_cooldown(), 0);
+
+    let provider = Address::generate(&env);
+    stellar_asset_client.mint(&provider, &5_000);
+    env.ledger().set_sequence_number(100);
+    pool_client.deposit(&provider, &token_id, &1_000);
+
+    assert_eq!(
+        pool_client.get_withdrawal_available_at(&provider, &token_id),
+        0
+    );
+    assert_eq!(
+        pool_client.get_withdraw_cooldown_left(&provider, &token_id),
+        0
+    );
+}
+
 #[test]
 fn test_emergency_withdraw_bypasses_pause_and_cooldown() {
     let env = Env::default();

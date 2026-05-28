@@ -595,6 +595,54 @@ impl LendingPool {
         Self::redeem_shares(&env, &provider, &token, shares)
     }
 
+    // ── Cooldown views ────────────────────────────────────────────────────
+
+    /// Ledger sequence at which the provider may withdraw from `token`.
+    ///
+    /// Returns 0 when the cooldown is disabled, the provider has no deposit
+    /// timestamp, or the cooldown has already elapsed.
+    pub fn get_withdrawal_available_at(
+        env: Env,
+        provider: Address,
+        token: Address,
+    ) -> u32 {
+        let cooldown = Self::withdrawal_cooldown(&env);
+        if cooldown == 0 {
+            return 0;
+        }
+
+        let Some(deposit_ledger) = Self::read_deposit_timestamp(&env, &provider, &token) else {
+            return 0;
+        };
+
+        deposit_ledger.saturating_add(cooldown)
+    }
+
+    /// Number of ledgers remaining before the provider may withdraw from `token`.
+    ///
+    /// Returns 0 when no cooldown is active, the cooldown has already expired,
+    /// or the provider has no deposit timestamp.
+    pub fn get_withdraw_cooldown_left(
+        env: Env,
+        provider: Address,
+        token: Address,
+    ) -> u32 {
+        let available_at = Self::get_withdrawal_available_at(
+            env.clone(),
+            provider.clone(),
+            token.clone(),
+        );
+        if available_at == 0 {
+            return 0;
+        }
+
+        let current = env.ledger().sequence();
+        if current >= available_at {
+            return 0;
+        }
+        available_at - current
+    }
+
     // ── Queries ───────────────────────────────────────────────────────────
 
     pub fn get_pool_stats(env: Env, token: Address) -> PoolStats {
