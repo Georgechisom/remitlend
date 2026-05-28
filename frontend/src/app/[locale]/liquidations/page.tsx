@@ -160,9 +160,7 @@ export default function LiquidationsPage() {
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-red-600">
             {t("eyebrow")}
           </p>
-          <h1 className="mt-2 text-3xl font-bold text-zinc-900 dark:text-zinc-50">
-            {t("title")}
-          </h1>
+          <h1 className="mt-2 text-3xl font-bold text-zinc-900 dark:text-zinc-50">{t("title")}</h1>
           <p className="mt-2 max-w-2xl text-sm text-zinc-500 dark:text-zinc-400">
             {t("description")}
           </p>
