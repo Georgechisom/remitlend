@@ -12,7 +12,7 @@ export async function getInactiveBorrowers() {
   const result = await query(`
     SELECT b.id, b.score, MAX(e.ledger_closed_at) AS last_repayment
     FROM borrowers b
-    LEFT JOIN loan_events e ON b.id = e.borrower AND e.event_type = 'LoanRepaid'
+    LEFT JOIN contract_events e ON b.id = e.address AND e.event_type = 'LoanRepaid'
     GROUP BY b.id, b.score
     HAVING MAX(e.ledger_closed_at) IS NULL OR MAX(e.ledger_closed_at) < NOW() - INTERVAL '1 month'
   `);
@@ -20,19 +20,26 @@ export async function getInactiveBorrowers() {
 }
 
 // Apply score decay to a borrower based on inactivity
-export async function applyScoreDecay(borrower: { id: string; score: number; last_repayment: string | null }) {
+export async function applyScoreDecay(borrower: {
+  id: string;
+  score: number;
+  last_repayment: string | null;
+}) {
   const lastRepayment = borrower.last_repayment;
   const now = new Date();
   let monthsInactive = 1;
   if (lastRepayment) {
     const last = new Date(lastRepayment);
-    monthsInactive = Math.max(1, Math.floor((now.getTime() - last.getTime()) / (30 * 24 * 60 * 60 * 1000)));
+    monthsInactive = Math.max(
+      1,
+      Math.floor((now.getTime() - last.getTime()) / (30 * 24 * 60 * 60 * 1000)),
+    );
   }
   const decay = monthsInactive * DECAY_PER_MONTH;
   const newScore = Math.max(MIN_SCORE, borrower.score - decay);
-  await query(
-    `UPDATE borrowers SET score = $1 WHERE id = $2`,
-    [newScore, borrower.id]
-  );
+  await query(`UPDATE borrowers SET score = $1 WHERE id = $2`, [
+    newScore,
+    borrower.id,
+  ]);
   return newScore;
 }

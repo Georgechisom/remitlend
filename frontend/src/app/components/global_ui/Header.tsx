@@ -13,6 +13,7 @@ import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { ThemeToggle } from "../ui/ThemeToggle";
 import { NotificationDropdown } from "./NotificationDropdown";
+import { RecentTransactionsDrawer } from "../transaction/RecentTransactionsDrawer";
 import { useWalletStore } from "../../stores/useWalletStore";
 import { useUserStore } from "../../stores/useUserStore";
 import { useGamificationStore } from "../../stores/useGamificationStore";
@@ -63,11 +64,9 @@ export function Header({ onMenuClick, className }: HeaderProps) {
     () => [
       { name: t("dashboard"), href: `/${locale}` },
       { name: t("loans"), href: `/${locale}/loans` },
-      { name: "Remittances", href: `/${locale}/remittances` },
       { name: "Lend", href: `/${locale}/lend` },
       { name: "Analytics", href: `/${locale}/analytics` },
       { name: "Wallet", href: `/${locale}/wallet` },
-      { name: "Settings", href: `/${locale}/settings` },
     ],
     [locale, t],
   );
@@ -143,7 +142,7 @@ export function Header({ onMenuClick, className }: HeaderProps) {
   useEffect(() => {
     const timeout = window.setTimeout(() => {
       setDebouncedQuery(query);
-    }, 250);
+    }, 300);
 
     return () => window.clearTimeout(timeout);
   }, [query]);
@@ -377,6 +376,8 @@ export function Header({ onMenuClick, className }: HeaderProps) {
         <div className="h-8 w-px bg-zinc-200 dark:bg-zinc-800 hidden sm:block" />
 
         <ThemeToggle />
+
+        <RecentTransactionsDrawer />
 
         <NotificationDropdown />
 

@@ -23,6 +23,7 @@ jest.unstable_mockModule("../db/connection.js", () => ({
   query: mockQuery,
   getClient: jest.fn(),
   closePool: jest.fn(),
+  withTransaction: jest.fn(),
 }));
 
 jest.unstable_mockModule("../services/cacheService.js", () => ({
@@ -157,7 +158,7 @@ describe("pagination and filtering", () => {
       has_previous: true,
       has_next: true,
     });
-    expect(response.body.data.borrower).toBe(borrower);
+    expect(response.body.data.address).toBe(borrower);
     expect(response.body.data.events[0].event_type).toBe("LoanRepaid");
 
     expect(mockQuery).toHaveBeenCalledTimes(2);

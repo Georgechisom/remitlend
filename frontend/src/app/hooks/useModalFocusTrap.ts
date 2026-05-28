@@ -11,7 +11,8 @@ function getFocusableElements(container: HTMLElement | null): HTMLElement[] {
   }
 
   return Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
-    (element) => !element.hasAttribute("disabled") && element.getAttribute("aria-hidden") !== "true",
+    (element) =>
+      !element.hasAttribute("disabled") && element.getAttribute("aria-hidden") !== "true",
   );
 }
 

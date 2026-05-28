@@ -3,6 +3,7 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { query } from "../db/connection.js";
 import { cacheService } from "../services/cacheService.js";
 import { AppError } from "../errors/AppError.js";
+import { sorobanService } from "../services/sorobanService.js";
 
 // ---------------------------------------------------------------------------
 // Score computation helpers
@@ -186,8 +187,8 @@ export const getScoreBreakdown = asyncHandler(
            ledger_closed_at,
            amount,
            term_ledgers
-         FROM loan_events
-         WHERE borrower = $1
+         FROM contract_events
+         WHERE address = $1
        ),
        -- Loan approval details (ledger and term)
        approved_loans AS (
@@ -285,8 +286,8 @@ export const getScoreBreakdown = asyncHandler(
       `SELECT 
          event_type,
          ledger_closed_at
-       FROM loan_events
-       WHERE borrower = $1 AND event_type IN ('LoanRepaid', 'LoanDefaulted')
+       FROM contract_events
+       WHERE address = $1 AND event_type IN ('LoanRepaid', 'LoanDefaulted')
        ORDER BY ledger_closed_at ASC`,
       [userId],
     );
@@ -343,5 +344,62 @@ export const getScoreBreakdown = asyncHandler(
     await cacheService.set(cacheKey, responseData, 300);
 
     res.json({ success: true, ...responseData });
+  },
+);
+
+/**
+ * GET /api/score/:walletAddress/history
+ *
+ * Reads score history from the RemittanceNFT contract and returns a full timeline.
+ * Cached for 60 seconds to avoid excessive Soroban RPC reads.
+ */
+export const getOnChainScoreHistory = asyncHandler(
+  async (req: Request, res: Response) => {
+    const { walletAddress } = req.params as { walletAddress: string };
+
+    const cacheKey = `score:history:onchain:${walletAddress}`;
+    const cached = await cacheService.get<{
+      walletAddress: string;
+      history: Array<{ score: number; timestamp: number; reason: string }>;
+    }>(cacheKey);
+
+    if (cached) {
+      res.json({ success: true, ...cached });
+      return;
+    }
+
+    const history = await sorobanService.getOnChainScoreHistory(walletAddress);
+
+    const response = { walletAddress, history };
+    await cacheService.set(cacheKey, response, 60);
+
+    res.json({ success: true, ...response });
+  },
+);
+
+/**
+ * GET /api/score/:walletAddress/nft
+ *
+ * Reads the user's RemittanceNFT metadata and adjacent counters from the
+ * RemittanceNFT contract. Returns `nft: null` when no NFT exists yet.
+ */
+export const getRemittanceNft = asyncHandler(
+  async (req: Request, res: Response) => {
+    const { walletAddress } = req.params as { walletAddress: string };
+
+    const cacheKey = `score:nft:${walletAddress}`;
+    const cached = await cacheService.get<Record<string, unknown>>(cacheKey);
+    if (cached) {
+      res.json({ success: true, walletAddress, nft: cached });
+      return;
+    }
+
+    const nft = await sorobanService.getRemittanceNftMetadata(walletAddress);
+
+    if (nft) {
+      await cacheService.set(cacheKey, nft, 60);
+    }
+
+    res.json({ success: true, walletAddress, nft });
   },
 );

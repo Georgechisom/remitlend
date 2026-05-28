@@ -45,9 +45,7 @@ export function LoanList({
         title={emptyTitle}
         description={emptyDescription}
         actionLabel={showRequestLoanButton ? "Request your first loan" : undefined}
-        onAction={
-          showRequestLoanButton ? () => router.push(`/${locale}/request-loan`) : undefined
-        }
+        onAction={showRequestLoanButton ? () => router.push(`/${locale}/request-loan`) : undefined}
         actionIcon={<ArrowRight className="h-4 w-4" />}
       />
     );

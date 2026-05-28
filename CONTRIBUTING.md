@@ -11,6 +11,7 @@ This document provides a set of guidelines for contributing to RemitLend and its
 - [Branching Strategy](#branching-strategy)
 - [Commit Message Guidelines](#commit-message-guidelines)
 - [Pull Request Standards](#pull-request-standards)
+- [Environment Variables](#environment-variables)
 - [Testing Requirements](#testing-requirements)
 - [Style Guides](#style-guides)
 
@@ -21,6 +22,12 @@ By participating in this project, you agree to maintain a respectful, inclusive,
 ## Development Workflow
 
 We follow a **Feature-Branch-to-Main** workflow. All development work should happen in feature branches and be merged into `main` via Pull Requests.
+
+### Architecture & Contributor Wiki
+
+If you're new to the codebase, start with:
+- `docs/wiki/README.md` (high-level contributor wiki)
+- `ARCHITECTURE.md` (system overview).
 
 ```mermaid
 graph TD
@@ -84,6 +91,10 @@ When opening a PR, ensure your description includes:
     - [ ] Tests have been added/updated and pass.
     - [ ] Documentation has been updated.
     - [ ] Commit messages follow standards.
+
+## Environment Variables
+
+Before setting up the project locally, review the full environment variable reference in [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md). Each `.env.example` file contains a pointer to this canonical reference. If you add a new environment variable, update both the relevant `.env.example` and the table in `ENVIRONMENT.md`.
 
 ## Testing Requirements
 

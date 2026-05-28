@@ -79,10 +79,7 @@ const Modal: React.FC<ModalProps> = ({
           >
             <div className="flex items-center justify-between border-b border-gray-100 p-6 dark:border-zinc-800">
               {title && (
-                <h3
-                  id={titleId}
-                  className="text-xl font-semibold text-gray-900 dark:text-zinc-100"
-                >
+                <h3 id={titleId} className="text-xl font-semibold text-gray-900 dark:text-zinc-100">
                   {title}
                 </h3>
               )}

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { requireApiKey } from "../middleware/auth.js";
+import { requireJwtAuth, requireRoles } from "../middleware/jwtAuth.js";
 import { strictRateLimiter } from "../middleware/rateLimiter.js";
 import { validateBody } from "../middleware/validation.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
@@ -15,7 +16,14 @@ import {
   reprocessQuarantinedEvents,
   reindexLedgerRange,
 } from "../controllers/indexerController.js";
-import { listLoanDisputes, resolveLoanDispute } from "../controllers/adminDisputeController.js";
+import {
+  listLoanDisputes,
+  resolveLoanDispute,
+  getLoanDispute,
+  rejectLoanDispute,
+} from "../controllers/adminDisputeController.js";
+import { getPendingGovernance } from "../controllers/adminGovernanceController.js";
+import { query } from "../db/connection.js";
 
 const router = Router();
 
@@ -56,20 +64,111 @@ const router = Router();
  *               action:
  *                 type: string
  *                 enum: [confirm, reverse]
- *                 description: Action to take
+ *                 description: Action to take on the dispute
  *               resolution:
  *                 type: string
- *                 description: Reason for resolution
+ *                 description: Detailed reason for resolution (minimum 5 characters)
+ *               adminNote:
+ *                 type: string
+ *                 description: Optional admin note visible to borrower
  *     responses:
  *       200:
- *         description: Dispute resolved
+ *         description: Dispute resolved and borrower notified
+ *       400:
+ *         description: Validation error
  */
-router.get("/loan-disputes", requireApiKey, listLoanDisputes);
-router.post("/loan-disputes/:disputeId/resolve", requireApiKey, resolveLoanDispute);
+router.get("/loan-disputes", requireApiKey("admin:disputes"), listLoanDisputes);
+router.post(
+  "/loan-disputes/:disputeId/resolve",
+  requireApiKey("admin:disputes"),
+  resolveLoanDispute,
+);
+// New admin JWT-protected endpoints
+router.get(
+  "/disputes",
+  requireJwtAuth,
+  requireRoles("admin"),
+  listLoanDisputes,
+);
+router.get(
+  "/disputes/:disputeId",
+  requireJwtAuth,
+  requireRoles("admin"),
+  getLoanDispute,
+);
+router.post(
+  "/disputes/:disputeId/resolve",
+  requireJwtAuth,
+  requireRoles("admin"),
+  resolveLoanDispute,
+);
+router.post(
+  "/disputes/:disputeId/reject",
+  requireJwtAuth,
+  requireRoles("admin"),
+  rejectLoanDispute,
+);
+
+router.get(
+  "/governance/pending",
+  requireJwtAuth,
+  requireRoles("admin"),
+  getPendingGovernance,
+);
 
 const checkDefaultsBodySchema = z.object({
-  loanIds: z.array(z.number().int().positive()).optional(),
+  loanIds: z
+    .array(z.number().int().positive())
+    .max(1000, "max 1000 loan IDs per request")
+    .optional(),
 });
+
+/**
+ * @swagger
+ * /admin/check-defaults:
+ *   post:
+ *     summary: Trigger manual on-chain default checks for a set of loans
+ *     description: >
+ *       Calls the LoanManager `check_defaults` contract function for the
+ *       provided loan IDs (or all overdue loans if IDs are omitted).
+ *       Bounded to a maximum of 1000 IDs per request for security.
+ *     tags: [Admin]
+ *     security:
+ *       - ApiKeyAuth: []
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               loanIds:
+ *                 type: array
+ *                 items:
+ *                   type: integer
+ *                 maxItems: 1000
+ *                 description: Explicit list of loan IDs to check
+ *     responses:
+ *       200:
+ *         description: Default check run completed
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/DefaultCheckRunResult'
+ *       400:
+ *         description: Validation error or too many IDs
+ */
+router.post(
+  "/check-defaults",
+  requireApiKey("admin:loans"),
+  strictRateLimiter,
+  auditLog,
+  validateBody(checkDefaultsBodySchema),
+  asyncHandler(async (req, res) => {
+    const result = await defaultChecker.checkOverdueLoans(req.body.loanIds);
+    res.json(result);
+  }),
+);
 
 /**
  * @swagger
@@ -100,7 +199,7 @@ const checkDefaultsBodySchema = z.object({
  */
 router.post(
   "/reindex",
-  requireApiKey,
+  requireApiKey("admin:indexer"),
   strictRateLimiter,
   auditLog,
   reindexLedgerRange,
@@ -130,7 +229,11 @@ router.post(
  *       200:
  *         description: Quarantined events retrieved
  */
-router.get("/quarantine-events", requireApiKey, listQuarantinedEvents);
+router.get(
+  "/quarantine-events",
+  requireApiKey("admin:indexer"),
+  listQuarantinedEvents,
+);
 
 /**
  * @swagger
@@ -160,7 +263,7 @@ router.get("/quarantine-events", requireApiKey, listQuarantinedEvents);
  */
 router.post(
   "/quarantine-events/reprocess",
-  requireApiKey,
+  requireApiKey("admin:indexer"),
   strictRateLimiter,
   auditLog,
   reprocessQuarantinedEvents,
@@ -197,6 +300,18 @@ router.post(
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/WebhookSubscriptionResponse'
+ */
+router.post(
+  "/webhooks",
+  requireApiKey("admin:webhooks"),
+  strictRateLimiter,
+  auditLog,
+  createWebhookSubscription,
+);
+
+/**
+ * @swagger
+ * /admin/webhooks:
  *   get:
  *     summary: List webhook subscriptions
  *     tags: [Admin]
@@ -210,14 +325,11 @@ router.post(
  *             schema:
  *               $ref: '#/components/schemas/WebhookSubscriptionListResponse'
  */
-router.post(
+router.get(
   "/webhooks",
-  requireApiKey,
-  strictRateLimiter,
-  auditLog,
-  createWebhookSubscription,
+  requireApiKey("admin:webhooks"),
+  listWebhookSubscriptions,
 );
-router.get("/webhooks", requireApiKey, listWebhookSubscriptions);
 
 /**
  * @swagger
@@ -243,7 +355,7 @@ router.get("/webhooks", requireApiKey, listWebhookSubscriptions);
  */
 router.delete(
   "/webhooks/:id",
-  requireApiKey,
+  requireApiKey("admin:webhooks"),
   strictRateLimiter,
   auditLog,
   deleteWebhookSubscription,
@@ -277,6 +389,39 @@ router.delete(
  *             schema:
  *               $ref: '#/components/schemas/WebhookDeliveriesResponse'
  */
-router.get("/webhooks/:id/deliveries", requireApiKey, getWebhookDeliveries);
+router.get(
+  "/webhooks/:id/deliveries",
+  requireApiKey("admin:webhooks"),
+  getWebhookDeliveries,
+);
+
+/**
+ * @swagger
+ * /admin/webhooks/retry-status:
+ *   get:
+ *     summary: Get status of failed webhooks and retry queue
+ *     tags: [Admin]
+ *     security:
+ *       - ApiKeyAuth: []
+ *     responses:
+ *       200:
+ *         description: Retry status information
+ */
+router.get(
+  "/webhooks/retry-status",
+  requireApiKey("admin:webhooks"),
+  asyncHandler(async (req, res) => {
+    const result = await query(`
+      SELECT 
+        COUNT(*) as total_failed,
+        COUNT(*) FILTER (WHERE attempt_count >= 5) as permanently_failed,
+        COUNT(*) FILTER (WHERE next_retry_at IS NOT NULL) as pending_retry
+      FROM webhook_deliveries
+      WHERE delivered_at IS NULL
+    `);
+
+    res.json(result.rows[0]);
+  }),
+);
 
 export default router;

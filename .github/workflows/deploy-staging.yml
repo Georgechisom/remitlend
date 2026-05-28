@@ -60,6 +60,28 @@ jobs:
             ghcr.io/${{ env.OWNER_LC }}/remitlend-frontend:staging-latest
           target: runner
 
+      - name: Smoke-test the backend staging image
+        run: |
+          set -e
+          REPO=ghcr.io/${{ env.OWNER_LC }}/remitlend-backend
+          docker pull "${REPO}:staging-${{ github.sha }}"
+          docker run -d --name remitlend-smoke -p 3001:3001 \
+            -e NODE_ENV=production \
+            "${REPO}:staging-${{ github.sha }}"
+          echo "Waiting for /health to report healthy..."
+          ok=""
+          for i in $(seq 1 20); do
+            if curl -fsS http://localhost:3001/health >/dev/null 2>&1; then ok=1; break; fi
+            sleep 3
+          done
+          docker logs remitlend-smoke || true
+          docker rm -f remitlend-smoke >/dev/null 2>&1 || true
+          if [ -z "$ok" ]; then
+            echo "::error::backend staging image failed the /health smoke test"
+            exit 1
+          fi
+          echo "Backend staging image passed the /health smoke test."
+
   deploy:
     needs: build-and-push
     if: ${{ vars.STAGING_ENABLED == 'true' }}

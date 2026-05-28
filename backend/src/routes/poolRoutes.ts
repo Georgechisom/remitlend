@@ -2,6 +2,7 @@ import { Router } from "express";
 import {
   getPoolStats,
   getDepositorPortfolio,
+  getDepositorYieldHistory,
   depositToPool,
   withdrawFromPool,
   submitPoolTransaction,
@@ -15,7 +16,11 @@ import {
 import { validate, validateBody } from "../middleware/validation.js";
 import { idempotencyMiddleware } from "../middleware/idempotency.js";
 import { addressParamSchema } from "../schemas/stellarSchemas.js";
-import { buildPoolTransactionSchema, submitTxSchema } from "../schemas/poolSchemas.js";
+import {
+  buildPoolTransactionSchema,
+  getDepositorYieldHistorySchema,
+  submitTxSchema,
+} from "../schemas/poolSchemas.js";
 
 const router = Router();
 
@@ -86,6 +91,52 @@ router.get(
   requireWalletParamMatchesJwt("address"),
   validate(addressParamSchema),
   getDepositorPortfolio,
+);
+
+/**
+ * @swagger
+ * /pool/depositor/{address}/yield-history:
+ *   get:
+ *     summary: Get per-depositor yield history
+ *     description: >
+ *       Returns a bounded time series of deposited value, current share value,
+ *       and net yield for the authenticated depositor. Supports `days` query
+ *       param (7, 30, or 90).
+ *     tags: [Pool]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: address
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: days
+ *         schema:
+ *           type: integer
+ *           enum: [7, 30, 90]
+ *           default: 30
+ *       - in: query
+ *         name: token
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Yield history retrieved successfully
+ *       401:
+ *         description: Missing or invalid Bearer token
+ *       403:
+ *         description: address does not match authenticated wallet
+ */
+router.get(
+  "/depositor/:address/yield-history",
+  requireJwtAuth,
+  requireLender,
+  requireScopes("read:pool"),
+  requireWalletParamMatchesJwt("address"),
+  validate(getDepositorYieldHistorySchema),
+  getDepositorYieldHistory,
 );
 
 /**

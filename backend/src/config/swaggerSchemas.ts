@@ -445,6 +445,23 @@ export const swaggerSchemas = {
     },
     required: ["success", "data"],
   },
+  NotificationPreferences: {
+    type: "object",
+    properties: {
+      emailEnabled: { type: "boolean", example: true },
+      smsEnabled: { type: "boolean", example: false },
+      phone: {
+        type: "string",
+        nullable: true,
+        example: "+14155552671",
+      },
+      perTypeOverrides: {
+        type: "object",
+        additionalProperties: { type: "boolean" },
+      },
+    },
+    required: ["emailEnabled", "smsEnabled", "phone", "perTypeOverrides"],
+  },
   EventConnectionCounts: {
     type: "object",
     properties: {
@@ -750,6 +767,7 @@ export const swaggerSchemas = {
     properties: {
       loanIds: {
         type: "array",
+        maxItems: 1000,
         items: { type: "integer" },
       },
       txHash: { type: "string" },

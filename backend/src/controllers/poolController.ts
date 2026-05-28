@@ -2,12 +2,30 @@ import { Request, Response } from "express";
 import { query } from "../db/connection.js";
 import { withStellarAndDbTransaction } from "../db/transaction.js";
 import { AppError } from "../errors/AppError.js";
-import { ErrorCode } from "../errors/errorCodes.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { sorobanService } from "../services/sorobanService.js";
+import {
+  buildDepositorYieldHistory,
+  computeApy,
+  normalizeYieldHistoryDays,
+} from "../services/yieldHistoryService.js";
 import logger from "../utils/logger.js";
+import {
+  invalidateOnDeposit,
+  invalidateOnWithdraw,
+} from "../utils/cacheKeys.js";
 
 const ANNUAL_APY = 0.08; // 8% annual yield paid to depositors
+
+/**
+ * Parse a database value to a finite number, returning `fallback` (default 0)
+ * when the input is null, undefined, an empty string, or non-finite (NaN / Infinity).
+ * Prevents silent NaN propagation when SQL aggregations return null for empty tables.
+ */
+function safeFloat(value: unknown, fallback = 0): number {
+  const n = parseFloat(String(value ?? fallback));
+  return Number.isFinite(n) ? n : fallback;
+}
 
 /**
  * GET /api/pool/stats
@@ -15,16 +33,17 @@ const ANNUAL_APY = 0.08; // 8% annual yield paid to depositors
  */
 export const getPoolStats = asyncHandler(
   async (_req: Request, res: Response) => {
-    const [depositResult, loanResult] = await Promise.all([
-      query(`
+    const [depositResult, loanResult, withdrawalCooldownLedgers] =
+      await Promise.all([
+        query(`
       SELECT
         COALESCE(SUM(CASE WHEN event_type = 'Deposit' THEN CAST(amount AS NUMERIC) ELSE 0 END), 0)
           - COALESCE(SUM(CASE WHEN event_type = 'Withdraw' THEN CAST(amount AS NUMERIC) ELSE 0 END), 0)
         AS total_deposits
-      FROM loan_events
+      FROM contract_events
       WHERE event_type IN ('Deposit', 'Withdraw')
     `),
-      query(`
+        query(`
       SELECT
         COALESCE(COUNT(DISTINCT loan_id) FILTER (
           WHERE event_type = 'LoanApproved'
@@ -32,20 +51,16 @@ export const getPoolStats = asyncHandler(
         COALESCE(SUM(CASE WHEN event_type = 'LoanApproved' THEN CAST(amount AS NUMERIC) ELSE 0 END), 0)
           - COALESCE(SUM(CASE WHEN event_type = 'LoanRepaid' THEN CAST(amount AS NUMERIC) ELSE 0 END), 0)
         AS total_outstanding
-      FROM loan_events
+      FROM contract_events
       WHERE event_type IN ('LoanApproved', 'LoanRepaid')
     `),
-    ]);
+        sorobanService.getWithdrawalCooldownLedgers().catch(() => 0),
+      ]);
 
-    const totalDeposits = parseFloat(
-      depositResult.rows[0]?.total_deposits ?? "0",
-    );
-    const totalOutstanding = parseFloat(
-      loanResult.rows[0]?.total_outstanding ?? "0",
-    );
-    const activeLoansCount = parseInt(
-      loanResult.rows[0]?.active_loans_count ?? "0",
-      10,
+    const totalDeposits = safeFloat(depositResult.rows[0]?.total_deposits);
+    const totalOutstanding = safeFloat(loanResult.rows[0]?.total_outstanding);
+    const activeLoansCount = Math.trunc(
+      safeFloat(loanResult.rows[0]?.active_loans_count),
     );
 
     const utilizationRate =
@@ -60,6 +75,7 @@ export const getPoolStats = asyncHandler(
         apy: ANNUAL_APY,
         activeLoansCount,
         poolTokenAddress: process.env.POOL_TOKEN_ADDRESS,
+        withdrawalCooldownLedgers,
       },
     });
   },
@@ -80,10 +96,11 @@ export const getDepositorPortfolio = asyncHandler(
         COALESCE(SUM(CASE WHEN event_type = 'Deposit' THEN CAST(amount AS NUMERIC) ELSE 0 END), 0)
           - COALESCE(SUM(CASE WHEN event_type = 'Withdraw' THEN CAST(amount AS NUMERIC) ELSE 0 END), 0)
         AS deposit_amount,
-        MIN(CASE WHEN event_type = 'Deposit' THEN ledger_closed_at END) AS first_deposit_at
-      FROM loan_events
+        MIN(CASE WHEN event_type = 'Deposit' THEN ledger_closed_at END) AS first_deposit_at,
+        MAX(CASE WHEN event_type = 'Deposit' THEN ledger_closed_at END) AS last_deposit_at
+      FROM contract_events
       WHERE event_type IN ('Deposit', 'Withdraw')
-        AND borrower = $1
+        AND address = $1
       `,
         [address],
       ),
@@ -92,16 +109,15 @@ export const getDepositorPortfolio = asyncHandler(
         COALESCE(SUM(CASE WHEN event_type = 'Deposit' THEN CAST(amount AS NUMERIC) ELSE 0 END), 0)
           - COALESCE(SUM(CASE WHEN event_type = 'Withdraw' THEN CAST(amount AS NUMERIC) ELSE 0 END), 0)
         AS pool_total
-      FROM loan_events
+      FROM contract_events
       WHERE event_type IN ('Deposit', 'Withdraw')
     `),
     ]);
 
-    const depositAmount = parseFloat(
-      depositorResult.rows[0]?.deposit_amount ?? "0",
-    );
-    const poolTotal = parseFloat(poolTotalResult.rows[0]?.pool_total ?? "0");
+    const depositAmount = safeFloat(depositorResult.rows[0]?.deposit_amount);
+    const poolTotal = safeFloat(poolTotalResult.rows[0]?.pool_total);
     const firstDepositAt = depositorResult.rows[0]?.first_deposit_at ?? null;
+    const lastDepositAt = depositorResult.rows[0]?.last_deposit_at ?? null;
 
     const sharePercent = poolTotal > 0 ? depositAmount / poolTotal : 0;
 
@@ -124,8 +140,69 @@ export const getDepositorPortfolio = asyncHandler(
         estimatedYield: parseFloat(estimatedYield.toFixed(7)),
         apy: ANNUAL_APY,
         firstDepositAt,
+        lastDepositAt,
       },
     });
+  },
+);
+
+/**
+ * GET /api/pool/depositor/:address/yield-history
+ * Returns a time series of depositor yield reconstructed from indexed pool events.
+ */
+export const getDepositorYieldHistory = asyncHandler(
+  async (req: Request, res: Response) => {
+    const address = req.params.address as string;
+    const days = normalizeYieldHistoryDays(
+      req.query.days ? Number(req.query.days) : undefined,
+    );
+    const token =
+      typeof req.query.token === "string" && req.query.token.length > 0
+        ? req.query.token
+        : process.env.POOL_TOKEN_ADDRESS;
+
+    if (!token) {
+      throw AppError.internal("POOL_TOKEN_ADDRESS is not configured");
+    }
+
+    let currentSharePrice: number | undefined;
+    try {
+      currentSharePrice = await sorobanService.getSharePrice(token);
+    } catch (error) {
+      logger.warn("Could not fetch on-chain share price for yield history", {
+        address,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    const history = await buildDepositorYieldHistory(
+      address,
+      token,
+      days,
+      currentSharePrice,
+    );
+
+    const firstTimestamp = history[0]?.timestamp;
+    const daysElapsed = firstTimestamp
+      ? Math.max(
+          1,
+          (Date.now() - new Date(firstTimestamp).getTime()) /
+            (1000 * 60 * 60 * 24),
+        )
+      : 1;
+
+    const data = history.map((point) => ({
+      timestamp: point.timestamp,
+      depositedValue: point.depositedValue,
+      currentValue: point.currentValue,
+      netYield: point.netYield,
+      date: point.timestamp,
+      earnings: point.netYield,
+      principal: point.depositedValue,
+      apy: computeApy(point.netYield, point.depositedValue, daysElapsed),
+    }));
+
+    res.json({ success: true, data });
   },
 );
 
@@ -158,6 +235,9 @@ export const depositToPool = asyncHandler(
       token,
       amount,
     );
+
+    // Invalidate stale pool stats cache now that a deposit has been initiated
+    await invalidateOnDeposit(depositorPublicKey);
 
     logger.info("Deposit transaction built", {
       depositor: depositorPublicKey,
@@ -203,6 +283,9 @@ export const withdrawFromPool = asyncHandler(
       token,
       amount,
     );
+
+    // Invalidate stale pool stats cache now that a withdrawal has been initiated
+    await invalidateOnWithdraw(depositorPublicKey);
 
     logger.info("Withdraw transaction built", {
       depositor: depositorPublicKey,

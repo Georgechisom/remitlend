@@ -25,8 +25,11 @@ const mockClient: any = {
 jest.unstable_mockModule("../db/connection.js", () => ({
   default: { query: mockQuery },
   query: mockQuery,
-  getClient: jest.fn<() => Promise<typeof mockClient>>().mockResolvedValue(mockClient),
+  getClient: jest
+    .fn<() => Promise<typeof mockClient>>()
+    .mockResolvedValue(mockClient),
   closePool: jest.fn(),
+  withTransaction: jest.fn(),
 }));
 
 // Mock CacheService to prevent Redis connections
@@ -55,6 +58,45 @@ const mockBuildRepayTx =
       amount: number,
     ) => Promise<{ unsignedTxXdr: string; networkPassphrase: string }>
   >();
+const mockBuildDepositCollateralTx =
+  jest.fn<
+    (
+      borrowerPublicKey: string,
+      loanId: number,
+      amount: number,
+    ) => Promise<{ unsignedTxXdr: string; networkPassphrase: string }>
+  >();
+const mockBuildReleaseCollateralTx =
+  jest.fn<
+    (
+      borrowerPublicKey: string,
+      loanId: number,
+    ) => Promise<{ unsignedTxXdr: string; networkPassphrase: string }>
+  >();
+const mockBuildRefinanceLoanTx =
+  jest.fn<
+    (
+      borrowerPublicKey: string,
+      loanId: number,
+      newAmount: number,
+      newTerm: number,
+    ) => Promise<{ unsignedTxXdr: string; networkPassphrase: string }>
+  >();
+const mockBuildExtendLoanTx =
+  jest.fn<
+    (
+      borrowerPublicKey: string,
+      loanId: number,
+      extraLedgers: number,
+    ) => Promise<{ unsignedTxXdr: string; networkPassphrase: string }>
+  >();
+const mockBuildLiquidateTx =
+  jest.fn<
+    (
+      liquidatorPublicKey: string,
+      loanId: number,
+    ) => Promise<{ unsignedTxXdr: string; networkPassphrase: string }>
+  >();
 const mockSubmitSignedTx =
   jest.fn<
     (
@@ -65,6 +107,11 @@ jest.unstable_mockModule("../services/sorobanService.js", () => ({
   sorobanService: {
     buildRequestLoanTx: mockBuildRequestLoanTx,
     buildRepayTx: mockBuildRepayTx,
+    buildDepositCollateralTx: mockBuildDepositCollateralTx,
+    buildReleaseCollateralTx: mockBuildReleaseCollateralTx,
+    buildRefinanceLoanTx: mockBuildRefinanceLoanTx,
+    buildExtendLoanTx: mockBuildExtendLoanTx,
+    buildLiquidateTx: mockBuildLiquidateTx,
     submitSignedTx: mockSubmitSignedTx,
   },
 }));
@@ -72,7 +119,6 @@ jest.unstable_mockModule("../services/sorobanService.js", () => ({
 await import("../db/connection.js");
 await import("../services/sorobanService.js");
 const { default: app } = await import("../app.js");
-
 
 const mockedQuery = mockQuery;
 
@@ -245,7 +291,7 @@ describe("POST /api/loans/submit", () => {
 describe("GET /api/loans/:loanId", () => {
   it("should return loan details for the authenticated borrower", async () => {
     mockedQuery
-      .mockResolvedValueOnce({ rows: [{ borrower: TEST_BORROWER }] }) // borrower check
+      .mockResolvedValueOnce({ rows: [{ address: TEST_BORROWER }] }) // address check
       .mockResolvedValueOnce({
         rows: [
           {
@@ -283,7 +329,7 @@ describe("GET /api/loans/:loanId", () => {
 
   it("should return 403 when the loan belongs to another borrower", async () => {
     mockedQuery.mockResolvedValueOnce({
-      rows: [{ borrower: "other-wallet" }],
+      rows: [{ address: "other-wallet" }],
     });
 
     const response = await request(app)
@@ -309,7 +355,7 @@ describe("GET /api/loans/:loanId", () => {
 describe("GET /api/loans/:loanId/amortization-schedule", () => {
   it("should return amortization schedule for an approved loan", async () => {
     mockedQuery
-      .mockResolvedValueOnce({ rows: [{ borrower: TEST_BORROWER }] })
+      .mockResolvedValueOnce({ rows: [{ address: TEST_BORROWER }] })
       .mockResolvedValueOnce({
         rows: [
           {
@@ -344,7 +390,7 @@ describe("GET /api/loans/:loanId/amortization-schedule", () => {
 
   it("should return 404 when loan is not fully approved", async () => {
     mockedQuery
-      .mockResolvedValueOnce({ rows: [{ borrower: TEST_BORROWER }] })
+      .mockResolvedValueOnce({ rows: [{ address: TEST_BORROWER }] })
       .mockResolvedValueOnce({
         rows: [
           {
@@ -443,7 +489,7 @@ describe("POST /api/loans/:loanId/repay", () => {
   it("should return unsigned XDR for valid repayment", async () => {
     // requireLoanBorrowerAccess check
     mockedQuery.mockResolvedValueOnce({
-      rows: [{ borrower: TEST_BORROWER }],
+      rows: [{ address: TEST_BORROWER }],
     });
 
     mockBuildRepayTx.mockResolvedValueOnce({
@@ -464,7 +510,7 @@ describe("POST /api/loans/:loanId/repay", () => {
 
   it("should return 403 when loan does not belong to user", async () => {
     mockedQuery.mockResolvedValueOnce({
-      rows: [{ borrower: "other-wallet" }],
+      rows: [{ address: "other-wallet" }],
     });
 
     const response = await request(app)
@@ -477,7 +523,7 @@ describe("POST /api/loans/:loanId/repay", () => {
 
   it("should reject missing amount", async () => {
     mockedQuery.mockResolvedValueOnce({
-      rows: [{ borrower: TEST_BORROWER }],
+      rows: [{ address: TEST_BORROWER }],
     });
 
     const response = await request(app)
@@ -496,7 +542,7 @@ describe("POST /api/loans/:loanId/submit", () => {
   it("should submit a signed repayment transaction", async () => {
     // requireLoanBorrowerAccess
     mockedQuery.mockResolvedValueOnce({
-      rows: [{ borrower: TEST_BORROWER }],
+      rows: [{ address: TEST_BORROWER }],
     });
 
     mockSubmitSignedTx.mockResolvedValueOnce({
@@ -512,5 +558,282 @@ describe("POST /api/loans/:loanId/submit", () => {
     expect(response.status).toBe(200);
     expect(response.body.txHash).toBe("repay-hash-456");
     expect(response.body.status).toBe("SUCCESS");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// POST /api/loans/:loanId/build-deposit-collateral
+// ---------------------------------------------------------------------------
+describe("POST /api/loans/:loanId/build-deposit-collateral", () => {
+  it("should reject unauthenticated requests", async () => {
+    const response = await request(app)
+      .post("/api/loans/1/build-deposit-collateral")
+      .send({ amount: 500, borrowerPublicKey: TEST_BORROWER });
+    expect(response.status).toBe(401);
+  });
+
+  it("should return unsigned XDR for valid deposit collateral", async () => {
+    mockedQuery.mockResolvedValueOnce({
+      rows: [{ address: TEST_BORROWER }],
+    });
+
+    mockBuildDepositCollateralTx.mockResolvedValueOnce({
+      unsignedTxXdr: "CCCC...deposit-collateral-xdr",
+      networkPassphrase: "Test SDF Network ; September 2015",
+    });
+
+    const response = await request(app)
+      .post("/api/loans/1/build-deposit-collateral")
+      .set(bearer(TEST_BORROWER))
+      .send({ amount: 500, borrowerPublicKey: TEST_BORROWER });
+
+    expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
+    expect(response.body.loanId).toBe(1);
+    expect(response.body.unsignedTxXdr).toBe("CCCC...deposit-collateral-xdr");
+  });
+
+  it("should return 403 when loan does not belong to user", async () => {
+    mockedQuery.mockResolvedValueOnce({
+      rows: [{ address: "other-wallet" }],
+    });
+
+    const response = await request(app)
+      .post("/api/loans/1/build-deposit-collateral")
+      .set(bearer(TEST_BORROWER))
+      .send({ amount: 500, borrowerPublicKey: TEST_BORROWER });
+
+    expect(response.status).toBe(403);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// POST /api/loans/:loanId/build-release-collateral
+// ---------------------------------------------------------------------------
+describe("POST /api/loans/:loanId/build-release-collateral", () => {
+  it("should reject unauthenticated requests", async () => {
+    const response = await request(app)
+      .post("/api/loans/1/build-release-collateral")
+      .send({ borrowerPublicKey: TEST_BORROWER });
+    expect(response.status).toBe(401);
+  });
+
+  it("should return unsigned XDR for valid release collateral", async () => {
+    mockedQuery.mockResolvedValueOnce({
+      rows: [{ address: TEST_BORROWER }],
+    });
+
+    mockBuildReleaseCollateralTx.mockResolvedValueOnce({
+      unsignedTxXdr: "DDDD...release-collateral-xdr",
+      networkPassphrase: "Test SDF Network ; September 2015",
+    });
+
+    const response = await request(app)
+      .post("/api/loans/1/build-release-collateral")
+      .set(bearer(TEST_BORROWER))
+      .send({ borrowerPublicKey: TEST_BORROWER });
+
+    expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
+    expect(response.body.loanId).toBe(1);
+    expect(response.body.unsignedTxXdr).toBe("DDDD...release-collateral-xdr");
+  });
+
+  it("should return 403 when loan does not belong to user", async () => {
+    mockedQuery.mockResolvedValueOnce({
+      rows: [{ address: "other-wallet" }],
+    });
+
+    const response = await request(app)
+      .post("/api/loans/1/build-release-collateral")
+      .set(bearer(TEST_BORROWER))
+      .send({ borrowerPublicKey: TEST_BORROWER });
+
+    expect(response.status).toBe(403);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// POST /api/loans/:loanId/build-refinance
+// ---------------------------------------------------------------------------
+describe("POST /api/loans/:loanId/build-refinance", () => {
+  it("should reject unauthenticated requests", async () => {
+    const response = await request(app)
+      .post("/api/loans/1/build-refinance")
+      .send({
+        newAmount: 2000,
+        newTerm: 34560,
+        borrowerPublicKey: TEST_BORROWER,
+      });
+    expect(response.status).toBe(401);
+  });
+
+  it("should return unsigned XDR for valid refinance", async () => {
+    mockedQuery.mockResolvedValueOnce({
+      rows: [{ address: TEST_BORROWER }],
+    });
+
+    mockBuildRefinanceLoanTx.mockResolvedValueOnce({
+      unsignedTxXdr: "EEEE...refinance-xdr",
+      networkPassphrase: "Test SDF Network ; September 2015",
+    });
+
+    const response = await request(app)
+      .post("/api/loans/1/build-refinance")
+      .set(bearer(TEST_BORROWER))
+      .send({
+        newAmount: 2000,
+        newTerm: 34560,
+        borrowerPublicKey: TEST_BORROWER,
+      });
+
+    expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
+    expect(response.body.loanId).toBe(1);
+    expect(response.body.unsignedTxXdr).toBe("EEEE...refinance-xdr");
+  });
+
+  it("should return 403 when loan does not belong to user", async () => {
+    mockedQuery.mockResolvedValueOnce({
+      rows: [{ address: "other-wallet" }],
+    });
+
+    const response = await request(app)
+      .post("/api/loans/1/build-refinance")
+      .set(bearer(TEST_BORROWER))
+      .send({
+        newAmount: 2000,
+        newTerm: 34560,
+        borrowerPublicKey: TEST_BORROWER,
+      });
+
+    expect(response.status).toBe(403);
+  });
+
+  it("should reject missing newTerm", async () => {
+    mockedQuery.mockResolvedValueOnce({
+      rows: [{ address: TEST_BORROWER }],
+    });
+
+    const response = await request(app)
+      .post("/api/loans/1/build-refinance")
+      .set(bearer(TEST_BORROWER))
+      .send({ newAmount: 2000, borrowerPublicKey: TEST_BORROWER });
+
+    expect(response.status).toBe(400);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// POST /api/loans/:loanId/build-extend
+// ---------------------------------------------------------------------------
+describe("POST /api/loans/:loanId/build-extend", () => {
+  it("should reject unauthenticated requests", async () => {
+    const response = await request(app)
+      .post("/api/loans/1/build-extend")
+      .send({ extraLedgers: 8640, borrowerPublicKey: TEST_BORROWER });
+    expect(response.status).toBe(401);
+  });
+
+  it("should return unsigned XDR for valid extend", async () => {
+    mockedQuery.mockResolvedValueOnce({
+      rows: [{ address: TEST_BORROWER }],
+    });
+
+    mockBuildExtendLoanTx.mockResolvedValueOnce({
+      unsignedTxXdr: "FFFF...extend-xdr",
+      networkPassphrase: "Test SDF Network ; September 2015",
+    });
+
+    const response = await request(app)
+      .post("/api/loans/1/build-extend")
+      .set(bearer(TEST_BORROWER))
+      .send({ extraLedgers: 8640, borrowerPublicKey: TEST_BORROWER });
+
+    expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
+    expect(response.body.loanId).toBe(1);
+    expect(response.body.unsignedTxXdr).toBe("FFFF...extend-xdr");
+  });
+
+  it("should return 403 when loan does not belong to user", async () => {
+    mockedQuery.mockResolvedValueOnce({
+      rows: [{ address: "other-wallet" }],
+    });
+
+    const response = await request(app)
+      .post("/api/loans/1/build-extend")
+      .set(bearer(TEST_BORROWER))
+      .send({ extraLedgers: 8640, borrowerPublicKey: TEST_BORROWER });
+
+    expect(response.status).toBe(403);
+  });
+
+  it("should reject missing extraLedgers", async () => {
+    mockedQuery.mockResolvedValueOnce({
+      rows: [{ address: TEST_BORROWER }],
+    });
+
+    const response = await request(app)
+      .post("/api/loans/1/build-extend")
+      .set(bearer(TEST_BORROWER))
+      .send({ borrowerPublicKey: TEST_BORROWER });
+
+    expect(response.status).toBe(400);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// POST /api/loans/:loanId/liquidate/build
+// ---------------------------------------------------------------------------
+describe("POST /api/loans/:loanId/liquidate/build", () => {
+  it("should reject unauthenticated requests", async () => {
+    const response = await request(app)
+      .post("/api/loans/1/liquidate/build")
+      .send({ liquidatorPublicKey: TEST_BORROWER });
+    expect(response.status).toBe(401);
+  });
+
+  it("should return unsigned XDR for valid liquidation build request", async () => {
+    mockBuildLiquidateTx.mockResolvedValueOnce({
+      unsignedTxXdr: "GGGG...liquidate-xdr",
+      networkPassphrase: "Test SDF Network ; September 2015",
+    });
+
+    const response = await request(app)
+      .post("/api/loans/1/liquidate/build")
+      .set(bearer(TEST_BORROWER))
+      .send({ liquidatorPublicKey: TEST_BORROWER });
+
+    expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
+    expect(response.body.loanId).toBe(1);
+    expect(response.body.unsignedTxXdr).toBe("GGGG...liquidate-xdr");
+    expect(mockBuildLiquidateTx).toHaveBeenCalledWith(TEST_BORROWER, 1);
+  });
+
+  it("should reject requests where liquidatorPublicKey does not match JWT", async () => {
+    const otherWallet = Keypair.random().publicKey();
+    const response = await request(app)
+      .post("/api/loans/1/liquidate/build")
+      .set(bearer(TEST_BORROWER))
+      .send({ liquidatorPublicKey: otherWallet });
+
+    expect(response.status).toBe(403);
+  });
+
+  it("should propagate non-liquidatable build failures", async () => {
+    mockBuildLiquidateTx.mockRejectedValueOnce(
+      new Error("Loan is not liquidatable"),
+    );
+
+    const response = await request(app)
+      .post("/api/loans/1/liquidate/build")
+      .set(bearer(TEST_BORROWER))
+      .send({ liquidatorPublicKey: TEST_BORROWER });
+
+    expect(response.status).toBe(500);
+    expect(response.body.success).toBe(false);
+    expect(response.body.message).toBe("Internal server error");
   });
 });

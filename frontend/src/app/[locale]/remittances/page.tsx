@@ -326,7 +326,9 @@ export default function RemittancesPage() {
           ) : remittances.length === 0 ? (
             <EmptyState
               icon={SendHorizontal}
-              title={statusFilter !== "all" ? "No remittances match this status" : "No remittances yet"}
+              title={
+                statusFilter !== "all" ? "No remittances match this status" : "No remittances yet"
+              }
               description={
                 statusFilter !== "all"
                   ? "Try a different filter to see more transfer history."

@@ -125,10 +125,7 @@ export function RepaymentScheduleTable({
               </thead>
               <tbody>
                 {schedule.map((row) => (
-                  <tr
-                    key={row.period}
-                    className="border-b border-zinc-100 dark:border-zinc-800/50"
-                  >
+                  <tr key={row.period} className="border-b border-zinc-100 dark:border-zinc-800/50">
                     <td className="px-4 py-3 text-zinc-500 dark:text-zinc-400">{row.period}</td>
                     <td className="px-4 py-3 text-zinc-900 dark:text-zinc-50">{row.dueDate}</td>
                     <td className="px-4 py-3 text-right text-zinc-900 dark:text-zinc-50">

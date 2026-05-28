@@ -1,15 +1,17 @@
 import { query } from "../db/connection.js";
 import { setAbsoluteUserScoresBulk } from "./scoresService.js";
 import { sorobanService } from "./sorobanService.js";
+import { recordScoreReconciliationRun } from "../middleware/metrics.js";
+import { jobMetricsService } from "./jobMetricsService.js";
 import logger from "../utils/logger.js";
 
 interface ActiveBorrowerScoreRow {
-  borrower: string;
+  address: string;
   dbScore: number | null;
 }
 
 export interface ScoreDivergence {
-  borrower: string;
+  address: string;
   dbScore: number | null;
   contractScore: number;
   absoluteDifference: number | null;
@@ -31,7 +33,10 @@ function parsePositiveInt(value: string | undefined, fallback: number): number {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
-function parseNonNegativeInt(value: string | undefined, fallback: number): number {
+function parseNonNegativeInt(
+  value: string | undefined,
+  fallback: number,
+): number {
   const parsed = Number.parseInt(value ?? "", 10);
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
 }
@@ -55,10 +60,7 @@ function chunk<T>(items: T[], size: number): T[][] {
 
 class ScoreReconciliationService {
   private getBatchSize(): number {
-    return parsePositiveInt(
-      process.env.SCORE_RECONCILIATION_BATCH_SIZE,
-      25,
-    );
+    return parsePositiveInt(process.env.SCORE_RECONCILIATION_BATCH_SIZE, 25);
   }
 
   private getMaxBorrowersPerRun(): number {
@@ -86,25 +88,25 @@ class ScoreReconciliationService {
     const result = await query(
       `
       WITH active_loans AS (
-        SELECT approved.loan_id, approved.borrower
-        FROM loan_events approved
+        SELECT approved.loan_id, approved.address
+        FROM contract_events approved
         WHERE approved.event_type = 'LoanApproved'
           AND approved.loan_id IS NOT NULL
-          AND approved.borrower IS NOT NULL
-          AND approved.borrower <> ''
+          AND approved.address IS NOT NULL
+          AND approved.address <> ''
           AND NOT EXISTS (
             SELECT 1
-            FROM loan_events e
+            FROM contract_events e
             WHERE e.loan_id = approved.loan_id
               AND e.event_type IN ('LoanRepaid', 'LoanDefaulted')
           )
       )
       SELECT DISTINCT
-        a.borrower,
+        a.address,
         s.current_score
       FROM active_loans a
-      LEFT JOIN scores s ON s.user_id = a.borrower
-      ORDER BY a.borrower ASC
+      LEFT JOIN scores s ON s.user_id = a.address
+      ORDER BY a.address ASC
       LIMIT $1
       `,
       [this.getMaxBorrowersPerRun()],
@@ -112,12 +114,12 @@ class ScoreReconciliationService {
 
     return result.rows.map((row) => {
       const record = row as {
-        borrower?: string;
+        address?: string;
         current_score?: number | string | null;
       };
 
       return {
-        borrower: String(record.borrower ?? ""),
+        address: String(record.address ?? ""),
         dbScore:
           record.current_score === null || record.current_score === undefined
             ? null
@@ -127,6 +129,9 @@ class ScoreReconciliationService {
   }
 
   async reconcileActiveBorrowerScores(): Promise<ScoreReconciliationResult> {
+    const startTime = Date.now();
+    const jobName = "scoreReconciliationService";
+
     const activeBorrowers = await this.fetchActiveBorrowerScores();
     const batchSize = this.getBatchSize();
     const autoCorrectEnabled = this.isAutoCorrectEnabled();
@@ -143,93 +148,105 @@ class ScoreReconciliationService {
       autoCorrectThreshold,
     });
 
-    for (const batch of chunk(activeBorrowers, batchSize)) {
-      const batchResults = await Promise.allSettled(
-        batch.map(async (borrowerRow) => {
-          const contractScore = await sorobanService.getOnChainCreditScore(
-            borrowerRow.borrower,
-          );
-          return {
-            ...borrowerRow,
+    try {
+      for (const batch of chunk(activeBorrowers, batchSize)) {
+        const batchResults = await Promise.allSettled(
+          batch.map(async (borrowerRow) => {
+            const contractScore = await sorobanService.getOnChainCreditScore(
+              borrowerRow.address,
+            );
+            return {
+              ...borrowerRow,
+              contractScore,
+            };
+          }),
+        );
+
+        batchResults.forEach((result, index) => {
+          const address = batch[index]?.address ?? "unknown";
+          if (result.status === "rejected") {
+            failedBorrowerCount += 1;
+            logger.error("score_reconciliation.borrower.failed", {
+              address,
+              error: result.reason,
+            });
+            return;
+          }
+
+          checkedBorrowerCount += 1;
+          const { dbScore, contractScore } = result.value;
+          const absoluteDifference =
+            dbScore === null ? null : Math.abs(contractScore - dbScore);
+          const isDivergent = dbScore === null || dbScore !== contractScore;
+
+          if (!isDivergent) {
+            return;
+          }
+
+          const divergence: ScoreDivergence = {
+            address,
+            dbScore,
             contractScore,
+            absoluteDifference,
           };
-        }),
-      );
+          divergences.push(divergence);
 
-      batchResults.forEach((result, index) => {
-        const borrower = batch[index]?.borrower ?? "unknown";
-        if (result.status === "rejected") {
-          failedBorrowerCount += 1;
-          logger.error("score_reconciliation.borrower.failed", {
-            borrower,
-            error: result.reason,
-          });
-          return;
-        }
+          logger.warn("score_reconciliation.mismatch", divergence);
 
-        checkedBorrowerCount += 1;
-        const { dbScore, contractScore } = result.value;
-        const absoluteDifference =
-          dbScore === null ? null : Math.abs(contractScore - dbScore);
-        const isDivergent = dbScore === null || dbScore !== contractScore;
+          const exceedsThreshold =
+            absoluteDifference === null ||
+            absoluteDifference >= autoCorrectThreshold;
 
-        if (!isDivergent) {
-          return;
-        }
+          if (autoCorrectEnabled && exceedsThreshold) {
+            corrections.set(address, contractScore);
+          }
+        });
+      }
 
-        const divergence: ScoreDivergence = {
-          borrower,
-          dbScore,
-          contractScore,
-          absoluteDifference,
-        };
-        divergences.push(divergence);
-
-        logger.warn("score_reconciliation.mismatch", divergence);
-
-        const exceedsThreshold =
-          absoluteDifference === null ||
-          absoluteDifference >= autoCorrectThreshold;
-
-        if (autoCorrectEnabled && exceedsThreshold) {
-          corrections.set(borrower, contractScore);
-        }
+      logger.info("score_divergence_count", {
+        metric: "score_divergence_count",
+        value: divergences.length,
       });
-    }
 
-    logger.info("score_divergence_count", {
-      metric: "score_divergence_count",
-      value: divergences.length,
-    });
+      if (corrections.size > 0) {
+        await setAbsoluteUserScoresBulk(corrections);
+        logger.warn("score_reconciliation.autocorrect.applied", {
+          correctedCount: corrections.size,
+          threshold: autoCorrectThreshold,
+        });
+      }
 
-    if (corrections.size > 0) {
-      await setAbsoluteUserScoresBulk(corrections);
-      logger.warn("score_reconciliation.autocorrect.applied", {
+      const result: ScoreReconciliationResult = {
+        activeBorrowerCount: activeBorrowers.length,
+        checkedBorrowerCount,
+        failedBorrowerCount,
+        divergenceCount: divergences.length,
         correctedCount: corrections.size,
-        threshold: autoCorrectThreshold,
+        autoCorrectEnabled,
+        autoCorrectThreshold,
+        divergences,
+      };
+
+      logger.info("score_reconciliation.run.complete", {
+        activeBorrowerCount: result.activeBorrowerCount,
+        checkedBorrowerCount: result.checkedBorrowerCount,
+        failedBorrowerCount: result.failedBorrowerCount,
+        divergenceCount: result.divergenceCount,
+        correctedCount: result.correctedCount,
       });
+      recordScoreReconciliationRun();
+
+      // Record success metrics
+      const durationMs = Date.now() - startTime;
+      jobMetricsService.recordSuccess(jobName, durationMs);
+
+      return result;
+    } catch (error) {
+      // Record failure metrics
+      const durationMs = Date.now() - startTime;
+      jobMetricsService.recordFailure(jobName, error as Error | string, durationMs);
+      throw error;
     }
-
-    const result: ScoreReconciliationResult = {
-      activeBorrowerCount: activeBorrowers.length,
-      checkedBorrowerCount,
-      failedBorrowerCount,
-      divergenceCount: divergences.length,
-      correctedCount: corrections.size,
-      autoCorrectEnabled,
-      autoCorrectThreshold,
-      divergences,
-    };
-
-    logger.info("score_reconciliation.run.complete", {
-      activeBorrowerCount: result.activeBorrowerCount,
-      checkedBorrowerCount: result.checkedBorrowerCount,
-      failedBorrowerCount: result.failedBorrowerCount,
-      divergenceCount: result.divergenceCount,
-      correctedCount: result.correctedCount,
-    });
-
-    return result;
   }
 }
 

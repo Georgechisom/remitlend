@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useLocale, useTranslations } from "next-intl";
 import { Bell, Check, CheckCheck, AlertTriangle, TrendingUp, Clock, X } from "lucide-react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -164,6 +165,8 @@ function NotificationItem({
 
 export function NotificationDropdown() {
   const router = useRouter();
+  const locale = useLocale();
+  const t = useTranslations("Notifications");
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -330,12 +333,12 @@ export function NotificationDropdown() {
               <div className="border-t border-zinc-100 px-4 py-2 dark:border-zinc-800">
                 <button
                   onClick={() => {
-                    router.push("/loans");
+                    router.push(`/${locale}/notifications`);
                     setOpen(false);
                   }}
                   className="w-full text-center text-xs font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 py-1 transition-colors"
                 >
-                  View all loans →
+                  {t("viewAll")}
                 </button>
               </div>
             )}

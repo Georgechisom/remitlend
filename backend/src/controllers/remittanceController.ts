@@ -1,6 +1,8 @@
 import type { Request, Response } from "express";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { remittanceService } from "../services/remittanceService.js";
+import { sorobanService } from "../services/sorobanService.js";
+import { notificationService } from "../services/notificationService.js";
 import { AppError } from "../errors/AppError.js";
 import { parseCursorQueryParams } from "../utils/pagination.js";
 import logger from "../utils/logger.js";
@@ -52,6 +54,7 @@ export const createRemittance = asyncHandler(
  * GET /api/remittances - Get user's remittances
  *
  * Returns paginated list of remittances for the authenticated user
+ * Supports filtering by status, date range, and search by recipient/reference
  */
 export const getRemittances = asyncHandler(
   async (req: Request, res: Response) => {
@@ -63,12 +66,18 @@ export const getRemittances = asyncHandler(
 
     const { limit, cursor } = parseCursorQueryParams(req);
     const status = req.query.status as string | undefined;
+    const from = req.query.from as string | undefined;
+    const to = req.query.to as string | undefined;
+    const q = req.query.q as string | undefined;
 
     const result = await remittanceService.getRemittances(
       senderAddress,
       limit,
       cursor,
       status,
+      from,
+      to,
+      q,
     );
 
     res.json({
@@ -152,22 +161,40 @@ export const submitRemittanceTransaction = asyncHandler(
         throw AppError.badRequest("Remittance has already been submitted");
       }
 
-      // Update status to processing
+      // Update status to processing before submission
       await remittanceService.updateRemittanceStatus(id, "processing");
 
-      // TODO: Submit to Stellar network
-      // This would involve:
-      // 1. Parse the signed XDR
-      // 2. Submit to Stellar RPC
-      // 3. Wait for confirmation
-      // 4. Update remittance with transaction hash and status
+      // Submit signed XDR to Stellar and poll for confirmation
+      const stellarResult = await sorobanService.submitSignedTx(signedXdr);
+
+      // Persist completed status with transaction hash
+      const completed = await remittanceService.updateRemittanceStatus(
+        id,
+        "completed",
+        stellarResult.txHash,
+      );
+
+      logger.info("Remittance transaction confirmed", {
+        remittanceId: id,
+        txHash: stellarResult.txHash,
+        status: stellarResult.status,
+      });
+
+      // Notify sender of successful submission
+      await notificationService.createNotification({
+        userId: senderAddress,
+        type: "repayment_confirmed",
+        title: "Remittance Sent",
+        message: `Your remittance of ${remittance.amount} ${remittance.fromCurrency} was submitted successfully. Transaction: ${stellarResult.txHash}`,
+      });
 
       res.json({
         success: true,
         data: {
           id,
-          status: "processing",
-          message: "Transaction submitted to Stellar network",
+          status: completed.status,
+          txHash: stellarResult.txHash,
+          message: "Transaction confirmed on Stellar network",
         },
       });
     } catch (error) {

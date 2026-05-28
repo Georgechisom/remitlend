@@ -7,6 +7,20 @@ export const getScoreSchema = z.object({
   }),
 });
 
+// Schema for GET /score/:walletAddress/history
+export const getScoreHistorySchema = z.object({
+  params: z.object({
+    walletAddress: z.string().min(1).max(100),
+  }),
+});
+
+// Schema for GET /score/:walletAddress/nft
+export const getRemittanceNftSchema = z.object({
+  params: z.object({
+    walletAddress: z.string().min(1).max(100),
+  }),
+});
+
 // Schema for POST /score/update
 export const updateScoreSchema = z.object({
   body: z.object({
@@ -23,4 +37,6 @@ export const updateScoreSchema = z.object({
 
 // TypeScript types
 export type GetScoreInput = z.infer<typeof getScoreSchema>;
+export type GetScoreHistoryInput = z.infer<typeof getScoreHistorySchema>;
+export type GetRemittanceNftInput = z.infer<typeof getRemittanceNftSchema>;
 export type UpdateScoreInput = z.infer<typeof updateScoreSchema>;

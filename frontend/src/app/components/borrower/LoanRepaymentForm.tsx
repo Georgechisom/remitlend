@@ -12,6 +12,14 @@ import { useGamificationStore } from "../../stores/useGamificationStore";
 import { useRepaymentOperation } from "../../hooks/useRepaymentOperation";
 import { OperationProgress } from "../ui/OperationProgress";
 import { useWalletStore, selectWalletAddress } from "../../stores/useWalletStore";
+import {
+  buildAmountHelperText,
+  getPrecisionError,
+  parseAmount,
+  sanitizeAmountInput,
+  formatAmountOnBlur,
+  getAssetDecimals,
+} from "../../utils/amount";
 
 interface LoanRepaymentFormProps {
   loanId: number;
@@ -40,17 +48,31 @@ export function LoanRepaymentForm({ loanId, totalOwed, minPayment = 0 }: LoanRep
       setAmount("");
     },
   });
+  const precisionError = getPrecisionError(amount, "USDC");
+  const helperText = buildAmountHelperText(amount, "USDC", getAssetDecimals("USDC"));
 
   const handleAmountChange = (value: string) => {
-    setAmount(value);
+    setAmount(sanitizeAmountInput(value));
     setError(null);
   };
 
+  const handleAmountBlur = (value: string) => {
+    const formatted = formatAmountOnBlur(value, "USDC");
+    if (formatted && formatted !== value) {
+      setAmount(formatted);
+    }
+  };
+
   const validateAmount = (): boolean => {
-    const numAmount = parseFloat(amount);
+    const numAmount = parseAmount(amount);
 
     if (!amount || isNaN(numAmount)) {
       setError("Please enter a valid amount");
+      return false;
+    }
+
+    if (precisionError) {
+      setError(precisionError);
       return false;
     }
 
@@ -75,7 +97,7 @@ export function LoanRepaymentForm({ loanId, totalOwed, minPayment = 0 }: LoanRep
   const handleRepayClick = () => {
     if (!validateAmount()) return;
 
-    const numAmount = parseFloat(amount);
+    const numAmount = parseAmount(amount);
 
     const previewData = formatLoanRepayment({
       loanId,
@@ -92,7 +114,7 @@ export function LoanRepaymentForm({ loanId, totalOwed, minPayment = 0 }: LoanRep
   };
 
   const handlePayFullAmount = () => {
-    setAmount(totalOwed.toString());
+    setAmount(totalOwed.toFixed(7).replace(/\.?0+$/, ""));
     setError(null);
   };
 
@@ -124,15 +146,20 @@ export function LoanRepaymentForm({ loanId, totalOwed, minPayment = 0 }: LoanRep
           {/* Amount Input */}
           <div className="space-y-2">
             <Input
-              type="number"
+              type="text"
+              inputMode="decimal"
               label="Repayment Amount"
               placeholder="0.00"
+              step="0.01"
               value={amount}
               onChange={(e) => handleAmountChange(e.target.value)}
-              error={error || undefined}
+              onBlur={(e) => handleAmountBlur(e.target.value)}
+              error={error || precisionError || undefined}
               leftIcon={<DollarSign className="h-4 w-4" />}
               required
-              helperText="Enter the amount you want to repay in USDC"
+              helperText={
+                helperText ?? "Enter the amount you want to repay in USDC (max 2 decimals)"
+              }
             />
 
             <Button variant="ghost" size="sm" onClick={handlePayFullAmount} className="w-full">
@@ -161,7 +188,7 @@ export function LoanRepaymentForm({ loanId, totalOwed, minPayment = 0 }: LoanRep
           <Button
             variant="primary"
             onClick={handleRepayClick}
-            disabled={!amount || !!error || repayment.isLoading}
+            disabled={!amount || !!error || !!precisionError || repayment.isLoading}
             className="w-full"
           >
             {repayment.isLoading ? "Processing..." : "Review Repayment"}

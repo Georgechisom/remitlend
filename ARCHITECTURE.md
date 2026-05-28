@@ -1322,3 +1322,7 @@ graph TB
 ---
 
 For implementation details, see the code in respective directories. For contribution guidelines, see [CONTRIBUTING.md](CONTRIBUTING.md).
+
+### Runbooks
+
+Operational runbooks for on-call engineers are available in [docs/runbooks/](docs/runbooks/). See the [Indexer Recovery Runbook](docs/runbooks/indexer-recovery.md) for procedures on handling indexer lag, RPC outages, and quarantined events.

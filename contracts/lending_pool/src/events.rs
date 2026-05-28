@@ -1,3 +1,4 @@
+use crate::DataKey;
 use soroban_sdk::{Address, Env, Symbol};
 
 pub fn deposit(env: &Env, provider: Address, token: Address, amount: i128, shares_minted: i128) {
@@ -12,6 +13,19 @@ pub fn withdraw(env: &Env, provider: Address, token: Address, amount: i128, shar
 
 #[allow(dead_code)]
 pub fn yield_distributed(env: &Env, token: Address, amount: i128) {
+    if amount > 0 {
+        let total = env
+            .storage()
+            .instance()
+            .get::<_, i128>(&DataKey::TotalYieldDistributed(token.clone()))
+            .unwrap_or(0)
+            .checked_add(amount)
+            .expect("total yield distributed overflow");
+        env.storage()
+            .instance()
+            .set(&DataKey::TotalYieldDistributed(token.clone()), &total);
+    }
+
     let topics = (Symbol::new(env, "YieldDistributed"), token);
     env.events().publish(topics, amount);
 }

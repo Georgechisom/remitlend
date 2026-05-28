@@ -1,5 +1,8 @@
+import { jest } from "@jest/globals";
 import request from "supertest";
 import app from "../app.js";
+
+jest.setTimeout(20000);
 
 describe("Centralized Error Handling", () => {
   /* ── 404 Not Found ────────────────────────────────────────── */

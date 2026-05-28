@@ -60,10 +60,7 @@ const ConfirmTransactionDialog: React.FC<ConfirmTransactionDialogProps> = ({
       <div className="space-y-4">
         {/* Warning banner */}
         <div className="flex items-start gap-3 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-4 py-3">
-          <AlertTriangle
-            className="mt-0.5 h-4 w-4 shrink-0 text-yellow-400"
-            aria-hidden="true"
-          />
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-yellow-400" aria-hidden="true" />
           <p className="text-sm text-yellow-200/90">{description}</p>
         </div>
 
@@ -75,14 +72,9 @@ const ConfirmTransactionDialog: React.FC<ConfirmTransactionDialogProps> = ({
             </h3>
             <dl className="space-y-2">
               {summary.map((item) => (
-                <div
-                  key={item.label}
-                  className="flex items-center justify-between gap-4"
-                >
+                <div key={item.label} className="flex items-center justify-between gap-4">
                   <dt className="text-sm text-muted-foreground">{item.label}</dt>
-                  <dd className="text-sm font-medium text-foreground">
-                    {item.value}
-                  </dd>
+                  <dd className="text-sm font-medium text-foreground">{item.value}</dd>
                 </div>
               ))}
             </dl>

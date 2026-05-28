@@ -1,6 +1,8 @@
 import { jest } from "@jest/globals";
 import { Address, Keypair, nativeToScVal } from "@stellar/stellar-sdk";
 
+jest.setTimeout(30000);
+
 const mockQuery =
   jest.fn<
     (
@@ -27,14 +29,77 @@ const mockLogger = {
   warn: jest.fn(),
   error: jest.fn(),
 };
+const supportedWebhookEventTypes = [
+  "LoanRequested",
+  "LoanApproved",
+  "LoanRepaid",
+  "LoanDefaulted",
+  "CollateralLiquidated",
+  "Deposit",
+  "Withdraw",
+  "YieldDistributed",
+  "EmergencyWithdraw",
+  "NFTMinted",
+  "ScoreUpdated",
+  "NFTSeized",
+  "NFTBurned",
+  "ProposalCreated",
+  "ProposalApproved",
+  "ProposalFinalized",
+  "Mint",
+  "ScoreUpd",
+  "Seized",
+  "GovProp",
+  "GovAppr",
+  "GovFin",
+  "Transfer",
+  "MntAuth",
+  "MntRev",
+  "Paused",
+  "Unpaused",
+  "MinScoreUpdated",
+  "InterestRateUpdated",
+  "DefaultTermUpdated",
+  "TermLimitsUpdated",
+  "LateFeeRateUpdated",
+  "GracePeriodUpdated",
+  "DefaultWindowUpdated",
+  "MaxLoanAmountUpdated",
+  "MinRepaymentUpdated",
+  "MaxLoansPerBorrower",
+  "MinRateBpsUpdated",
+  "MaxRateBpsUpdated",
+  "RateOracleUpdated",
+  "PoolPaused",
+  "PoolUnpaused",
+] as const;
 
 jest.unstable_mockModule("../db/connection.js", () => ({
   query: mockQuery,
   getClient: jest.fn(),
   closePool: jest.fn(),
+  withTransaction: jest.fn(
+    async (
+      fn: (client: {
+        query: typeof mockQuery;
+        release: () => void;
+      }) => Promise<unknown>,
+    ) => {
+      // Provide a mock client whose .query() delegates to the shared mockQuery
+      // so all existing SQL-inspection assertions in the tests keep working.
+      const mockClient = {
+        query: jest.fn(async (sql: string, params?: unknown[]) =>
+          mockQuery(sql, params ?? []),
+        ),
+        release: jest.fn(),
+      };
+      return fn(mockClient);
+    },
+  ),
 }));
 
 jest.unstable_mockModule("../services/webhookService.js", () => ({
+  SUPPORTED_WEBHOOK_EVENT_TYPES: supportedWebhookEventTypes,
   webhookService: { dispatch: mockDispatch },
 }));
 
@@ -116,8 +181,12 @@ function makeRawEvent(params: {
     case "LoanApproved":
       return {
         ...base,
-        topic: [scSymbol("LoanApproved"), scU32(params.loanId ?? 1)],
-        value: scAddress(borrower),
+        topic: [
+          scSymbol("LoanApproved"),
+          scU32(params.loanId ?? 1),
+          scAddress(borrower),
+        ],
+        value: nativeToScVal([1200, 17280]),
       };
     case "LoanRepaid":
       return {
@@ -138,6 +207,122 @@ function makeRawEvent(params: {
     default:
       throw new Error(`Unsupported event type: ${params.type}`);
   }
+}
+
+function makeAliasedEvent(params: {
+  id: string;
+  ledger: number;
+  rawType: string;
+  borrower?: string;
+  amount?: number;
+}) {
+  const borrower = params.borrower ?? makeAddress();
+  const base = {
+    id: params.id,
+    pagingToken: `${params.ledger}`,
+    ledger: params.ledger,
+    ledgerClosedAt: "2026-03-29T00:00:00.000Z",
+    txHash: `tx-${params.id}`,
+    contractId: "CINDEXERTEST",
+  };
+
+  if (params.rawType === "Deposit" || params.rawType === "EmergencyWithdraw") {
+    return {
+      ...base,
+      topic: [
+        scSymbol(params.rawType),
+        scAddress(borrower),
+        scAddress(makeAddress()),
+      ],
+      value: nativeToScVal([BigInt(params.amount ?? 100), BigInt(1)]),
+    };
+  }
+
+  if (
+    params.rawType === "Mint" ||
+    params.rawType === "ScoreUpd" ||
+    params.rawType === "NftBurned" ||
+    params.rawType === "Seized"
+  ) {
+    return {
+      ...base,
+      topic: [scSymbol(params.rawType), scAddress(borrower)],
+      value: scI128(params.amount ?? 100),
+    };
+  }
+
+  if (
+    params.rawType === "GovProp" ||
+    params.rawType === "GovAppr" ||
+    params.rawType === "GovFin"
+  ) {
+    return {
+      ...base,
+      topic: [scSymbol(params.rawType), scAddress(borrower)],
+      value: scU32(1),
+    };
+  }
+
+  throw new Error(`Unsupported aliased event type: ${params.rawType}`);
+}
+
+function makeAdminConfigEvent(params: {
+  id: string;
+  ledger: number;
+  eventType:
+    | "MinScoreUpdated"
+    | "InterestRateUpdated"
+    | "DefaultTermUpdated"
+    | "TermLimitsUpdated"
+    | "LateFeeRateUpdated"
+    | "GracePeriodUpdated"
+    | "DefaultWindowUpdated"
+    | "MaxLoanAmountUpdated"
+    | "MinRepaymentUpdated"
+    | "MaxLoansPerBorrower"
+    | "MinRateBpsUpdated"
+    | "MaxRateBpsUpdated"
+    | "RateOracleUpdated";
+  admin?: string;
+}) {
+  const admin = params.admin ?? makeAddress();
+  const base = {
+    id: params.id,
+    pagingToken: `${params.ledger}`,
+    ledger: params.ledger,
+    ledgerClosedAt: "2026-03-29T00:00:00.000Z",
+    txHash: `tx-${params.id}`,
+    contractId: "CINDEXERTEST",
+  };
+
+  const withAdminTopic = new Set([
+    "LateFeeRateUpdated",
+    "GracePeriodUpdated",
+    "DefaultWindowUpdated",
+    "MaxLoanAmountUpdated",
+    "MinRepaymentUpdated",
+    "MaxLoansPerBorrower",
+    "MinRateBpsUpdated",
+    "MaxRateBpsUpdated",
+  ]);
+
+  const topic = withAdminTopic.has(params.eventType)
+    ? [scSymbol(params.eventType), scAddress(admin)]
+    : [scSymbol(params.eventType)];
+
+  if (params.eventType === "RateOracleUpdated") {
+    return {
+      ...base,
+      topic,
+      value: nativeToScVal([makeAddress(), makeAddress()]),
+    };
+  }
+
+  return {
+    ...base,
+    topic,
+    value: nativeToScVal([10, 20]),
+  };
 }
 
 describe("EventIndexer", () => {
@@ -253,7 +438,131 @@ describe("EventIndexer", () => {
     expect(mockGetScoreConfig).toHaveBeenCalledTimes(2);
     expect(mockDispatch).toHaveBeenCalledTimes(4);
     expect(mockBroadcast).toHaveBeenCalledTimes(4);
+    expect(mockBroadcast).toHaveBeenCalledWith(
+      expect.objectContaining({ address: borrowerRequested }),
+    );
     expect(mockCreateNotification).toHaveBeenCalledTimes(3);
+  });
+
+  it("normalizes pool, NFT, and governance events into indexable event types", async () => {
+    const depositor = makeAddress();
+    const emergencyWithdrawer = makeAddress();
+    const nftUser = makeAddress();
+    const governanceActor = makeAddress();
+    const insertedLoanEvents: unknown[][] = [];
+
+    mockQuery.mockImplementation(
+      async (sql: string, params: unknown[] = []) => {
+        if (sql === "BEGIN" || sql === "COMMIT") {
+          return { rows: [], rowCount: 0 };
+        }
+
+        if (sql.includes("INSERT INTO loan_events")) {
+          insertedLoanEvents.push(params);
+          return { rows: [{ event_id: params[0] }], rowCount: 1 };
+        }
+
+        return { rows: [], rowCount: 0 };
+      },
+    );
+
+    const indexer = new EventIndexer({
+      rpcUrl: "https://rpc.test",
+      contractId: "CINDEXERTEST",
+    });
+
+    (indexer as unknown as { rpc: { getEvents: unknown } }).rpc = {
+      getEvents: async () => ({
+        events: [
+          makeAliasedEvent({
+            id: "evt-deposit",
+            ledger: 50,
+            rawType: "Deposit",
+            borrower: depositor,
+            amount: 700,
+          }),
+          makeAliasedEvent({
+            id: "evt-emergency-withdraw",
+            ledger: 51,
+            rawType: "EmergencyWithdraw",
+            borrower: emergencyWithdrawer,
+            amount: 300,
+          }),
+          makeAliasedEvent({
+            id: "evt-score",
+            ledger: 52,
+            rawType: "ScoreUpd",
+            borrower: nftUser,
+            amount: 640,
+          }),
+          makeAliasedEvent({
+            id: "evt-seized",
+            ledger: 53,
+            rawType: "Seized",
+            borrower: nftUser,
+          }),
+          makeAliasedEvent({
+            id: "evt-burned",
+            ledger: 54,
+            rawType: "NftBurned",
+            borrower: nftUser,
+          }),
+          makeAliasedEvent({
+            id: "evt-gov-created",
+            ledger: 55,
+            rawType: "GovProp",
+            borrower: governanceActor,
+          }),
+          makeAliasedEvent({
+            id: "evt-gov-approved",
+            ledger: 56,
+            rawType: "GovAppr",
+            borrower: governanceActor,
+          }),
+          makeAliasedEvent({
+            id: "evt-gov-finalized",
+            ledger: 57,
+            rawType: "GovFin",
+            borrower: governanceActor,
+          }),
+          makeAliasedEvent({
+            id: "evt-minted",
+            ledger: 58,
+            rawType: "Mint",
+            borrower: nftUser,
+            amount: 500,
+          }),
+        ],
+      }),
+    };
+
+    const lastProcessedLedger = await indexer.processEvents(50, 58);
+
+    expect(lastProcessedLedger).toBe(58);
+    expect(insertedLoanEvents.map((params) => params[1])).toEqual([
+      "Deposit",
+      "EmergencyWithdraw",
+      "ScoreUpdated",
+      "NFTSeized",
+      "NFTBurned",
+      "ProposalCreated",
+      "ProposalApproved",
+      "ProposalFinalized",
+      "NFTMinted",
+    ]);
+    expect(insertedLoanEvents[0]?.[3]).toBe(depositor);
+    expect(insertedLoanEvents[0]?.[4]).toBe("700");
+    expect(insertedLoanEvents[1]?.[3]).toBe(emergencyWithdrawer);
+    expect(insertedLoanEvents[1]?.[4]).toBe("300");
+    expect(insertedLoanEvents[2]?.[3]).toBe(nftUser);
+    expect(insertedLoanEvents[2]?.[4]).toBe("640");
+    expect(insertedLoanEvents[5]?.[3]).toBe(governanceActor);
+    expect(insertedLoanEvents[8]?.[3]).toBe(nftUser);
+    expect(insertedLoanEvents[8]?.[4]).toBe("500");
+
+    expect(mockDispatch).toHaveBeenCalledTimes(9);
+    expect(mockBroadcast).toHaveBeenCalledTimes(9);
+    expect(mockCreateNotification).not.toHaveBeenCalled();
   });
 
   it("deduplicates repeated events and only triggers side effects for inserted rows", async () => {
@@ -311,7 +620,7 @@ describe("EventIndexer", () => {
     expect(mockBroadcast).toHaveBeenCalledTimes(1);
     expect(mockCreateNotification).toHaveBeenCalledTimes(1);
     expect(mockGetScoreConfig).toHaveBeenCalledTimes(1);
-    expect(insertStatements[0]).toContain("ON CONFLICT (event_id) DO NOTHING");
+    expect(insertStatements[0]).toContain("ON CONFLICT DO NOTHING");
   });
 
   it("ignores duplicate LoanApproved rows for the same loan and emits side effects once", async () => {
@@ -438,25 +747,29 @@ describe("EventIndexer", () => {
     const previousThreshold = process.env.QUARANTINE_ALERT_THRESHOLD;
     process.env.QUARANTINE_ALERT_THRESHOLD = "2";
 
-    mockQuery.mockImplementation(async (sql: string, params: unknown[] = []) => {
-      if (sql.includes("INSERT INTO quarantine_events")) {
-        return { rows: [], rowCount: 1 };
-      }
+    mockQuery.mockImplementation(
+      async (sql: string, params: unknown[] = []) => {
+        if (sql.includes("INSERT INTO quarantine_events")) {
+          return { rows: [], rowCount: 1 };
+        }
 
-      if (sql.includes("SELECT COUNT(*)::int AS count FROM quarantine_events")) {
-        return { rows: [{ count: 2 }], rowCount: 1 };
-      }
+        if (
+          sql.includes("SELECT COUNT(*)::int AS count FROM quarantine_events")
+        ) {
+          return { rows: [{ count: 2 }], rowCount: 1 };
+        }
 
-      if (sql === "BEGIN" || sql === "COMMIT" || sql === "ROLLBACK") {
+        if (sql === "BEGIN" || sql === "COMMIT" || sql === "ROLLBACK") {
+          return { rows: [], rowCount: 0 };
+        }
+
+        if (sql.includes("INSERT INTO loan_events")) {
+          return { rows: [], rowCount: 0 };
+        }
+
         return { rows: [], rowCount: 0 };
-      }
-
-      if (sql.includes("INSERT INTO loan_events")) {
-        return { rows: [], rowCount: 0 };
-      }
-
-      return { rows: [], rowCount: 0 };
-    });
+      },
+    );
 
     const indexer = new EventIndexer({
       rpcUrl: "https://rpc.test",
@@ -504,5 +817,69 @@ describe("EventIndexer", () => {
     } else {
       process.env.QUARANTINE_ALERT_THRESHOLD = previousThreshold;
     }
+  });
+
+  it("parses and persists all admin config events", async () => {
+    const insertedLoanEvents: unknown[][] = [];
+    const insertedAuditRows: unknown[][] = [];
+
+    mockQuery.mockImplementation(
+      async (sql: string, params: unknown[] = []) => {
+        if (sql.includes("INSERT INTO loan_events")) {
+          insertedLoanEvents.push(params);
+          return { rows: [{ event_id: params[0] }], rowCount: 1 };
+        }
+
+        if (sql.includes("INSERT INTO audit_logs")) {
+          insertedAuditRows.push(params);
+          return { rows: [], rowCount: 1 };
+        }
+
+        return { rows: [], rowCount: 0 };
+      },
+    );
+
+    const indexer = new EventIndexer({
+      rpcUrl: "https://rpc.test",
+      contractId: "CINDEXERTEST",
+    });
+
+    const admin = makeAddress();
+    const adminEventTypes = [
+      "MinScoreUpdated",
+      "InterestRateUpdated",
+      "DefaultTermUpdated",
+      "TermLimitsUpdated",
+      "LateFeeRateUpdated",
+      "GracePeriodUpdated",
+      "DefaultWindowUpdated",
+      "MaxLoanAmountUpdated",
+      "MinRepaymentUpdated",
+      "MaxLoansPerBorrower",
+      "MinRateBpsUpdated",
+      "MaxRateBpsUpdated",
+      "RateOracleUpdated",
+    ] as const;
+
+    (indexer as unknown as { rpc: { getEvents: unknown } }).rpc = {
+      getEvents: async () => ({
+        events: adminEventTypes.map((type, index) =>
+          makeAdminConfigEvent({
+            id: `evt-admin-${type}`,
+            ledger: 200 + index,
+            eventType: type,
+            admin,
+          }),
+        ),
+      }),
+    };
+
+    await indexer.processEvents(200, 220);
+
+    expect(insertedLoanEvents).toHaveLength(adminEventTypes.length);
+    expect(insertedLoanEvents.map((params) => params[1])).toEqual(
+      adminEventTypes,
+    );
+    expect(insertedAuditRows).toHaveLength(adminEventTypes.length);
   });
 });

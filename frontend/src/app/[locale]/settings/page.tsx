@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   User,
   Wallet,
@@ -17,7 +17,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "../../components/ui/Ca
 import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
 import { GamificationSettings } from "../../components/gamification/GamificationSettings";
-import { ThemeToggle } from "../../components/ui/ThemeToggle";
+import { useThemeStore } from "../../stores/useThemeStore";
 import {
   useWalletStore,
   selectWalletAddress,
@@ -25,7 +25,7 @@ import {
 } from "../../stores/useWalletStore";
 import { useUserStore, selectUser } from "../../stores/useUserStore";
 import { logoutUser } from "../../lib/session";
-
+import { useNotificationPreferences, useUpdateNotificationPreferences } from "../../hooks/useApi";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface NotificationPrefs {
@@ -37,6 +37,7 @@ interface NotificationPrefs {
   email: boolean;
   sms: boolean;
   inApp: boolean;
+  phone: string;
 }
 
 // ─── Section navigation ───────────────────────────────────────────────────────
@@ -254,6 +255,8 @@ function WalletSection() {
 // ─── Notifications section ────────────────────────────────────────────────────
 
 function NotificationsSection() {
+  const { data, isLoading, error } = useNotificationPreferences();
+  const updateNotificationPreferences = useUpdateNotificationPreferences();
   const [prefs, setPrefs] = useState<NotificationPrefs>({
     loanApproved: true,
     repaymentDue: true,
@@ -263,9 +266,57 @@ function NotificationsSection() {
     email: false,
     sms: false,
     inApp: true,
+    phone: "",
   });
+  const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!data) return;
+
+    // Sync server-fetched preferences into local editable form state once the
+    // query resolves. This is the intended pattern here, not a render-loop.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setPrefs((current) => ({
+      ...current,
+      email: data.emailEnabled,
+      sms: data.smsEnabled,
+      phone: data.phone ?? "",
+    }));
+    setSaveError(null);
+    setSaved(false);
+  }, [data]);
 
   const toggle = (key: keyof NotificationPrefs) => setPrefs((p) => ({ ...p, [key]: !p[key] }));
+
+  const perTypeOverrides = {
+    loan_approved: prefs.loanApproved,
+    repayment_due: prefs.repaymentDue,
+    repayment_confirmed: prefs.repaymentConfirmed,
+    loan_defaulted: prefs.loanDefaulted,
+    score_changed: prefs.scoreChanged,
+  };
+
+  const handleSave = () => {
+    setSaveError(null);
+    updateNotificationPreferences.mutate(
+      {
+        emailEnabled: prefs.email,
+        smsEnabled: prefs.sms,
+        phone: prefs.phone.trim() || null,
+        perTypeOverrides,
+      },
+      {
+        onSuccess: () => {
+          setSaved(true);
+          setTimeout(() => setSaved(false), 2000);
+        },
+        onError: (error) => {
+          setSaveError(error.message);
+        },
+      },
+    );
+  };
 
   return (
     <Card>
@@ -275,66 +326,100 @@ function NotificationsSection() {
           Choose which events you want to be notified about and how.
         </p>
       </CardHeader>
-      <CardContent className="space-y-2">
-        <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 pb-2">
-          Delivery
-        </p>
-        <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
-          <Toggle
-            checked={prefs.inApp}
-            onChange={() => toggle("inApp")}
-            label="In-App Notifications"
-            description="Show notifications inside RemitLend"
-          />
-          <Toggle
-            checked={prefs.email}
-            onChange={() => toggle("email")}
-            label="Email Notifications"
-            description="Requires a verified email address"
-          />
-          <Toggle
-            checked={prefs.sms}
-            onChange={() => toggle("sms")}
-            label="SMS Notifications"
-            description="Requires a verified phone number"
+      <CardContent className="space-y-4">
+        <div className="space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 pb-2">
+            Delivery
+          </p>
+          <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
+            <Toggle
+              checked={prefs.inApp}
+              onChange={() => toggle("inApp")}
+              label="In-App Notifications"
+              description="Show notifications inside RemitLend"
+            />
+            <Toggle
+              checked={prefs.email}
+              onChange={() => toggle("email")}
+              label="Email Notifications"
+              description="Requires a verified email address"
+            />
+            <Toggle
+              checked={prefs.sms}
+              onChange={() => toggle("sms")}
+              label="SMS Notifications"
+              description="Requires a verified phone number"
+            />
+          </div>
+          <Input
+            label="Phone number"
+            placeholder="+14155552671"
+            value={prefs.phone}
+            onChange={(e) => setPrefs((p) => ({ ...p, phone: e.target.value }))}
+            helperText={
+              prefs.sms
+                ? "A phone number is required for SMS notifications."
+                : "Optional unless SMS notifications are enabled."
+            }
           />
         </div>
 
-        <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 pb-2 pt-4">
-          Events
-        </p>
-        <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
-          <Toggle
-            checked={prefs.loanApproved}
-            onChange={() => toggle("loanApproved")}
-            label="Loan Approved"
-            description="When your loan application is approved"
-          />
-          <Toggle
-            checked={prefs.repaymentDue}
-            onChange={() => toggle("repaymentDue")}
-            label="Repayment Due"
-            description="Reminder before a payment is due"
-          />
-          <Toggle
-            checked={prefs.repaymentConfirmed}
-            onChange={() => toggle("repaymentConfirmed")}
-            label="Repayment Confirmed"
-            description="When a repayment is recorded on-chain"
-          />
-          <Toggle
-            checked={prefs.loanDefaulted}
-            onChange={() => toggle("loanDefaulted")}
-            label="Loan Defaulted"
-            description="When a loan is marked as defaulted"
-          />
-          <Toggle
-            checked={prefs.scoreChanged}
-            onChange={() => toggle("scoreChanged")}
-            label="Credit Score Changed"
-            description="When your score goes up or down"
-          />
+        <div className="space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 pb-2 pt-4">
+            Events
+          </p>
+          <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
+            <Toggle
+              checked={prefs.loanApproved}
+              onChange={() => toggle("loanApproved")}
+              label="Loan Approved"
+              description="When your loan application is approved"
+            />
+            <Toggle
+              checked={prefs.repaymentDue}
+              onChange={() => toggle("repaymentDue")}
+              label="Repayment Due"
+              description="Reminder before a payment is due"
+            />
+            <Toggle
+              checked={prefs.repaymentConfirmed}
+              onChange={() => toggle("repaymentConfirmed")}
+              label="Repayment Confirmed"
+              description="When a repayment is recorded on-chain"
+            />
+            <Toggle
+              checked={prefs.loanDefaulted}
+              onChange={() => toggle("loanDefaulted")}
+              label="Loan Defaulted"
+              description="When a loan is marked as defaulted"
+            />
+            <Toggle
+              checked={prefs.scoreChanged}
+              onChange={() => toggle("scoreChanged")}
+              label="Credit Score Changed"
+              description="When your score goes up or down"
+            />
+          </div>
         </div>
+
+        {error && (
+          <p className="text-sm text-red-600 dark:text-red-400">
+            Unable to load notification settings.
+          </p>
+        )}
+        {saveError && <p className="text-sm text-red-600 dark:text-red-400">{saveError}</p>}
+        <Button
+          variant="primary"
+          onClick={handleSave}
+          disabled={updateNotificationPreferences.isPending || isLoading}
+          className="w-full sm:w-auto"
+        >
+          {updateNotificationPreferences.isPending
+            ? "Saving..."
+            : saved
+              ? "Saved!"
+              : "Save Preferences"}
+        </Button>
       </CardContent>
     </Card>
   );
@@ -432,6 +517,16 @@ function DisplaySection() {
 
   const [language, setLanguage] = useState("en");
 
+  const theme = useThemeStore((s) => s.theme);
+  const hydrated = useThemeStore((s) => s.hydrated);
+  const initializeTheme = useThemeStore((s) => s.initializeTheme);
+  const setTheme = useThemeStore((s) => s.setTheme);
+
+  // Ensure client store is initialised
+  useEffect(() => {
+    if (!hydrated) initializeTheme();
+  }, [hydrated, initializeTheme]);
+
   return (
     <Card>
       <CardHeader>
@@ -445,10 +540,27 @@ function DisplaySection() {
           <div>
             <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Theme</p>
             <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-              Click to cycle: Light → Dark → System
+              Choose a preference: Light / Dark / System
             </p>
           </div>
-          <ThemeToggle />
+          <div className="inline-flex items-center gap-2">
+            {(["light", "dark", "system"] as const).map((opt) => {
+              const active = theme === opt;
+              return (
+                <button
+                  key={opt}
+                  onClick={() => setTheme(opt)}
+                  className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                    active
+                      ? "bg-indigo-600 text-white"
+                      : "bg-zinc-100 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-200"
+                  }`}
+                >
+                  {opt[0].toUpperCase() + opt.slice(1)}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         <div>
