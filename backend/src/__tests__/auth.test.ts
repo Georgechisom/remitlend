@@ -168,6 +168,10 @@ describe("Auth API", () => {
         status: number;
         body: { success: boolean };
         headers: Record<string, string>;
+      } = undefined as unknown as {
+        status: number;
+        body: { success: boolean };
+        headers: Record<string, string>;
       };
       for (let i = 0; i < 11; i++) {
         lastResponse = await request(app)
@@ -182,6 +186,10 @@ describe("Auth API", () => {
     it("should return 429 and Retry-After after 5 login attempts from same IP", async () => {
       const keypair = Keypair.random();
       let lastResponse: {
+        status: number;
+        body: { success: boolean };
+        headers: Record<string, string>;
+      } = undefined as unknown as {
         status: number;
         body: { success: boolean };
         headers: Record<string, string>;
@@ -203,6 +211,10 @@ describe("Auth API", () => {
     it("should return 429 after 5 login attempts with same public key", async () => {
       const keypair = Keypair.random();
       let lastResponse: {
+        status: number;
+        body: { success: boolean };
+        headers: Record<string, string>;
+      } = undefined as unknown as {
         status: number;
         body: { success: boolean };
         headers: Record<string, string>;

@@ -24,8 +24,12 @@ jest.unstable_mockModule("../db/connection.js", () => ({
 
 jest.unstable_mockModule("../services/cacheService.js", () => ({
   cacheService: {
-    get: jest.fn().mockResolvedValue(null),
-    set: jest.fn().mockResolvedValue(undefined),
+    get: jest
+      .fn<(...args: unknown[]) => Promise<null>>()
+      .mockResolvedValue(null),
+    set: jest
+      .fn<(...args: unknown[]) => Promise<void>>()
+      .mockResolvedValue(undefined),
   },
 }));
 

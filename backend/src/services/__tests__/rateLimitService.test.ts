@@ -8,16 +8,16 @@ import {
 } from "@jest/globals";
 
 let rateLimitService: {
-  checkRateLimit: jest.Mock;
-  resetRateLimit: jest.Mock;
-  getRateLimitStatus: jest.Mock;
+  checkRateLimit: jest.Mock<any>;
+  resetRateLimit: jest.Mock<any>;
+  getRateLimitStatus: jest.Mock<any>;
 };
 let SCORE_UPDATE_RATE_LIMIT: { maxRequests: number; windowSeconds: number };
-let mockCacheService: jest.Mocked<{
-  get: jest.Mock;
-  set: jest.Mock;
-  delete: jest.Mock;
-}>;
+let mockCacheService: {
+  get: jest.Mock<any>;
+  set: jest.Mock<any>;
+  delete: jest.Mock<any>;
+};
 
 beforeAll(async () => {
   // Mock the cache service BEFORE importing the module under test
@@ -31,9 +31,10 @@ beforeAll(async () => {
 
   // Dynamically import after mocking
   const imported = await import("../cacheService.js");
-  mockCacheService = imported.cacheService;
+  mockCacheService =
+    imported.cacheService as unknown as typeof mockCacheService;
   const svc = await import("../rateLimitService.js");
-  rateLimitService = svc.rateLimitService;
+  rateLimitService = svc.rateLimitService as unknown as typeof rateLimitService;
   SCORE_UPDATE_RATE_LIMIT = svc.SCORE_UPDATE_RATE_LIMIT;
 });
 
@@ -46,7 +47,7 @@ describe("RateLimitService", () => {
   describe("checkRateLimit", () => {
     it("should allow first request", async () => {
       mockCacheService.get.mockResolvedValue(null);
-      mockCacheService.set.mockResolvedValue();
+      mockCacheService.set.mockResolvedValue(undefined);
 
       const result = await rateLimitService.checkRateLimit(
         "user123",
@@ -87,7 +88,7 @@ describe("RateLimitService", () => {
         count: 5,
         firstRequest: expiredTime.toISOString(),
       });
-      mockCacheService.set.mockResolvedValue();
+      mockCacheService.set.mockResolvedValue(undefined);
 
       const result = await rateLimitService.checkRateLimit(
         "user123",
@@ -121,7 +122,7 @@ describe("RateLimitService", () => {
 
     it("should handle different identifiers independently", async () => {
       mockCacheService.get.mockResolvedValue(null);
-      mockCacheService.set.mockResolvedValue();
+      mockCacheService.set.mockResolvedValue(undefined);
 
       // First user
       const result1 = await rateLimitService.checkRateLimit(
@@ -154,7 +155,7 @@ describe("RateLimitService", () => {
 
   describe("resetRateLimit", () => {
     it("should reset the rate limit counter", async () => {
-      mockCacheService.delete.mockResolvedValue();
+      mockCacheService.delete.mockResolvedValue(undefined);
 
       await rateLimitService.resetRateLimit("user123");
 

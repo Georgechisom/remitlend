@@ -38,7 +38,7 @@ const HEARTBEAT_INTERVAL_MS = 30_000;
 
 class EventStreamService {
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
-  closeAll: (reason: string) => void;
+  closeAll: (reason: string) => void = this.closeAllConnections;
 
   startHeartbeat(): void {
     if (this.heartbeatTimer) {

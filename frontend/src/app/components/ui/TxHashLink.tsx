@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { Copy, Check, ExternalLink } from "lucide-react";
 import { getTxUrl, truncateHash } from "../../utils/stellar";
-import { COPY_FEEDBACK_RESET_MS } from "../../constants/ui";
+
+const COPY_FEEDBACK_RESET_MS = 2000;
 
 interface TxHashLinkProps {
   txHash: string;

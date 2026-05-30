@@ -58,6 +58,10 @@ describe("GET /api/score/:userId", () => {
   it("should return a score for a valid userId", async () => {
     mockedQuery.mockResolvedValueOnce({
       rows: [{ current_score: 750 }],
+      command: "SELECT",
+      rowCount: 1,
+      oid: 0,
+      fields: [],
     });
 
     const response = await request(app)
@@ -71,7 +75,13 @@ describe("GET /api/score/:userId", () => {
   });
 
   it("should return the same score for the same userId", async () => {
-    mockedQuery.mockResolvedValue({ rows: [{ current_score: 600 }] });
+    mockedQuery.mockResolvedValue({
+      rows: [{ current_score: 600 }],
+      command: "SELECT",
+      rowCount: 1,
+      oid: 0,
+      fields: [],
+    });
 
     const r1 = await request(app).get("/api/score/alice").set(bearer("alice"));
     const r2 = await request(app).get("/api/score/alice").set(bearer("alice"));
@@ -80,7 +90,13 @@ describe("GET /api/score/:userId", () => {
   });
 
   it("should return 500 if user not found", async () => {
-    mockedQuery.mockResolvedValueOnce({ rows: [] });
+    mockedQuery.mockResolvedValueOnce({
+      rows: [],
+      command: "SELECT",
+      rowCount: 0,
+      oid: 0,
+      fields: [],
+    });
 
     const response = await request(app)
       .get("/api/score/newuser")
@@ -95,9 +111,17 @@ describe("POST /api/score/update", () => {
   it("should increase score by 15 for on-time repayment", async () => {
     mockedQuery.mockResolvedValueOnce({
       rows: [{ current_score: 500 }],
+      command: "SELECT",
+      rowCount: 1,
+      oid: 0,
+      fields: [],
     });
     mockedQuery.mockResolvedValueOnce({
       rows: [{ current_score: 515 }],
+      command: "SELECT",
+      rowCount: 1,
+      oid: 0,
+      fields: [],
     });
 
     const response = await request(app)

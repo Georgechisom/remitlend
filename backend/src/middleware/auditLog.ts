@@ -8,7 +8,7 @@ import logger from "../utils/logger.js";
 function sanitizePayload(body: unknown): unknown {
   if (!body || typeof body !== "object") return body;
 
-  const sanitized = { ...body };
+  const sanitized = { ...body } as Record<string, unknown>;
   // List of fields that should be redacted in audit logs
   const sensitiveFields = [
     "secret",

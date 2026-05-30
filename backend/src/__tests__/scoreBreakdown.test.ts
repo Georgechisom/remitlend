@@ -62,6 +62,10 @@ describe("GET /api/score/:userId/breakdown", () => {
           avg_repayment_ledgers: 17280,
         },
       ],
+      command: "SELECT",
+      rowCount: 1,
+      oid: 0,
+      fields: [],
     });
     mockedQuery.mockResolvedValueOnce({
       rows: [
@@ -78,6 +82,10 @@ describe("GET /api/score/:userId/breakdown", () => {
           ledger_closed_at: "2026-03-10T10:00:00Z",
         },
       ],
+      command: "SELECT",
+      rowCount: 3,
+      oid: 0,
+      fields: [],
     }); // History query
 
     const response = await request(app)
@@ -96,8 +104,20 @@ describe("GET /api/score/:userId/breakdown", () => {
   it("should return default values for a user with no history", async () => {
     // Mock empty breakdown and history queries
     mockedQuery
-      .mockResolvedValueOnce({ rows: [] }) // Empty breakdown
-      .mockResolvedValueOnce({ rows: [] }); // Empty history
+      .mockResolvedValueOnce({
+        rows: [],
+        command: "SELECT",
+        rowCount: 0,
+        oid: 0,
+        fields: [],
+      }) // Empty breakdown
+      .mockResolvedValueOnce({
+        rows: [],
+        command: "SELECT",
+        rowCount: 0,
+        oid: 0,
+        fields: [],
+      }); // Empty history
 
     const response = await request(app)
       .get("/api/score/newuser/breakdown")

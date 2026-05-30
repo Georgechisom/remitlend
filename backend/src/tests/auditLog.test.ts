@@ -31,7 +31,7 @@ describe("Audit Log Middleware", () => {
         loanIds: [1, 2, 3],
       },
       ip: "127.0.0.1",
-      socket: {} as Partial<import("net").Socket>,
+      socket: {} as import("net").Socket,
       params: {},
     };
     res = {};

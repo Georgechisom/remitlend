@@ -48,9 +48,6 @@ import {
   liquidateLoanSchema,
   borrowerLoansQuerySchema,
 } from "../schemas/loanSchemas.js";
-import { authenticateJWT } from "../middleware/jwtAuth";
-
-import { requireJwtAuth } from "../middleware/jwtAuth.js";
 
 import { buildCancelLoanTx } from "../controllers/loanController.js";
 
@@ -132,7 +129,7 @@ router.get("/config", getLoanConfigEndpoint);
 
 router.post(
   "/:loanId/build-cancel",
-  authenticateJWT,
+  requireJwtAuth,
   requireLoanOwner,
   buildCancelLoanTx,
 );

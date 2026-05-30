@@ -4,7 +4,15 @@ import request from "supertest";
 
 process.env.JWT_SECRET = "user-profile-test-secret";
 
-const queryMock = jest.fn<() => Promise<{ rows: unknown[] }>>();
+const queryMock = jest.fn<
+  () => Promise<{
+    rows: unknown[];
+    rowCount: number;
+    command: string;
+    oid: number;
+    fields: unknown[];
+  }>
+>();
 
 jest.unstable_mockModule("../db/connection.js", () => ({
   default: {
@@ -72,6 +80,9 @@ describe("/user/profile", () => {
     queryMock.mockResolvedValueOnce({
       rows: [profileRow()],
       rowCount: 1,
+      command: "SELECT",
+      oid: 0,
+      fields: [],
     });
 
     const response = await request(app)
@@ -98,6 +109,9 @@ describe("/user/profile", () => {
       .mockResolvedValueOnce({
         rows: [profileRow({ metadata: { kycVerified: true } })],
         rowCount: 1,
+        command: "SELECT",
+        oid: 0,
+        fields: [],
       })
       .mockResolvedValueOnce({
         rows: [
@@ -113,6 +127,9 @@ describe("/user/profile", () => {
           }),
         ],
         rowCount: 1,
+        command: "SELECT",
+        oid: 0,
+        fields: [],
       });
 
     const response = await request(app)

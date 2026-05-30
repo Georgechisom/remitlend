@@ -25,33 +25,20 @@ import {
 import { getPendingGovernance } from "../controllers/adminGovernanceController.js";
 import { query } from "../db/connection.js";
 
-import { buildRejectLoanTx } from "../controllers/loanController.ts";
+import { buildRejectLoanTx } from "../controllers/loanController.js";
+import { listAuditLogs } from "../controllers/authController.js";
 
-import { authenticateJWT } from "../middleware/jwtAuth";
+const router = Router();
 
-import { requireRoles } from "../middleware/auth";
-
-import auditLog from "../middleware/auditLog";
-
-import { listAuditLogs } from "../controllers/adminController";
-
-router.get(
-  "/audit-logs",
-  authenticateJWT,
-  requireRoles("admin"),
-  listAuditLogs,
-);
-const router = express.Router();
+router.get("/audit-logs", requireJwtAuth, requireRoles("admin"), listAuditLogs);
 
 router.post(
   "/loans/:loanId/build-reject",
-  authenticateJWT,
+  requireJwtAuth,
   requireRoles("admin"),
-  auditLog("LOAN_REJECT_BUILD"),
+  auditLog,
   buildRejectLoanTx,
 );
-
-export default router;
 /**
  * @swagger
  * /admin/loan-disputes:

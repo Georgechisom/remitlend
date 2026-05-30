@@ -8,7 +8,9 @@ import request from "supertest";
 
 const mockDbQuery = jest
   .fn<
-    () => Promise<{ rows: { last_indexed_ledger: number }[]; rowCount: number }>
+    (
+      sql?: unknown,
+    ) => Promise<{ rows: Record<string, unknown>[]; rowCount: number }>
   >()
   .mockResolvedValue({ rows: [{ last_indexed_ledger: 1000 }], rowCount: 1 });
 

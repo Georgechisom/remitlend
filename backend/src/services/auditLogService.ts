@@ -1,6 +1,6 @@
-import db from "../db";
+import { query } from "../db/connection.js";
 
-interface AuditLogFilters {
+export interface AuditLogFilters {
   actor?: string;
   action?: string;
   from?: string;
@@ -13,47 +13,60 @@ interface AuditLogFilters {
 export async function getAuditLogs(filters: AuditLogFilters) {
   const { actor, action, from, to, cursor, limit = 25, withTotal } = filters;
 
-  let query = db("audit_logs")
-    .orderBy("created_at", "desc")
-    .limit(limit + 1);
+  const conditions: string[] = [];
+  const values: unknown[] = [];
 
   if (actor) {
-    query = query.where("actor", actor);
+    conditions.push(`actor = $${values.length + 1}`);
+    values.push(actor);
   }
 
   if (action) {
-    query = query.where("action", action);
+    conditions.push(`action = $${values.length + 1}`);
+    values.push(action);
   }
 
   if (from) {
-    query = query.where("created_at", ">=", from);
+    conditions.push(`created_at >= $${values.length + 1}`);
+    values.push(from);
   }
 
   if (to) {
-    query = query.where("created_at", "<=", to);
+    conditions.push(`created_at <= $${values.length + 1}`);
+    values.push(to);
   }
 
   if (cursor) {
-    query = query.where("id", "<", cursor);
+    conditions.push(`id < $${values.length + 1}`);
+    values.push(cursor);
   }
 
-  const rows = await query;
+  const whereClause =
+    conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
+  values.push(limit + 1);
+  const result = await query(
+    `SELECT * FROM audit_logs ${whereClause} ORDER BY created_at DESC LIMIT $${values.length}`,
+    values,
+  );
+
+  const rows = result.rows as Array<Record<string, unknown>>;
   const hasNext = rows.length > limit;
-
   const data = rows.slice(0, limit);
 
-  let total;
-
+  let total: number | undefined;
   if (withTotal === true) {
-    const result = await db("audit_logs").count("* as count").first();
-
-    total = Number(result?.count ?? 0);
+    const countResult = await query("SELECT COUNT(*) as count FROM audit_logs");
+    total = Number(
+      (countResult.rows[0] as Record<string, unknown>)?.count ?? 0,
+    );
   }
 
   return {
     data,
-    nextCursor: hasNext ? data[data.length - 1].id : null,
+    nextCursor: hasNext
+      ? String((data[data.length - 1] as Record<string, unknown>).id)
+      : null,
     total,
   };
 }

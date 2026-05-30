@@ -31,9 +31,14 @@ jest.unstable_mockModule("../db/connection.js", () => ({
   query: mockQuery,
   getClient: jest.fn(),
   closePool: jest.fn(),
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   withTransaction: jest
-    .fn<() => Promise<unknown>>()
+    .fn<
+      (
+        fn: (client: {
+          query: (sql: string, params?: unknown[]) => Promise<unknown>;
+        }) => Promise<unknown>,
+      ) => Promise<unknown>
+    >()
     .mockImplementation(
       async (
         fn: (client: {

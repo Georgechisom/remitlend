@@ -97,7 +97,7 @@ describe("Graceful Shutdown", () => {
 
     const exitSpy = jest.spyOn(process, "exit").mockImplementation((() => {
       // Mock implementation that doesn't actually exit
-    }) as unknown as (code?: number) => never);
+    }) as (code?: number | string | null | undefined) => never);
 
     const timeout = setTimeout(() => {
       process.exit(1);
@@ -124,7 +124,7 @@ describe("Graceful Shutdown", () => {
 
     const exitSpy = jest.spyOn(process, "exit").mockImplementation((() => {
       // Mock implementation that doesn't actually exit
-    }) as unknown as (code?: number) => never);
+    }) as (code?: number | string | null | undefined) => never);
 
     // Simulate the shutdown flow
     const timeout = setTimeout(() => {

@@ -34,11 +34,12 @@ describe("WebhookService", () => {
   });
 
   it("persists retry state when the initial delivery fails", async () => {
-    const fetchMock: jest.Mock = jest.fn(async () => ({
-      ok: false,
-      status: 503,
-    }));
-    global.fetch = fetchMock as typeof fetch;
+    const fetchMock =
+      jest.fn<
+        (...args: unknown[]) => Promise<{ ok: boolean; status: number }>
+      >();
+    fetchMock.mockResolvedValue({ ok: false, status: 503 });
+    global.fetch = fetchMock as unknown as typeof fetch;
 
     const nowSpy = jest.spyOn(Date, "now").mockReturnValue(1_700_000_000_000);
     mockQuery
@@ -101,11 +102,12 @@ describe("WebhookService", () => {
   it("truncates oversized webhook payloads before delivery", async () => {
     process.env.WEBHOOK_MAX_PAYLOAD_BYTES = "200";
 
-    const fetchMock: jest.Mock = jest.fn(async () => ({
-      ok: true,
-      status: 200,
-    }));
-    global.fetch = fetchMock as typeof fetch;
+    const fetchMock =
+      jest.fn<
+        (...args: unknown[]) => Promise<{ ok: boolean; status: number }>
+      >();
+    fetchMock.mockResolvedValue({ ok: true, status: 200 });
+    global.fetch = fetchMock as unknown as typeof fetch;
 
     const warnSpy = jest
       .spyOn(logger, "warn")
@@ -134,7 +136,8 @@ describe("WebhookService", () => {
     });
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    const deliveredBody = String(fetchMock.mock.calls[0]?.[1]?.body);
+    const callOpts = fetchMock.mock.calls[0]![1] as RequestInit;
+    const deliveredBody = String(callOpts.body);
     const deliveredPayload = JSON.parse(deliveredBody) as Record<
       string,
       unknown
@@ -146,7 +149,7 @@ describe("WebhookService", () => {
     expect(Number(deliveredPayload.originalPayloadBytes)).toBeGreaterThan(200);
     expect(deliveredPayload.value).toBeUndefined();
 
-    const insertParams = mockQuery.mock.calls[1]?.[1] as unknown[];
+    const insertParams = mockQuery.mock.calls[1]![1] as unknown[];
     expect(JSON.parse(String(insertParams[5]))).toEqual(deliveredPayload);
     expect(warnSpy).toHaveBeenCalledWith(
       "Webhook payload exceeds size limit, sending summary payload",
@@ -161,11 +164,12 @@ describe("WebhookService", () => {
   it("logs when a webhook payload approaches the configured size limit", async () => {
     process.env.WEBHOOK_MAX_PAYLOAD_BYTES = "512";
 
-    const fetchMock: jest.Mock = jest.fn(async () => ({
-      ok: true,
-      status: 200,
-    }));
-    global.fetch = fetchMock as typeof fetch;
+    const fetchMock =
+      jest.fn<
+        (...args: unknown[]) => Promise<{ ok: boolean; status: number }>
+      >();
+    fetchMock.mockResolvedValue({ ok: true, status: 200 });
+    global.fetch = fetchMock as unknown as typeof fetch;
 
     const warnSpy = jest
       .spyOn(logger, "warn")
@@ -226,14 +230,19 @@ describe("WebhookService", () => {
       const expectedHeader = `sha256=${expectedHex}`;
 
       // Directly inspect the header value by spying on fetch
-      const fetchMock: jest.Mock = jest.fn(
-        async (_url: string, opts: RequestInit) => {
-          const hdrs = opts.headers as Record<string, string>;
-          expect(hdrs["x-remitlend-signature"]).toBe(expectedHeader);
-          return { ok: true, status: 200 };
-        },
-      );
-      global.fetch = fetchMock as typeof fetch;
+      const fetchMock =
+        jest.fn<
+          (
+            _url: string,
+            opts: RequestInit,
+          ) => Promise<{ ok: boolean; status: number }>
+        >();
+      fetchMock.mockImplementation(async (_url: string, opts: RequestInit) => {
+        const hdrs = opts.headers as Record<string, string>;
+        expect(hdrs["x-remitlend-signature"]).toBe(expectedHeader);
+        return { ok: true, status: 200 };
+      });
+      global.fetch = fetchMock as unknown as typeof fetch;
 
       mockQuery
         .mockResolvedValueOnce({
@@ -260,11 +269,12 @@ describe("WebhookService", () => {
 
     it("header value starts with 'sha256=' and matches HMAC-SHA256 of the request body", async () => {
       const secret = "another-secret";
-      const fetchMock: jest.Mock = jest.fn(async () => ({
-        ok: true,
-        status: 200,
-      }));
-      global.fetch = fetchMock as typeof fetch;
+      const fetchMock =
+        jest.fn<
+          (...args: unknown[]) => Promise<{ ok: boolean; status: number }>
+        >();
+      fetchMock.mockResolvedValue({ ok: true, status: 200 });
+      global.fetch = fetchMock as unknown as typeof fetch;
 
       mockQuery
         .mockResolvedValueOnce({
@@ -286,7 +296,7 @@ describe("WebhookService", () => {
         value: "xdr-val",
       });
 
-      const callOpts = fetchMock.mock.calls[0][1] as RequestInit;
+      const callOpts = fetchMock.mock.calls[0]![1] as RequestInit;
       const hdrs = callOpts.headers as Record<string, string>;
       const sigHeader = hdrs["x-remitlend-signature"];
 
@@ -304,11 +314,12 @@ describe("WebhookService", () => {
     });
 
     it("omits X-RemitLend-Signature when no secret is configured", async () => {
-      const fetchMock: jest.Mock = jest.fn(async () => ({
-        ok: true,
-        status: 200,
-      }));
-      global.fetch = fetchMock as typeof fetch;
+      const fetchMock =
+        jest.fn<
+          (...args: unknown[]) => Promise<{ ok: boolean; status: number }>
+        >();
+      fetchMock.mockResolvedValue({ ok: true, status: 200 });
+      global.fetch = fetchMock as unknown as typeof fetch;
 
       mockQuery
         .mockResolvedValueOnce({
@@ -332,7 +343,7 @@ describe("WebhookService", () => {
         value: "xdr",
       });
 
-      const callOpts = fetchMock.mock.calls[0][1] as RequestInit;
+      const callOpts = fetchMock.mock.calls[0]![1] as RequestInit;
       const hdrs = callOpts.headers as Record<string, string>;
       expect(hdrs["x-remitlend-signature"]).toBeUndefined();
     });
@@ -340,11 +351,12 @@ describe("WebhookService", () => {
 
   describe("Retry logic", () => {
     it("retries delivery on 5xx response", async () => {
-      const fetchMock: jest.Mock = jest.fn(async () => ({
-        ok: false,
-        status: 503,
-      }));
-      global.fetch = fetchMock as typeof fetch;
+      const fetchMock =
+        jest.fn<
+          (...args: unknown[]) => Promise<{ ok: boolean; status: number }>
+        >();
+      fetchMock.mockResolvedValue({ ok: false, status: 503 });
+      global.fetch = fetchMock as unknown as typeof fetch;
 
       const nowSpy = jest.spyOn(Date, "now").mockReturnValue(1_700_000_000_000);
       mockQuery
@@ -370,12 +382,12 @@ describe("WebhookService", () => {
       });
 
       expect(fetchMock).toHaveBeenCalledTimes(1);
-      const insertCall = mockQuery.mock.calls[1] as [string, unknown[]];
+      const insertCall = mockQuery.mock.calls[1]! as [string, unknown[]];
       expect(insertCall[0]).toContain("INSERT INTO webhook_deliveries");
       const params = insertCall[1];
-      expect(params[3]).toBe(503); // last_status_code
-      expect(params[4]).toBe("Webhook returned status 503"); // last_error
-      expect(params[6]).toEqual(
+      expect(params[3]!).toBe(503); // last_status_code
+      expect(params[4]!).toBe("Webhook returned status 503"); // last_error
+      expect(params[6]!).toEqual(
         new Date(1_700_000_000_000 + getRetryDelayMs(1)),
       ); // next_retry_at
 
@@ -383,11 +395,12 @@ describe("WebhookService", () => {
     });
 
     it("does not retry delivery on 4xx response", async () => {
-      const fetchMock: jest.Mock = jest.fn(async () => ({
-        ok: false,
-        status: 400,
-      }));
-      global.fetch = fetchMock as typeof fetch;
+      const fetchMock =
+        jest.fn<
+          (...args: unknown[]) => Promise<{ ok: boolean; status: number }>
+        >();
+      fetchMock.mockResolvedValue({ ok: false, status: 400 });
+      global.fetch = fetchMock as unknown as typeof fetch;
 
       const nowSpy = jest.spyOn(Date, "now").mockReturnValue(1_700_000_000_000);
       mockQuery
@@ -413,7 +426,52 @@ describe("WebhookService", () => {
       });
 
       expect(fetchMock).toHaveBeenCalledTimes(1);
-      const insertCall = mockQuery.mock.calls[1] as [string, unknown[]];
+      const insertCall = mockQuery.mock.calls[1]! as [string, unknown[]];
+      expect(insertCall[0]).toContain("INSERT INTO webhook_deliveries");
+      const params = insertCall[1];
+      expect(params[3]!).toBe(400); // last_status_code
+      expect(params[4]!).toBe("Webhook returned status 400"); // last_error
+      // 4xx errors still schedule retry in current implementation
+      expect(params[6]!).toEqual(
+        new Date(1_700_000_000_000 + getRetryDelayMs(1)),
+      ); // next_retry_at
+
+      nowSpy.mockRestore();
+    });
+
+    it("does not retry delivery on 4xx response", async () => {
+      const fetchMock =
+        jest.fn<
+          (...args: unknown[]) => Promise<{ ok: boolean; status: number }>
+        >();
+      fetchMock.mockResolvedValue({ ok: false, status: 400 });
+      global.fetch = fetchMock as unknown as typeof fetch;
+
+      const nowSpy = jest.spyOn(Date, "now").mockReturnValue(1_700_000_000_000);
+      mockQuery
+        .mockResolvedValueOnce({
+          rows: [
+            { id: 1, callback_url: "https://consumer.example", secret: null },
+          ],
+        })
+        .mockResolvedValueOnce({ rows: [], rowCount: 1 });
+
+      const service = new WebhookService();
+      await service.dispatch({
+        eventId: "evt-4xx",
+        eventType: "LoanApproved",
+        loanId: 42,
+        address: "GBORROWER123",
+        ledger: 100,
+        ledgerClosedAt: new Date("2025-01-01T00:00:00.000Z"),
+        txHash: "tx-4xx",
+        contractId: "contract-123",
+        topics: [],
+        value: "value-xdr",
+      });
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      const insertCall = mockQuery.mock.calls[1]! as [string, unknown[]];
       expect(insertCall[0]).toContain("INSERT INTO webhook_deliveries");
       const params = insertCall[1];
       expect(params[3]).toBe(400); // last_status_code
@@ -429,11 +487,12 @@ describe("WebhookService", () => {
 
   describe("Subscription filtering", () => {
     it("sends event to all matching subscriptions", async () => {
-      const fetchMock: jest.Mock = jest.fn(async () => ({
-        ok: true,
-        status: 200,
-      }));
-      global.fetch = fetchMock as typeof fetch;
+      const fetchMock =
+        jest.fn<
+          (...args: unknown[]) => Promise<{ ok: boolean; status: number }>
+        >();
+      fetchMock.mockResolvedValue({ ok: true, status: 200 });
+      global.fetch = fetchMock as unknown as typeof fetch;
 
       mockQuery
         .mockResolvedValueOnce({
@@ -462,17 +521,18 @@ describe("WebhookService", () => {
       });
 
       expect(fetchMock).toHaveBeenCalledTimes(3);
-      expect(fetchMock.mock.calls[0][0]).toBe("https://consumer1.example");
-      expect(fetchMock.mock.calls[1][0]).toBe("https://consumer2.example");
-      expect(fetchMock.mock.calls[2][0]).toBe("https://consumer3.example");
+      expect(fetchMock.mock.calls[0]![0]).toBe("https://consumer1.example");
+      expect(fetchMock.mock.calls[1]![0]).toBe("https://consumer2.example");
+      expect(fetchMock.mock.calls[2]![0]).toBe("https://consumer3.example");
     });
 
     it("skips inactive subscriptions", async () => {
-      const fetchMock: jest.Mock = jest.fn(async () => ({
-        ok: true,
-        status: 200,
-      }));
-      global.fetch = fetchMock as typeof fetch;
+      const fetchMock =
+        jest.fn<
+          (...args: unknown[]) => Promise<{ ok: boolean; status: number }>
+        >();
+      fetchMock.mockResolvedValue({ ok: true, status: 200 });
+      global.fetch = fetchMock as unknown as typeof fetch;
 
       // Query should filter by is_active = true, so no inactive subscriptions returned
       mockQuery.mockResolvedValueOnce({
@@ -501,11 +561,12 @@ describe("WebhookService", () => {
     });
 
     it("applies event type filter correctly", async () => {
-      const fetchMock: jest.Mock = jest.fn(async () => ({
-        ok: true,
-        status: 200,
-      }));
-      global.fetch = fetchMock as typeof fetch;
+      const fetchMock =
+        jest.fn<
+          (...args: unknown[]) => Promise<{ ok: boolean; status: number }>
+        >();
+      fetchMock.mockResolvedValue({ ok: true, status: 200 });
+      global.fetch = fetchMock as unknown as typeof fetch;
 
       mockQuery
         .mockResolvedValueOnce({

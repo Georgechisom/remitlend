@@ -24,8 +24,9 @@ jest.unstable_mockModule("../db/connection.js", () => ({
 }));
 
 // ── notificationService mock ─────────────────────────────────────────────────
-const mockGetNotificationsForUser = jest.fn();
-const mockGetUnreadCount = jest.fn();
+const mockGetNotificationsForUser =
+  jest.fn<(...args: unknown[]) => Promise<unknown[]>>();
+const mockGetUnreadCount = jest.fn<(...args: unknown[]) => Promise<number>>();
 const mockSubscribe = jest.fn();
 jest.unstable_mockModule("../services/notificationService.js", () => ({
   notificationService: {

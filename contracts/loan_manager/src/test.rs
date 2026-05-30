@@ -3,7 +3,7 @@ use lending_pool::{LendingPool, LendingPoolClient};
 use remittance_nft::{RemittanceNFT, RemittanceNFTClient};
 use soroban_sdk::testutils::{Events, Ledger as _};
 use soroban_sdk::token::{Client as TokenClient, StellarAssetClient};
-use soroban_sdk::{testutils::Address as _, Address, BytesN, Env, String, TryFromVal};
+use soroban_sdk::{testutils::Address as _, Address, BytesN, Env, FromVal, String};
 
 fn setup_test<'a>(
     env: &Env,

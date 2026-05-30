@@ -79,7 +79,7 @@ describe("WebhookRetryProcessor", () => {
       const fetchMock = jest.fn(async () => ({
         ok: true,
         status: 200,
-      })) as jest.MockedFunction<typeof fetch>;
+      })) as unknown as jest.MockedFunction<typeof fetch>;
       global.fetch = fetchMock as unknown as typeof fetch;
 
       const row = deliveryRow({ attempt_count: 1 });
@@ -106,7 +106,7 @@ describe("WebhookRetryProcessor", () => {
       const fetchMock = jest.fn(async () => ({
         ok: false,
         status: 503,
-      })) as jest.MockedFunction<typeof fetch>;
+      })) as unknown as jest.MockedFunction<typeof fetch>;
       global.fetch = fetchMock as unknown as typeof fetch;
 
       const row = deliveryRow({ attempt_count: 0 });
@@ -132,7 +132,7 @@ describe("WebhookRetryProcessor", () => {
       const fetchMock = jest.fn(async () => ({
         ok: false,
         status: 500,
-      })) as jest.MockedFunction<typeof fetch>;
+      })) as unknown as jest.MockedFunction<typeof fetch>;
       global.fetch = fetchMock as unknown as typeof fetch;
 
       const now = 1_700_000_000_000;
@@ -161,7 +161,7 @@ describe("WebhookRetryProcessor", () => {
       const fetchMock = jest.fn(async () => ({
         ok: false,
         status: 500,
-      })) as jest.MockedFunction<typeof fetch>;
+      })) as unknown as jest.MockedFunction<typeof fetch>;
       global.fetch = fetchMock as unknown as typeof fetch;
 
       const now = 1_700_000_000_000;
@@ -187,7 +187,7 @@ describe("WebhookRetryProcessor", () => {
       const fetchMock = jest.fn(async () => ({
         ok: true,
         status: 200,
-      })) as jest.MockedFunction<typeof fetch>;
+      })) as unknown as jest.MockedFunction<typeof fetch>;
       global.fetch = fetchMock as unknown as typeof fetch;
 
       // attempt_count >= MAX_RETRY_ATTEMPTS should be filtered out by the query
@@ -210,7 +210,7 @@ describe("WebhookRetryProcessor", () => {
           return { ok: false, status: 500 };
         }
         return { ok: true, status: 200 };
-      }) as jest.MockedFunction<typeof fetch>;
+      }) as unknown as jest.MockedFunction<typeof fetch>;
       global.fetch = fetchMock as unknown as typeof fetch;
 
       const row1 = deliveryRow({
@@ -260,7 +260,7 @@ describe("WebhookRetryProcessor", () => {
           throw new Error("Network timeout");
         }
         return { ok: true, status: 200 };
-      }) as jest.MockedFunction<typeof fetch>;
+      }) as unknown as jest.MockedFunction<typeof fetch>;
       global.fetch = fetchMock as unknown as typeof fetch;
 
       const row1 = deliveryRow({
@@ -300,7 +300,7 @@ describe("WebhookRetryProcessor", () => {
     it("handles network timeout errors gracefully", async () => {
       const fetchMock = jest.fn(async () => {
         throw new Error("fetch failed");
-      }) as jest.MockedFunction<typeof fetch>;
+      }) as unknown as jest.MockedFunction<typeof fetch>;
       global.fetch = fetchMock as unknown as typeof fetch;
 
       const now = 1_700_000_000_000;

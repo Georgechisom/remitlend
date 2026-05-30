@@ -1,8 +1,16 @@
 import { jest } from "@jest/globals";
 import { Keypair, Networks, TransactionBuilder } from "@stellar/stellar-sdk";
 
-const mockWithTransaction = jest.fn();
-const mockQuery = jest.fn();
+const mockWithTransaction = jest.fn<(...args: unknown[]) => Promise<unknown>>();
+const mockQuery = jest.fn<
+  (...args: unknown[]) => Promise<{
+    rows: unknown[];
+    rowCount: number;
+    command: string;
+    oid: number;
+    fields: unknown[];
+  }>
+>();
 
 jest.unstable_mockModule("../db/connection.js", () => ({
   query: mockQuery,
@@ -60,18 +68,16 @@ describe("remittanceService.createRemittance", () => {
   it("builds token transfer XDR for configured USDC remittances", async () => {
     process.env.STELLAR_USDC_ISSUER = USDC_ISSUER;
 
-    mockWithTransaction.mockImplementation(
-      async (
-        callback: (client: {
-          query: (
-            sql: string,
-            params: unknown[],
-          ) => Promise<{ rows: unknown[] }>;
-        }) => Promise<unknown>,
-      ) => {
-        const now = new Date();
-        return callback({
-          query: async (_sql: string, _params: unknown[]) => ({
+    mockWithTransaction.mockImplementation(async (...args: unknown[]) => {
+      const callback = args[0] as (client: {
+        query: (sql: string, params: unknown[]) => Promise<{ rows: unknown[] }>;
+      }) => Promise<unknown>;
+      const now = new Date();
+      let xdrValue = "";
+      const result = await callback({
+        query: async (_sql: string, queryParams: unknown[]) => {
+          xdrValue = queryParams[8] as string;
+          return {
             rows: [
               {
                 id: "remit-1",
@@ -83,15 +89,16 @@ describe("remittanceService.createRemittance", () => {
                 memo: "test",
                 status: "pending",
                 transaction_hash: null,
-                xdr: params[8],
+                xdr: xdrValue,
                 created_at: now,
                 updated_at: now,
               },
             ],
-          }),
-        });
-      },
-    );
+          };
+        },
+      });
+      return result;
+    });
 
     const remittance = await remittanceService.createRemittance({
       recipientAddress: RECIPIENT,
@@ -135,9 +142,17 @@ describe("remittanceService.getRemittances with filters", () => {
           updated_at: new Date("2024-03-01"),
         },
       ],
+      command: "SELECT",
+      rowCount: 1,
+      oid: 0,
+      fields: [],
     });
     mockQuery.mockResolvedValueOnce({
       rows: [{ total: "1" }],
+      command: "SELECT",
+      rowCount: 1,
+      oid: 0,
+      fields: [],
     });
 
     const result = await remittanceService.getRemittances(
@@ -148,7 +163,7 @@ describe("remittanceService.getRemittances with filters", () => {
     );
 
     expect(result.remittances).toHaveLength(1);
-    expect(result.remittances[0].status).toBe("completed");
+    expect(result.remittances[0]!.status).toBe("completed");
     expect(result.total).toBe(1);
   });
 
@@ -170,9 +185,17 @@ describe("remittanceService.getRemittances with filters", () => {
           updated_at: new Date("2024-03-15"),
         },
       ],
+      command: "SELECT",
+      rowCount: 1,
+      oid: 0,
+      fields: [],
     });
     mockQuery.mockResolvedValueOnce({
       rows: [{ total: "1" }],
+      command: "SELECT",
+      rowCount: 1,
+      oid: 0,
+      fields: [],
     });
 
     const result = await remittanceService.getRemittances(
@@ -206,9 +229,17 @@ describe("remittanceService.getRemittances with filters", () => {
           updated_at: new Date("2024-03-10"),
         },
       ],
+      command: "SELECT",
+      rowCount: 1,
+      oid: 0,
+      fields: [],
     });
     mockQuery.mockResolvedValueOnce({
       rows: [{ total: "1" }],
+      command: "SELECT",
+      rowCount: 1,
+      oid: 0,
+      fields: [],
     });
 
     const result = await remittanceService.getRemittances(
@@ -222,7 +253,7 @@ describe("remittanceService.getRemittances with filters", () => {
     );
 
     expect(result.remittances).toHaveLength(1);
-    expect(result.remittances[0].recipientAddress).toBe(RECIPIENT);
+    expect(result.remittances[0]!.recipientAddress).toBe(RECIPIENT);
   });
 
   it("combines multiple filters", async () => {
@@ -243,9 +274,17 @@ describe("remittanceService.getRemittances with filters", () => {
           updated_at: new Date("2024-03-20"),
         },
       ],
+      command: "SELECT",
+      rowCount: 1,
+      oid: 0,
+      fields: [],
     });
     mockQuery.mockResolvedValueOnce({
       rows: [{ total: "1" }],
+      command: "SELECT",
+      rowCount: 1,
+      oid: 0,
+      fields: [],
     });
 
     const result = await remittanceService.getRemittances(
@@ -259,7 +298,7 @@ describe("remittanceService.getRemittances with filters", () => {
     );
 
     expect(result.remittances).toHaveLength(1);
-    expect(result.remittances[0].status).toBe("completed");
+    expect(result.remittances[0]!.status).toBe("completed");
   });
 
   it("rejects invalid date formats", async () => {

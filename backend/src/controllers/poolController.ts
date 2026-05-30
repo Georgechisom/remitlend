@@ -375,25 +375,20 @@ export const submitPoolTransaction = asyncHandler(
         return await sorobanService.submitSignedTx(signedTxXdr);
       },
       // Database operations (currently none, but structured for future use)
-      async (stellarResult, client) => {
-        // Log the pool transaction submission for audit and reconciliation
+      async (stellarResult: unknown, client) => {
+        const sr = stellarResult as { txHash: string; status: string };
         await client.query(
           `INSERT INTO transaction_submissions (tx_hash, status, submitted_at, submitted_by, transaction_type)
            VALUES ($1, $2, NOW(), $3, $4)
            ON CONFLICT (tx_hash) DO UPDATE SET
              status = EXCLUDED.status,
              submitted_at = EXCLUDED.submitted_at`,
-          [
-            stellarResult.txHash,
-            stellarResult.status,
-            req.user?.publicKey || null,
-            "pool",
-          ],
+          [sr.txHash, sr.status, req.user?.publicKey || null, "pool"],
         );
 
         logger.info("Pool transaction submission recorded", {
-          txHash: stellarResult.txHash,
-          status: stellarResult.status,
+          txHash: sr.txHash,
+          status: sr.status,
           submittedBy: req.user?.publicKey,
           transactionType: "pool",
         });
@@ -402,18 +397,22 @@ export const submitPoolTransaction = asyncHandler(
       },
     );
 
+    const sr = result.stellarResult as {
+      txHash: string;
+      status: string;
+      resultXdr?: string;
+    };
+
     logger.info("Pool transaction submitted successfully", {
-      txHash: result.stellarResult.txHash,
-      status: result.stellarResult.status,
+      txHash: sr.txHash,
+      status: sr.status,
     });
 
     res.json({
       success: true,
-      txHash: result.stellarResult.txHash,
-      status: result.stellarResult.status,
-      ...(result.stellarResult.resultXdr
-        ? { resultXdr: result.stellarResult.resultXdr }
-        : {}),
+      txHash: sr.txHash,
+      status: sr.status,
+      ...(sr.resultXdr ? { resultXdr: sr.resultXdr } : {}),
     });
   },
 );

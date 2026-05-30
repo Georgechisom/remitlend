@@ -118,9 +118,7 @@ async function sendEmail(
   const fromEmail = process.env.FROM_EMAIL;
 
   if (!fromEmail) {
-    logger.info(
-      `[Email] FROM_EMAIL not set. Would send to ${email}: ${message}`,
-    );
+    logger.info("[Email] FROM_EMAIL not set", { email, message });
     return;
   }
 
@@ -625,8 +623,8 @@ class NotificationService {
 
   private mapRow(row: Record<string, unknown>): Notification {
     const loanId = row.loan_id != null ? (row.loan_id as number) : undefined;
-    const actionUrl =
-      row.action_url != null ? (row.action_url as string) : undefined;
+    const actionUrl: string | null =
+      row.action_url != null ? (row.action_url as string) : null;
     const base = {
       id: row.id as number,
       userId: row.user_id as string,

@@ -44,9 +44,9 @@ async function sendWebhookAgain(delivery: {
     delivery.subscription_id,
     delivery.callback_url,
     delivery.secret || undefined,
-    delivery.event_id,
+    String(delivery.event_id),
     delivery.event_type as WebhookEventType,
-    delivery.payload,
+    delivery.payload as Record<string, unknown>,
     delivery.attempt_count,
   );
 }

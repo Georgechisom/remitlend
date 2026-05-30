@@ -13,16 +13,16 @@ describe("Idempotency Middleware", () => {
 
   beforeEach(() => {
     req = {
-      header: jest.fn(),
+      header: jest.fn() as unknown as Request["header"],
       method: "POST",
       originalUrl: "/api/test",
     };
     res = {
-      status: jest.fn().mockReturnThis(),
-      set: jest.fn().mockReturnThis(),
-      json: jest.fn().mockReturnThis(),
-      send: jest.fn().mockReturnThis(),
-      on: jest.fn(),
+      status: jest.fn().mockReturnThis() as unknown as Response["status"],
+      set: jest.fn().mockReturnThis() as unknown as Response["set"],
+      json: jest.fn().mockReturnThis() as unknown as Response["json"],
+      send: jest.fn().mockReturnThis() as unknown as Response["send"],
+      on: jest.fn() as unknown as Response["on"],
       statusCode: 200,
     };
     next = jest.fn();
