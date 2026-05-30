@@ -59,7 +59,7 @@ Both endpoints are gated to non-production environments (`NODE_ENV !== "producti
 ## 🛠 Tech Stack
 
 - **Blockchain**: [Stellar](https://stellar.org) (Soroban Smart Contracts)
-- **Frontend**: Next.js 14, React, TypeScript, Tailwind CSS
+- **Frontend**: Next.js 16, React 19, TypeScript, Tailwind CSS
 - **Backend**: Node.js, Express, TypeScript, Jest
 - **Wallet Integration**: [Stellar Wallet Kit](https://github.com/stellar/stellar-wallet-kit) (Freighter)
 
@@ -209,6 +209,10 @@ Both endpoints are gated to non-production environments (`NODE_ENV !== "producti
      --network-passphrase "Test SDF Network ; September 2015"
    ```
 
+## 🔒 Security
+
+For details on how to report a security vulnerability, please see our [Security Policy](SECURITY.md).
+
 ## 🤝 Contributing
 
 We welcome contributions from developers of all skill levels! Please see our [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines on how to get started.
@@ -227,4 +231,4 @@ See [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md) for a full reference of all envir
 
 ## 📄 License
 
-This project is licensed under the ISC License. See the `LICENSE` file for details..
+This project is licensed under the ISC License. See the `LICENSE` file for details.

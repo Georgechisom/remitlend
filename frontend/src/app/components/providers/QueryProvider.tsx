@@ -12,6 +12,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { useState, type ReactNode } from "react";
+import { SessionExpiryHandler } from "./SessionExpiryHandler";
 
 interface QueryProviderProps {
   children: ReactNode;
@@ -56,6 +57,8 @@ export function QueryProvider({ children }: QueryProviderProps) {
 
   return (
     <QueryClientProvider client={queryClient}>
+      {/* Listen for 401 auth:session-expired events and trigger full logout */}
+      <SessionExpiryHandler />
       {children}
       {/* DevTools only render in development */}
       <ReactQueryDevtools initialIsOpen={false} />

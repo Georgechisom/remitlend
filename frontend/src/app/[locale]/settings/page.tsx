@@ -1,21 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-  User,
-  Wallet,
-  Bell,
-  Shield,
-  Monitor,
-  Crown,
-  Copy,
-  CheckCheck,
-  LogOut,
-  Key,
-} from "lucide-react";
+import { User, Wallet, Bell, Shield, Monitor, Crown, LogOut, Key } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "../../components/ui/Card";
 import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
+import { CopyButton } from "../../components/ui/CopyButton";
 import { GamificationSettings } from "../../components/gamification/GamificationSettings";
 import { useThemeStore } from "../../stores/useThemeStore";
 import {
@@ -26,6 +16,7 @@ import {
 import { useUserStore, selectUser } from "../../stores/useUserStore";
 import { logoutUser } from "../../lib/session";
 import { useNotificationPreferences, useUpdateNotificationPreferences } from "../../hooks/useApi";
+import { COPY_FEEDBACK_RESET_MS } from "../../components/ui";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface NotificationPrefs {
@@ -61,7 +52,7 @@ function CopyButton({ value }: { value: string }) {
   const handleCopy = () => {
     navigator.clipboard.writeText(value).then(() => {
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      setTimeout(() => setCopied(false), COPY_FEEDBACK_RESET_MS);
     });
   };
 
@@ -187,6 +178,7 @@ function WalletSection() {
   const address = useWalletStore(selectWalletAddress);
   const network = useWalletStore(selectWalletNetwork);
   const disconnect = useWalletStore((s) => s.disconnect);
+  const { logout } = useLogout();
 
   return (
     <Card>
@@ -230,14 +222,22 @@ function WalletSection() {
               </span>
             </div>
 
-            <div className="pt-2 border-t border-zinc-200 dark:border-zinc-800">
+            <div className="pt-2 border-t border-zinc-200 dark:border-zinc-800 flex flex-col gap-2 sm:flex-row">
               <Button
                 variant="outline"
-                onClick={disconnect}
+                onClick={() => disconnect()}
+                leftIcon={<LogOut className="h-4 w-4" />}
+                className="text-amber-600 border-amber-200 hover:bg-amber-50 dark:text-amber-400 dark:border-amber-900/50 dark:hover:bg-amber-950/20"
+              >
+                Disconnect Wallet
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => logout()}
                 leftIcon={<LogOut className="h-4 w-4" />}
                 className="text-red-600 border-red-200 hover:bg-red-50 dark:text-red-400 dark:border-red-900/50 dark:hover:bg-red-950/20"
               >
-                Disconnect Wallet
+                Sign Out
               </Button>
             </div>
           </>

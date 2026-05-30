@@ -4,8 +4,6 @@ import { useMemo, useState } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import {
   Wallet,
-  Copy,
-  CheckCheck,
   ArrowDownLeft,
   ArrowUpRight,
   RefreshCw,
@@ -15,6 +13,7 @@ import {
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "../../components/ui/Card";
 import { Button } from "../../components/ui/Button";
+import { CopyButton } from "../../components/ui/CopyButton";
 import { PaginationControls } from "../../components/ui/PaginationControls";
 import { Spinner } from "../../components/global_ui/Spinner";
 import { TransactionsSkeleton } from "../../components/skeletons/TransactionsSkeleton";
@@ -28,6 +27,7 @@ import {
 } from "../../stores/useWalletStore";
 import Link from "next/link";
 import { QRCodeSVG } from "qrcode.react";
+import { COPY_FEEDBACK_RESET_MS } from "../../components/ui";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -130,28 +130,6 @@ function useHorizonPayments(address: string, horizonUrl: string, cursor: string 
     retry: 2,
     placeholderData: keepPreviousData,
   });
-}
-
-// ─── Copy button ───────────────────────────────────────────────────────────────
-
-function CopyButton({ value }: { value: string }) {
-  const [copied, setCopied] = useState(false);
-  const handleCopy = () => {
-    navigator.clipboard.writeText(value).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
-  };
-  return (
-    <button
-      onClick={handleCopy}
-      className="p-1.5 rounded-md text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 dark:hover:text-zinc-200 dark:hover:bg-zinc-800 transition-colors"
-      title="Copy to clipboard"
-      aria-label={copied ? "Copied to clipboard" : "Copy to clipboard"}
-    >
-      {copied ? <CheckCheck className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
-    </button>
-  );
 }
 
 // ─── QR Code display ──────────────────────────────────────────────────────────

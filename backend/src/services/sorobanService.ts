@@ -33,6 +33,31 @@ class SorobanService {
     return result.connected ? "ok" : "error";
   }
 
+  async buildCancelLoanTx(borrower: string, loanId: string) {
+    const contract = this.getLoanManagerContract();
+
+    const tx = await contract.call("cancel_loan", borrower, loanId);
+
+    return this.serializeTransaction(tx);
+  }
+
+  async buildRejectLoanTx(
+    adminPublicKey: string,
+    loanId: string,
+    reason: string,
+  ) {
+    const contract = this.getLoanManagerContract();
+
+    const tx = await contract.call(
+      "reject_loan",
+      adminPublicKey,
+      loanId,
+      reason,
+    );
+
+    return this.serializeTransaction(tx);
+  }
+
   private getNetworkPassphrase(): string {
     return getStellarNetworkPassphrase();
   }
@@ -311,6 +336,56 @@ class SorobanService {
     const unsignedTxXdr = prepared.toXDR();
 
     logger.info("Built withdraw transaction", {
+      provider: providerPublicKey,
+      token: tokenAddress,
+      shares,
+    });
+
+    return { unsignedTxXdr, networkPassphrase: passphrase };
+  }
+
+  /**
+   * Builds an unsigned Soroban `emergency_withdraw(provider, token, shares)` transaction
+   * against the LendingPool contract. Bypasses the withdrawal cooldown as a safety valve.
+   * Returns base64 XDR for the frontend to sign with the user's wallet.
+   */
+  async buildEmergencyWithdrawTx(
+    providerPublicKey: string,
+    tokenAddress: string,
+    shares: number,
+  ): Promise<{ unsignedTxXdr: string; networkPassphrase: string }> {
+    const server = this.getRpcServer();
+    const contractId = this.getLendingPoolContractId();
+    const passphrase = this.getNetworkPassphrase();
+
+    const account = await server.getAccount(providerPublicKey);
+
+    const providerScVal = nativeToScVal(Address.fromString(providerPublicKey), {
+      type: "address",
+    });
+    const tokenScVal = nativeToScVal(Address.fromString(tokenAddress), {
+      type: "address",
+    });
+    const sharesScVal = nativeToScVal(BigInt(shares), { type: "i128" });
+
+    const tx = new TransactionBuilder(account, {
+      fee: BASE_FEE,
+      networkPassphrase: passphrase,
+    })
+      .addOperation(
+        Operation.invokeContractFunction({
+          contract: contractId,
+          function: "emergency_withdraw",
+          args: [providerScVal, tokenScVal, sharesScVal],
+        }),
+      )
+      .setTimeout(30)
+      .build();
+
+    const prepared = await server.prepareTransaction(tx);
+    const unsignedTxXdr = prepared.toXDR();
+
+    logger.info("Built emergency_withdraw transaction", {
       provider: providerPublicKey,
       token: tokenAddress,
       shares,

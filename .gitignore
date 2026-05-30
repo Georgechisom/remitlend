@@ -14,5 +14,8 @@ coverage
 *.log
 .idea
 create_issues.sh
+issue.md
+pr.md
+checks.md
 .claude
 .kiro/

@@ -123,6 +123,13 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
   }
 
   if (!response.ok) {
+    // Session expiry: fire a global event so SessionExpiryHandler can intercept
+    if (response.status === 401) {
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("auth:session-expired"));
+      }
+      throw new Error("Session expired. Please sign in again.");
+    }
     const error = await response.json().catch(() => ({ message: response.statusText }));
     throw new Error(error.message ?? `Request failed with status ${response.status}`);
   }
@@ -1774,5 +1781,53 @@ export function useAdminGovernancePending() {
   return useQuery({
     queryKey: queryKeys.governance.pending(),
     queryFn: () => apiFetch<GovernancePendingResponse>("/admin/governance/pending"),
+  });
+}
+
+export function useDepositCollateral() {
+  const api = useApiClient();
+  const { signAndSubmit } = useWallet();
+  const toast = useContractToast();
+
+  return useMutation({
+    mutationFn: async ({ loanId, amount }: { loanId: string; amount: string }) => {
+      const tx = await api.loans.buildDepositCollateralTx(loanId, amount);
+
+      const signedTx = await signAndSubmit(tx);
+
+      return api.transactions.submit(signedTx.hash);
+    },
+
+    onSuccess: () => {
+      toast.success("Collateral deposited successfully");
+    },
+
+    onError: (error: any) => {
+      toast.error(error.message ?? "Failed to deposit collateral");
+    },
+  });
+}
+
+export function useReleaseCollateral() {
+  const api = useApiClient();
+  const { signAndSubmit } = useWallet();
+  const toast = useContractToast();
+
+  return useMutation({
+    mutationFn: async ({ loanId, amount }: { loanId: string; amount: string }) => {
+      const tx = await api.loans.buildReleaseCollateralTx(loanId, amount);
+
+      const signedTx = await signAndSubmit(tx);
+
+      return api.transactions.submit(signedTx.hash);
+    },
+
+    onSuccess: () => {
+      toast.success("Collateral released successfully");
+    },
+
+    onError: (error: any) => {
+      toast.error(error.message ?? "Failed to release collateral");
+    },
   });
 }

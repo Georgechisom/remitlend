@@ -198,11 +198,16 @@ export default function ActivityPage() {
             <div className="p-6">
               <EmptyState
                 icon={Clock}
-                title={isFilteredView ? "No matching activity" : "No activity yet"}
+                title={
+                  isFilteredView
+                    ? "No matching activity"
+                    : t("emptyState.title") || "No activity yet"
+                }
                 description={
                   isFilteredView
                     ? "Try a different filter to see more loan and remittance history."
-                    : t("emptyState")
+                    : t("emptyState.description") ||
+                      "Your transaction history will appear here once you start using RemitLend."
                 }
                 actionLabel={isFilteredView ? undefined : "Send your first remittance"}
                 actionHref={isFilteredView ? undefined : `/${locale}/send-remittance`}
