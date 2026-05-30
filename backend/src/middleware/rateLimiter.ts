@@ -81,7 +81,7 @@ export const simulationRateLimiter = rateLimit({
   max: 5,
   keyGenerator: (req) => {
     // Use authenticated user's public key if available, otherwise fall back to IP
-    const user = (req as any).user;
+    const user = (req as unknown as { user?: { publicKey: string } }).user;
     return user?.publicKey ?? ipKeyGenerator(req.ip ?? "unknown");
   },
   message: {

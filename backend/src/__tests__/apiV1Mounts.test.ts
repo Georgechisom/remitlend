@@ -20,11 +20,13 @@ jest.unstable_mockModule("../db/connection.js", () => ({
   query: mockQuery,
   getClient: jest.fn(),
   closePool: jest.fn(),
+  withTransaction: jest.fn(),
 }));
 
 // ── notificationService mock ─────────────────────────────────────────────────
-const mockGetNotificationsForUser = jest.fn();
-const mockGetUnreadCount = jest.fn();
+const mockGetNotificationsForUser =
+  jest.fn<(...args: unknown[]) => Promise<unknown[]>>();
+const mockGetUnreadCount = jest.fn<(...args: unknown[]) => Promise<number>>();
 const mockSubscribe = jest.fn();
 jest.unstable_mockModule("../services/notificationService.js", () => ({
   notificationService: {

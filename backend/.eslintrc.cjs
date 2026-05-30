@@ -38,5 +38,11 @@ module.exports = {
         "no-useless-catch": "off",
       },
     },
+    {
+      files: ["src/utils/demo*.ts"],
+      rules: {
+        "no-console": "off",
+      },
+    },
   ],
 };

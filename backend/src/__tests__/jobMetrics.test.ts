@@ -1,4 +1,3 @@
-import { jest } from "@jest/globals";
 import { jobMetricsService } from "../services/jobMetricsService.js";
 
 describe("jobMetricsService", () => {

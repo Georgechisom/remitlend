@@ -64,10 +64,11 @@ const withRetry = async <T>(
 ): Promise<T> => {
   try {
     return await operation();
-  } catch (error: any) {
-    if (retries > 0 && TRANSIENT_ERROR_CODES.has(error.code)) {
+  } catch (error) {
+    const err = error as { code: string };
+    if (retries > 0 && TRANSIENT_ERROR_CODES.has(err.code)) {
       logger.warn(
-        `Transient db error (${error.code}). Retrying in ${delay}ms... (${retries} retries left)`,
+        `Transient db error (${err.code}). Retrying in ${delay}ms... (${retries} retries left)`,
       );
       await new Promise((resolve) => setTimeout(resolve, delay));
       return withRetry(operation, retries - 1, delay * 2);
@@ -103,19 +104,21 @@ export async function withTransaction<T>(
       const result = await fn(client);
       await client.query("COMMIT");
       return result;
-    } catch (error: any) {
+    } catch (error) {
       try {
         await client.query("ROLLBACK");
       } catch (rollbackError) {
         logger.error("Failed to rollback transaction", { rollbackError });
       }
 
-      const isTransient = TRANSIENT_ERROR_CODES.has(error?.code);
+      const isTransient = TRANSIENT_ERROR_CODES.has(
+        (error as { code: string }).code,
+      );
       if (isTransient && attempt < maxRetries) {
         const delay = baseDelayMs * 2 ** attempt;
         attempt++;
         logger.warn(
-          `Transient DB error in transaction (${error.code}). ` +
+          `Transient DB error in transaction (${(error as { code: string }).code}). ` +
             `Retrying in ${delay}ms (attempt ${attempt}/${maxRetries})`,
         );
         await new Promise((resolve) => setTimeout(resolve, delay));

@@ -23,8 +23,7 @@ jest.unstable_mockModule("../db/connection.js", () => ({
   getClient: jest.fn(),
 }));
 
-const { getPoolSharePrice } =
-  await import("../controllers/poolController.js");
+const { getPoolSharePrice } = await import("../controllers/poolController.js");
 
 const flushAsync = async (): Promise<void> =>
   new Promise((resolve) => setImmediate(resolve));
@@ -103,7 +102,12 @@ describe("getPoolSharePrice", () => {
     getPoolSharePrice(req, res, next as unknown as NextFunction);
     await flushAsync();
 
-    const jsonCall = (res.json as jest.Mock).mock.calls[0]?.[0] as Record<string, unknown>;
-    expect((jsonCall.data as Record<string, unknown>).sharePriceRatio).toBe(2.0);
+    const jsonCall = (res.json as jest.Mock).mock.calls[0]?.[0] as Record<
+      string,
+      unknown
+    >;
+    expect((jsonCall.data as Record<string, unknown>).sharePriceRatio).toBe(
+      2.0,
+    );
   });
 });

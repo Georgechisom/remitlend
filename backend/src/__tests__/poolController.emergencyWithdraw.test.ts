@@ -1,13 +1,14 @@
 import { jest, describe, it, expect, beforeEach } from "@jest/globals";
 import type { NextFunction, Request, Response } from "express";
 
-const mockBuildEmergencyWithdrawTx = jest.fn<
-  (
-    providerPublicKey: string,
-    tokenAddress: string,
-    shares: number,
-  ) => Promise<{ unsignedTxXdr: string; networkPassphrase: string }>
->();
+const mockBuildEmergencyWithdrawTx =
+  jest.fn<
+    (
+      providerPublicKey: string,
+      tokenAddress: string,
+      shares: number,
+    ) => Promise<{ unsignedTxXdr: string; networkPassphrase: string }>
+  >();
 
 jest.unstable_mockModule("../services/sorobanService.js", () => ({
   sorobanService: {
@@ -23,8 +24,12 @@ jest.unstable_mockModule("../db/connection.js", () => ({
 
 jest.unstable_mockModule("../services/cacheService.js", () => ({
   cacheService: {
-    get: jest.fn().mockResolvedValue(null),
-    set: jest.fn().mockResolvedValue(undefined),
+    get: jest
+      .fn<(...args: unknown[]) => Promise<null>>()
+      .mockResolvedValue(null),
+    set: jest
+      .fn<(...args: unknown[]) => Promise<void>>()
+      .mockResolvedValue(undefined),
   },
 }));
 
@@ -93,7 +98,9 @@ describe("emergencyWithdrawFromPool", () => {
     await flushAsync();
 
     expect(mockBuildEmergencyWithdrawTx).not.toHaveBeenCalled();
-    expect(next).toHaveBeenCalledWith(expect.objectContaining({ statusCode: 403 }));
+    expect(next).toHaveBeenCalledWith(
+      expect.objectContaining({ statusCode: 403 }),
+    );
   });
 
   it("rejects when required fields are missing", async () => {
@@ -108,6 +115,8 @@ describe("emergencyWithdrawFromPool", () => {
     await flushAsync();
 
     expect(mockBuildEmergencyWithdrawTx).not.toHaveBeenCalled();
-    expect(next).toHaveBeenCalledWith(expect.objectContaining({ statusCode: 400 }));
+    expect(next).toHaveBeenCalledWith(
+      expect.objectContaining({ statusCode: 400 }),
+    );
   });
 });

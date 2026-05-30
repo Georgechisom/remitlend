@@ -59,8 +59,8 @@ describeIf_scoresService("Scores Service - bulk updates", () => {
     );
 
     const rows = res.rows.reduce(
-      (acc: Record<string, number>, r: any) => {
-        acc[r.user_id] = Number(r.current_score);
+      (acc: Record<string, number>, r: Record<string, unknown>) => {
+        acc[r.user_id as string] = Number(r.current_score);
         return acc;
       },
       {} as Record<string, number>,
@@ -81,8 +81,8 @@ describeIf_scoresService("Scores Service - bulk updates", () => {
     );
 
     const rows2 = res2.rows.reduce(
-      (acc: Record<string, number>, r: any) => {
-        acc[r.user_id] = Number(r.current_score);
+      (acc: Record<string, number>, r: Record<string, unknown>) => {
+        acc[r.user_id as string] = Number(r.current_score);
         return acc;
       },
       {} as Record<string, number>,

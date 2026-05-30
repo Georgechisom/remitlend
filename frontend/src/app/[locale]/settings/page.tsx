@@ -10,11 +10,13 @@ import {
   Crown,
   LogOut,
   Key,
+  CheckCheck,
+  Copy,
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "../../components/ui/Card";
 import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
-import { CopyButton } from "../../components/ui/CopyButton";
+import { useLogout } from "../../hooks/useLogout";
 import { GamificationSettings } from "../../components/gamification/GamificationSettings";
 import { useThemeStore } from "../../stores/useThemeStore";
 import {

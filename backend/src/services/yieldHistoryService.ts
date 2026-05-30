@@ -142,7 +142,9 @@ function computeApy(
 export function normalizeYieldHistoryDays(
   days: number | undefined,
 ): YieldHistoryDayRange {
-  if ((YIELD_HISTORY_ALLOWED_DAYS as readonly number[]).includes(days as number)) {
+  if (
+    (YIELD_HISTORY_ALLOWED_DAYS as readonly number[]).includes(days as number)
+  ) {
     return days as YieldHistoryDayRange;
   }
   return YIELD_HISTORY_DEFAULT_DAYS;

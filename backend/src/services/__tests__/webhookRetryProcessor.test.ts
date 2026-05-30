@@ -1,4 +1,11 @@
-import { jest, describe, it, expect, beforeEach, afterEach } from "@jest/globals";
+import {
+  jest,
+  describe,
+  it,
+  expect,
+  beforeEach,
+  afterEach,
+} from "@jest/globals";
 
 type MockQueryResult = { rows: unknown[]; rowCount?: number };
 
@@ -72,7 +79,7 @@ describe("WebhookRetryProcessor", () => {
       const fetchMock = jest.fn(async () => ({
         ok: true,
         status: 200,
-      })) as jest.MockedFunction<typeof fetch>;
+      })) as unknown as jest.MockedFunction<typeof fetch>;
       global.fetch = fetchMock as unknown as typeof fetch;
 
       const row = deliveryRow({ attempt_count: 1 });
@@ -99,7 +106,7 @@ describe("WebhookRetryProcessor", () => {
       const fetchMock = jest.fn(async () => ({
         ok: false,
         status: 503,
-      })) as jest.MockedFunction<typeof fetch>;
+      })) as unknown as jest.MockedFunction<typeof fetch>;
       global.fetch = fetchMock as unknown as typeof fetch;
 
       const row = deliveryRow({ attempt_count: 0 });
@@ -118,16 +125,14 @@ describe("WebhookRetryProcessor", () => {
       expect(updateCall[1]?.[0]).toBe(1); // attempt_count
       expect(updateCall[1]?.[1]).toBe(503); // last_status_code
       expect(updateCall[1]?.[2]).toBe("Webhook returned status 503");
-      expect(updateCall[1]?.[3]).toEqual(
-        new Date(now + getRetryDelayMs(1)),
-      ); // next_retry_at
+      expect(updateCall[1]?.[3]).toEqual(new Date(now + getRetryDelayMs(1))); // next_retry_at
     });
 
     it("sets next_retry_at with progressive backoff on multiple failures", async () => {
       const fetchMock = jest.fn(async () => ({
         ok: false,
         status: 500,
-      })) as jest.MockedFunction<typeof fetch>;
+      })) as unknown as jest.MockedFunction<typeof fetch>;
       global.fetch = fetchMock as unknown as typeof fetch;
 
       const now = 1_700_000_000_000;
@@ -142,9 +147,7 @@ describe("WebhookRetryProcessor", () => {
 
       const updateCall = mockQuery.mock.calls[1] as [string, unknown[]];
       expect(updateCall[1]?.[0]).toBe(3); // attempt_count = 2 + 1
-      expect(updateCall[1]?.[3]).toEqual(
-        new Date(now + getRetryDelayMs(3)),
-      );
+      expect(updateCall[1]?.[3]).toEqual(new Date(now + getRetryDelayMs(3)));
 
       // Backoff should increase with each attempt
       expect(getRetryDelayMs(1)).toBe(5 * 60 * 1000);
@@ -158,7 +161,7 @@ describe("WebhookRetryProcessor", () => {
       const fetchMock = jest.fn(async () => ({
         ok: false,
         status: 500,
-      })) as jest.MockedFunction<typeof fetch>;
+      })) as unknown as jest.MockedFunction<typeof fetch>;
       global.fetch = fetchMock as unknown as typeof fetch;
 
       const now = 1_700_000_000_000;
@@ -184,12 +187,13 @@ describe("WebhookRetryProcessor", () => {
       const fetchMock = jest.fn(async () => ({
         ok: true,
         status: 200,
-      })) as jest.MockedFunction<typeof fetch>;
+      })) as unknown as jest.MockedFunction<typeof fetch>;
       global.fetch = fetchMock as unknown as typeof fetch;
 
       // attempt_count >= MAX_RETRY_ATTEMPTS should be filtered out by the query
-      mockQuery
-        .mockResolvedValueOnce({ rows: [deliveryRow({ attempt_count: MAX_RETRY_ATTEMPTS })] });
+      mockQuery.mockResolvedValueOnce({
+        rows: [deliveryRow({ attempt_count: MAX_RETRY_ATTEMPTS })],
+      });
 
       await WebhookService.processRetries();
 
@@ -206,7 +210,7 @@ describe("WebhookRetryProcessor", () => {
           return { ok: false, status: 500 };
         }
         return { ok: true, status: 200 };
-      }) as jest.MockedFunction<typeof fetch>;
+      }) as unknown as jest.MockedFunction<typeof fetch>;
       global.fetch = fetchMock as unknown as typeof fetch;
 
       const row1 = deliveryRow({
@@ -242,8 +246,8 @@ describe("WebhookRetryProcessor", () => {
 
       // Both deliveries should have been processed (one failed, one succeeded)
       expect(mockQuery).toHaveBeenCalledTimes(3);
-      const updateCalls = mockQuery.mock.calls.filter(
-        (call) => (call[0] as string).includes("UPDATE"),
+      const updateCalls = mockQuery.mock.calls.filter((call) =>
+        (call[0] as string).includes("UPDATE"),
       );
       expect(updateCalls).toHaveLength(2);
     });
@@ -256,7 +260,7 @@ describe("WebhookRetryProcessor", () => {
           throw new Error("Network timeout");
         }
         return { ok: true, status: 200 };
-      }) as jest.MockedFunction<typeof fetch>;
+      }) as unknown as jest.MockedFunction<typeof fetch>;
       global.fetch = fetchMock as unknown as typeof fetch;
 
       const row1 = deliveryRow({
@@ -285,8 +289,8 @@ describe("WebhookRetryProcessor", () => {
       expect(fetchMock).toHaveBeenCalledTimes(2);
 
       // Both deliveries should have been updated in DB
-      const updateCalls = mockQuery.mock.calls.filter(
-        (call) => (call[0] as string).includes("UPDATE"),
+      const updateCalls = mockQuery.mock.calls.filter((call) =>
+        (call[0] as string).includes("UPDATE"),
       );
       expect(updateCalls).toHaveLength(2);
     });
@@ -296,7 +300,7 @@ describe("WebhookRetryProcessor", () => {
     it("handles network timeout errors gracefully", async () => {
       const fetchMock = jest.fn(async () => {
         throw new Error("fetch failed");
-      }) as jest.MockedFunction<typeof fetch>;
+      }) as unknown as jest.MockedFunction<typeof fetch>;
       global.fetch = fetchMock as unknown as typeof fetch;
 
       const now = 1_700_000_000_000;
@@ -320,9 +324,7 @@ describe("WebhookRetryProcessor", () => {
       expect(updateCall[0]).toContain("UPDATE webhook_deliveries");
       expect(updateCall[1]?.[0]).toBe(1); // attempt_count
       expect(updateCall[1]?.[1]).toBe("fetch failed"); // last_error
-      expect(updateCall[1]?.[2]).toEqual(
-        new Date(now + getRetryDelayMs(1)),
-      ); // next_retry_at
+      expect(updateCall[1]?.[2]).toEqual(new Date(now + getRetryDelayMs(1))); // next_retry_at
     });
   });
 });

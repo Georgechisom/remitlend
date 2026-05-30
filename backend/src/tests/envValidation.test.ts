@@ -5,7 +5,7 @@ jest.mock("../utils/logger.js");
 
 describe("Environment Variable Validation", () => {
   const originalEnv = process.env;
-  let mockExit: any;
+  let mockExit: ReturnType<typeof jest.spyOn>;
 
   beforeAll(() => {
     mockExit = jest
@@ -43,6 +43,8 @@ describe("Environment Variable Validation", () => {
     process.env.SCORE_DELTA_REPAY = "15";
     process.env.SCORE_DELTA_DEFAULT = "50";
     process.env.SCORE_DELTA_LATE = "5";
+    process.env.REMITTANCE_NFT_CONTRACT_ID = "C3";
+    process.env.MULTISIG_GOVERNANCE_CONTRACT_ID = "C4";
 
     expect(() => validateEnvVars()).not.toThrow();
     expect(mockExit).not.toHaveBeenCalled();

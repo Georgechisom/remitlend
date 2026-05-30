@@ -4,9 +4,10 @@ process.env.NODE_ENV = "test";
 
 import { jest } from "@jest/globals";
 
-const mockQuery: any = jest.fn();
-const mockNotifyAdmins: any = jest.fn();
-const mockCreateNotification: any = jest.fn();
+const mockQuery = jest.fn<(...args: unknown[]) => Promise<unknown>>();
+const mockNotifyAdmins = jest.fn<(...args: unknown[]) => Promise<unknown>>();
+const mockCreateNotification =
+  jest.fn<(...args: unknown[]) => Promise<unknown>>();
 
 jest.unstable_mockModule("../../db/connection.js", () => ({
   query: mockQuery,
@@ -43,11 +44,11 @@ function mintToken(publicKey = TEST_PUBLIC_KEY) {
 }
 
 function dbRows(rows: object[], command = "SELECT") {
-  return { rows, rowCount: rows.length, command, oid: 0, fields: [] } as any;
+  return { rows, rowCount: rows.length, command, oid: 0, fields: [] };
 }
 
 function dbOk(command = "INSERT") {
-  return { rows: [], rowCount: 1, command, oid: 0, fields: [] } as any;
+  return { rows: [], rowCount: 1, command, oid: 0, fields: [] };
 }
 
 async function seedDefaultedLoan(authToken: string) {

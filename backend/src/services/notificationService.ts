@@ -1,8 +1,6 @@
 import { query } from "../db/connection.js";
 import logger from "../utils/logger.js";
 import type { Response } from "express";
-import twilio from "twilio";
-import sgMail from "@sendgrid/mail";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -23,6 +21,7 @@ export interface Notification {
   title: string;
   message: string;
   loanId?: number | undefined;
+  actionUrl?: string | null;
   read: boolean;
   status: NotificationStatus;
   createdAt: Date;
@@ -34,6 +33,7 @@ interface CreateNotificationParams {
   title: string;
   message: string;
   loanId?: number | undefined;
+  actionUrl?: string | undefined | null;
 }
 
 export interface NotificationPreferences {
@@ -51,17 +51,28 @@ export interface NotificationPreferences {
 type SseClient = Response;
 const sseClients = new Map<string, Set<SseClient>>();
 
-// Initialize Twilio client if credentials are provided
-const twilioClient =
-  process.env.TWILIO_ACCOUNT_SID &&
-  process.env.TWILIO_AUTH_TOKEN &&
-  process.env.TWILIO_PHONE_NUMBER
-    ? twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN)
-    : null;
+// Lazy-init Twilio client — dynamic import avoids ESM/CJS interop issues in tests
+async function getTwilioClient() {
+  if (
+    !process.env.TWILIO_ACCOUNT_SID ||
+    !process.env.TWILIO_AUTH_TOKEN ||
+    !process.env.TWILIO_PHONE_NUMBER
+  ) {
+    return null;
+  }
+  const { default: twilio } = await import("twilio");
+  return twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+}
 
-// Configure SendGrid if API key is present
-if (process.env.SENDGRID_API_KEY) {
-  sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+// Lazy-init SendGrid — called once on first sendEmail
+let _sgInitialized = false;
+async function ensureSendGrid() {
+  if (_sgInitialized) return;
+  _sgInitialized = true;
+  if (process.env.SENDGRID_API_KEY) {
+    const sgMail = await import("@sendgrid/mail");
+    sgMail.default.setApiKey(process.env.SENDGRID_API_KEY);
+  }
 }
 
 function buildEmailTemplate(
@@ -106,7 +117,14 @@ async function sendEmail(
 ): Promise<void> {
   const fromEmail = process.env.FROM_EMAIL;
 
-  if (!process.env.SENDGRID_API_KEY || !fromEmail) {
+  if (!fromEmail) {
+    logger.info("[Email] FROM_EMAIL not set", { email, message });
+    return;
+  }
+
+  await ensureSendGrid();
+
+  if (!process.env.SENDGRID_API_KEY) {
     logger.info(
       `[Email] SendGrid not configured. Would send to ${email}: ${message}`,
     );
@@ -118,7 +136,8 @@ async function sendEmail(
     : { subject: "Notification from RemitLend", html: `<p>${message}</p>` };
 
   try {
-    await sgMail.send({
+    const sgMail = await import("@sendgrid/mail");
+    await sgMail.default.send({
       to: email,
       from: fromEmail,
       subject: template.subject,
@@ -134,6 +153,7 @@ async function sendEmail(
 }
 
 async function sendSMS(phone: string, message: string) {
+  const twilioClient = await getTwilioClient();
   if (!twilioClient || !process.env.TWILIO_PHONE_NUMBER) {
     logger.warn(
       `[SMS] Twilio not configured. Would send to ${phone}: ${message}`,
@@ -225,13 +245,16 @@ class NotificationService {
   async createNotification(
     params: CreateNotificationParams,
   ): Promise<Notification> {
-    const { userId, type, title, message, loanId } = params;
+    const { userId, type, title, message, loanId, actionUrl } = params;
+
+    const resolvedActionUrl =
+      actionUrl ?? (loanId != null ? `/loans/${loanId}` : null);
 
     const result = await query(
-      `INSERT INTO notifications (user_id, type, title, message, loan_id, status)
-       VALUES ($1, $2, $3, $4, $5, 'unread')
-       RETURNING id, user_id, type, title, message, loan_id, read, status, created_at`,
-      [userId, type, title, message, loanId ?? null],
+      `INSERT INTO notifications (user_id, type, title, message, loan_id, action_url, status)
+       VALUES ($1, $2, $3, $4, $5, $6, 'unread')
+       RETURNING id, user_id, type, title, message, loan_id, action_url, read, status, created_at`,
+      [userId, type, title, message, loanId ?? null, resolvedActionUrl],
     );
 
     const notification = this.mapRow(result.rows[0]);
@@ -373,7 +396,7 @@ class NotificationService {
     }
 
     const result = await query(
-      `SELECT id, user_id, type, title, message, loan_id, read, status, created_at
+      `SELECT id, user_id, type, title, message, loan_id, action_url, read, status, created_at
          FROM notifications
          WHERE ${whereClause}
          ORDER BY created_at DESC
@@ -464,11 +487,12 @@ class NotificationService {
 
       for (const row of adminResult.rows) {
         const adminId = row.public_key as string;
+        const actionUrl = loanId != null ? `/loans/${loanId}` : null;
         const result = await query(
-          `INSERT INTO notifications (user_id, type, title, message, loan_id, status)
-           VALUES ($1, 'loan_defaulted', $2, $3, $4, 'unread')
-           RETURNING id, user_id, type, title, message, loan_id, read, status, created_at`,
-          [adminId, title, message, loanId ?? null],
+          `INSERT INTO notifications (user_id, type, title, message, loan_id, action_url, status)
+           VALUES ($1, 'loan_defaulted', $2, $3, $4, $5, 'unread')
+           RETURNING id, user_id, type, title, message, loan_id, action_url, read, status, created_at`,
+          [adminId, title, message, loanId ?? null, actionUrl],
         );
         const notification = this.mapRow(result.rows[0]);
         this.broadcast(adminId, notification);
@@ -599,12 +623,15 @@ class NotificationService {
 
   private mapRow(row: Record<string, unknown>): Notification {
     const loanId = row.loan_id != null ? (row.loan_id as number) : undefined;
+    const actionUrl: string | null =
+      row.action_url != null ? (row.action_url as string) : null;
     const base = {
       id: row.id as number,
       userId: row.user_id as string,
       type: row.type as NotificationType,
       title: row.title as string,
       message: row.message as string,
+      actionUrl,
       read: row.read as boolean,
       status:
         (row.status as NotificationStatus) ?? (row.read ? "read" : "unread"),

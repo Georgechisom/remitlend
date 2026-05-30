@@ -15,15 +15,11 @@ describe("csv utils", () => {
     });
 
     it("doubles embedded quotes and wraps value in quotes", () => {
-      expect(rowsToCsv([{ a: 'he said "hi"' }], ["a"])).toBe(
-        'a\n"he said ""hi"""\n',
-      );
+      expect(rowsToCsv([{ a: 'he said "hi"' }], ["a"])).toBe('a\n"he said ""hi"""\n');
     });
 
     it("quotes values containing newlines", () => {
-      expect(rowsToCsv([{ a: "line1\nline2" }], ["a"])).toBe(
-        'a\n"line1\nline2"\n',
-      );
+      expect(rowsToCsv([{ a: "line1\nline2" }], ["a"])).toBe('a\n"line1\nline2"\n');
     });
 
     it("derives headers when omitted (union of keys)", () => {
@@ -31,9 +27,7 @@ describe("csv utils", () => {
     });
 
     it("renders null/undefined as empty string", () => {
-      expect(rowsToCsv([{ a: null, b: undefined }], ["a", "b"])).toBe(
-        "a,b\n,\n",
-      );
+      expect(rowsToCsv([{ a: null, b: undefined }], ["a", "b"])).toBe("a,b\n,\n");
     });
   });
 });

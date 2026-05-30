@@ -110,8 +110,7 @@ export default function RequestLoanPage() {
     minScoreConfig?.maxAmount ?? Number.POSITIVE_INFINITY,
   );
   const scoreDelta = resolvedCreditScore - minimumScore;
-  const isCloseToMinimum =
-  scoreDelta >= 0 && scoreDelta <= NEAR_MINIMUM_SCORE_DELTA;
+  const isCloseToMinimum = scoreDelta >= 0 && scoreDelta <= NEAR_MINIMUM_SCORE_DELTA;
   const isIneligible = isWalletConnected && !isLoadingConfig && !isLoadingScore && scoreDelta < 0;
   const isCheckingEligibility =
     isWalletConnected && (isLoadingConfig || (isLoadingScore && !!borrowerAddress));

@@ -133,7 +133,9 @@ export function LoanHealth({ loan, isLoading, isError, topUpHref, labels }: Loan
       <div className="mt-5">
         <div className="flex items-center justify-between text-xs font-medium text-zinc-500 dark:text-zinc-400">
           <span>{formatPercent(ratio)}</span>
-          <span>{labels.threshold}: {formatPercent(threshold)}</span>
+          <span>
+            {labels.threshold}: {formatPercent(threshold)}
+          </span>
         </div>
         <div className="mt-2 h-3 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
           <div className={`h-full rounded-full ${barTone}`} style={{ width: barWidth }} />

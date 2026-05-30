@@ -42,9 +42,7 @@ describe("amount utils", () => {
 
     it("flags values over the limit and returns error text", () => {
       expect(hasInvalidPrecision("1.123", 2)).toBe(true);
-      expect(getPrecisionError("1.123", "USDC")).toBe(
-        "USDC supports at most 2 decimal places.",
-      );
+      expect(getPrecisionError("1.123", "USDC")).toBe("USDC supports at most 2 decimal places.");
     });
   });
 
@@ -56,4 +54,3 @@ describe("amount utils", () => {
     });
   });
 });
-

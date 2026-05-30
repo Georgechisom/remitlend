@@ -31,7 +31,7 @@ describe("Audit Log Middleware", () => {
         loanIds: [1, 2, 3],
       },
       ip: "127.0.0.1",
-      socket: {} as any,
+      socket: {} as import("net").Socket,
       params: {},
     };
     res = {};
@@ -92,7 +92,7 @@ describe("Audit Log Middleware", () => {
   });
 
   it("should identify actor from JWT if present", async () => {
-    (req as any).user = {
+    (req as unknown as { user: { publicKey: string; role: string } }).user = {
       publicKey: "G-STUDENT-WALLET-ADDR",
       role: "admin",
     };

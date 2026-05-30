@@ -1,7 +1,10 @@
 import { query } from "../db/connection.js";
 import { AppError } from "../errors/AppError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
-import { notificationService } from "../services/notificationService.js";
+import {
+  notificationService,
+  type NotificationType,
+} from "../services/notificationService.js";
 import {
   parseCursorQueryParams,
   createCursorPaginatedResponse,
@@ -15,7 +18,12 @@ export const listLoanDisputes = asyncHandler(async (req, res) => {
   const { limit, cursor, status } = parseCursorQueryParams(req);
   const statusFilter = status ?? "open";
 
-  if (statusFilter !== "open" && statusFilter !== "resolved" && statusFilter !== "rejected" && statusFilter !== "all") {
+  if (
+    statusFilter !== "open" &&
+    statusFilter !== "resolved" &&
+    statusFilter !== "rejected" &&
+    statusFilter !== "all"
+  ) {
     throw AppError.badRequest("Invalid status filter");
   }
 
@@ -136,12 +144,12 @@ export const resolveLoanDispute = asyncHandler(async (req, res) => {
       action === "reverse" ? "repayment_confirmed" : "loan_defaulted";
     await notificationService.createNotification({
       userId: dispute.borrower,
-      type: type as any,
+      type: type as NotificationType,
       title: "Dispute resolved",
       message: msg,
       loanId: dispute.loan_id,
     });
-  } catch (_err) {
+  } catch {
     // Log and continue — resolution shouldn't fail because of notifications
     // notificationService already logs errors internally
   }
@@ -176,12 +184,12 @@ export const rejectLoanDispute = asyncHandler(async (req, res) => {
     const msg = `Your dispute for loan ${dispute.loan_id} was rejected by admin.`;
     await notificationService.createNotification({
       userId: dispute.borrower,
-      type: "loan_defaulted" as any,
+      type: "loan_defaulted" as NotificationType,
       title: "Dispute rejected",
       message: admin_note ? `${msg} Note: ${admin_note}` : msg,
       loanId: dispute.loan_id,
     });
-  } catch (_err) {
+  } catch {
     // swallow
   }
 

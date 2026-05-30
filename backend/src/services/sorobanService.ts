@@ -16,7 +16,6 @@ import {
   getStellarRpcUrl,
 } from "../config/stellar.js";
 
-
 /**
  * Service for building and submitting Soroban contract transactions.
  * Handles the transaction lifecycle: build → (frontend signs) → submit.
@@ -35,36 +34,76 @@ class SorobanService {
   }
 
   async buildCancelLoanTx(
-  borrower: string,
-  loanId: string,
-) {
-  const contract = this.getLoanManagerContract();
+    borrower: string,
+    loanId: string,
+  ): Promise<{ unsignedTxXdr: string; networkPassphrase: string }> {
+    const server = this.getRpcServer();
+    const contractId = this.getLoanManagerContractId();
+    const passphrase = this.getNetworkPassphrase();
 
-  const tx = await contract.call(
-    'cancel_loan',
-    borrower,
-    loanId,
-  );
+    const account = await server.getAccount(borrower);
 
-  return this.serializeTransaction(tx);
-}
+    const borrowerScVal = nativeToScVal(Address.fromString(borrower), {
+      type: "address",
+    });
+    const loanIdScVal = nativeToScVal(loanId, { type: "symbol" });
 
-async buildRejectLoanTx(
-  adminPublicKey: string,
-  loanId: string,
-  reason: string,
-) {
-  const contract = this.getLoanManagerContract();
+    const tx = new TransactionBuilder(account, {
+      fee: BASE_FEE,
+      networkPassphrase: passphrase,
+    })
+      .addOperation(
+        Operation.invokeContractFunction({
+          contract: contractId,
+          function: "cancel_loan",
+          args: [borrowerScVal, loanIdScVal],
+        }),
+      )
+      .setTimeout(30)
+      .build();
 
-  const tx = await contract.call(
-    'reject_loan',
-    adminPublicKey,
-    loanId,
-    reason,
-  );
+    const prepared = await server.prepareTransaction(tx);
+    const unsignedTxXdr = prepared.toXDR();
 
-  return this.serializeTransaction(tx);
-}
+    return { unsignedTxXdr, networkPassphrase: passphrase };
+  }
+
+  async buildRejectLoanTx(
+    adminPublicKey: string,
+    loanId: string,
+    reason: string,
+  ): Promise<{ unsignedTxXdr: string; networkPassphrase: string }> {
+    const server = this.getRpcServer();
+    const contractId = this.getLoanManagerContractId();
+    const passphrase = this.getNetworkPassphrase();
+
+    const account = await server.getAccount(adminPublicKey);
+
+    const adminScVal = nativeToScVal(Address.fromString(adminPublicKey), {
+      type: "address",
+    });
+    const loanIdScVal = nativeToScVal(loanId, { type: "symbol" });
+    const reasonScVal = nativeToScVal(reason, { type: "string" });
+
+    const tx = new TransactionBuilder(account, {
+      fee: BASE_FEE,
+      networkPassphrase: passphrase,
+    })
+      .addOperation(
+        Operation.invokeContractFunction({
+          contract: contractId,
+          function: "reject_loan",
+          args: [adminScVal, loanIdScVal, reasonScVal],
+        }),
+      )
+      .setTimeout(30)
+      .build();
+
+    const prepared = await server.prepareTransaction(tx);
+    const unsignedTxXdr = prepared.toXDR();
+
+    return { unsignedTxXdr, networkPassphrase: passphrase };
+  }
 
   private getNetworkPassphrase(): string {
     return getStellarNetworkPassphrase();
@@ -1074,7 +1113,7 @@ async buildRejectLoanTx(
 
       return await Promise.race([
         ledgerPromise,
-        timeoutPromise as Promise<any>,
+        timeoutPromise as Promise<never>,
       ]);
     } catch (error) {
       return {
@@ -1296,7 +1335,6 @@ async buildRejectLoanTx(
       latePenalty: process.env.SCORE_DELTA_LATE ?? "5",
     });
   }
-  
 }
 
 export const sorobanService = new SorobanService();

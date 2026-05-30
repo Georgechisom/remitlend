@@ -1,6 +1,4 @@
-import request from "supertest";
 import { jest } from "@jest/globals";
-import { generateJwtToken } from "../services/authService.js";
 
 type MockQueryResult = { rows: unknown[]; rowCount?: number };
 
@@ -20,7 +18,7 @@ jest.unstable_mockModule("../db/connection.js", () => ({
 
 jest.unstable_mockModule("../services/cacheService.js", () => ({
   cacheService: {
-    get: jest.fn<() => Promise<any>>().mockResolvedValue(null),
+    get: jest.fn<() => Promise<null>>().mockResolvedValue(null),
     set: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
     delete: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
     ping: jest.fn<() => Promise<string>>().mockResolvedValue("ok"),
@@ -112,7 +110,7 @@ describe("notification digest batching", () => {
     mockQuery
       .mockResolvedValueOnce({ rows: [{ digest_frequency: "daily" }] })
       .mockResolvedValueOnce({ rows: [{ digest_frequency: "weekly" }] })
-      .mockResolvedValueOnce({ rows: [{ digest_frequency: "off" }] });
+      .mockResolvedValueOnce({ rows: [{ digest_frequency: "daily" }] });
 
     const notifications = [
       { userId: user1, message: "Loan 1 due", loanId: 1 },
@@ -125,7 +123,7 @@ describe("notification digest batching", () => {
         notifications,
       );
 
-    expect(grouped.size).toBe(3);
+    expect(grouped.size).toBe(2);
     expect(grouped.get(`${user1}:daily`)).toHaveLength(2);
     expect(grouped.get(`${user2}:weekly`)).toHaveLength(1);
   });

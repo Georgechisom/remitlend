@@ -95,10 +95,9 @@ describe("Graceful Shutdown", () => {
     });
     mockServer.close = closeSpy;
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const exitSpy = jest.spyOn(process, "exit").mockImplementation((() => {
       // Mock implementation that doesn't actually exit
-    }) as any);
+    }) as (code?: number | string | null | undefined) => never);
 
     const timeout = setTimeout(() => {
       process.exit(1);
@@ -123,10 +122,9 @@ describe("Graceful Shutdown", () => {
     });
     mockServer.close = closeSpy;
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const exitSpy = jest.spyOn(process, "exit").mockImplementation((() => {
       // Mock implementation that doesn't actually exit
-    }) as any);
+    }) as (code?: number | string | null | undefined) => never);
 
     // Simulate the shutdown flow
     const timeout = setTimeout(() => {

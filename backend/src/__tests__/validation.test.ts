@@ -2,7 +2,8 @@ import request from "supertest";
 import { jest } from "@jest/globals";
 
 // Setup mocks BEFORE importing the app
-const mockQuery = jest.fn();
+const mockQuery =
+  jest.fn<(...args: unknown[]) => Promise<{ rows: unknown[] }>>();
 const mockRelease = jest.fn();
 const mockClient = {
   query: mockQuery,
@@ -22,7 +23,7 @@ jest.unstable_mockModule("../db/connection.js", () => ({
 // Mock CacheService to prevent Redis connections
 jest.unstable_mockModule("../services/cacheService.js", () => ({
   cacheService: {
-    get: jest.fn<() => Promise<any>>().mockResolvedValue(null),
+    get: jest.fn<() => Promise<null>>().mockResolvedValue(null),
     set: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
     delete: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
     ping: jest.fn<() => Promise<string>>().mockResolvedValue("ok"),
@@ -37,7 +38,7 @@ describe("Input Validation", () => {
   describe("POST /api/simulate", () => {
     it("should accept valid input", async () => {
       // Mock score fetch
-      (mockQuery as any).mockResolvedValueOnce({
+      mockQuery.mockResolvedValueOnce({
         rows: [{ current_score: 500 }],
       });
 
@@ -136,7 +137,7 @@ describe("Input Validation", () => {
   describe("GET /api/history/:userId", () => {
     it("should accept valid userId", async () => {
       // Mock score fetch and events fetch
-      (mockQuery as any)
+      mockQuery
         .mockResolvedValueOnce({ rows: [{ current_score: 500 }] }) // score
         .mockResolvedValueOnce({ rows: [] }); // events
 

@@ -12,7 +12,8 @@ jest.unstable_mockModule("../db/connection.js", () => ({
   getClient: jest.fn(),
 }));
 
-const { listLoanDisputes } = await import("../controllers/adminDisputeController.js");
+const { listLoanDisputes } =
+  await import("../controllers/adminDisputeController.js");
 
 const flushAsync = async (): Promise<void> =>
   new Promise((resolve) => setImmediate(resolve));
@@ -86,7 +87,10 @@ describe("listLoanDisputes pagination", () => {
     listLoanDisputes(req, res, next as unknown as NextFunction);
     await flushAsync();
 
-    const jsonCall = (res.json as jest.Mock).mock.calls[0]?.[0] as Record<string, unknown>;
+    const jsonCall = (res.json as jest.Mock).mock.calls[0]?.[0] as Record<
+      string,
+      unknown
+    >;
     expect(jsonCall.success).toBe(true);
     const pageInfo = jsonCall.page_info as Record<string, unknown>;
     expect(pageInfo.has_next).toBe(true);
@@ -111,16 +115,17 @@ describe("listLoanDisputes pagination", () => {
     listLoanDisputes(req, res, next as unknown as NextFunction);
     await flushAsync();
 
-    const jsonCall = (res.json as jest.Mock).mock.calls[0]?.[0] as Record<string, unknown>;
+    const jsonCall = (res.json as jest.Mock).mock.calls[0]?.[0] as Record<
+      string,
+      unknown
+    >;
     const pageInfo = jsonCall.page_info as Record<string, unknown>;
     // limit should be capped at 100
     expect(pageInfo.limit).toBe(100);
   });
 
   it("filters by status correctly", async () => {
-    const rows = [
-      disputeRow(1, "resolved", "2026-05-28T10:00:00.000Z"),
-    ];
+    const rows = [disputeRow(1, "resolved", "2026-05-28T10:00:00.000Z")];
     mockQuery.mockResolvedValueOnce({ rows, rowCount: 1 });
 
     const req = { query: { status: "resolved" } } as unknown as Request;

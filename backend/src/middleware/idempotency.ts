@@ -6,7 +6,7 @@ const IDEMPOTENCY_TTL = 24 * 60 * 60; // 24 hours in seconds
 
 interface CachedResponse {
   status: number;
-  body: any;
+  body: unknown;
 }
 
 /**
@@ -50,16 +50,16 @@ export const idempotencyMiddleware = async (
     const originalJson = res.json;
     const originalSend = res.send;
 
-    let responseBody: any;
+    let responseBody: unknown;
 
     // Override res.json
-    res.json = function (body: any) {
+    res.json = function (body: unknown) {
       responseBody = body;
       return originalJson.call(this, body);
     };
 
     // Override res.send (as res.json eventually calls res.send)
-    res.send = function (body: any) {
+    res.send = function (body: unknown) {
       if (!responseBody) {
         if (typeof body === "string") {
           try {

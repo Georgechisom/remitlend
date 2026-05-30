@@ -14,7 +14,7 @@ jest.unstable_mockModule("../db/connection.js", () => ({
 // Mock CacheService to prevent Redis connections
 jest.unstable_mockModule("../services/cacheService.js", () => ({
   cacheService: {
-    get: jest.fn<() => Promise<any>>().mockResolvedValue(null),
+    get: jest.fn<() => Promise<null>>().mockResolvedValue(null),
     set: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
     delete: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
     ping: jest.fn<() => Promise<string>>().mockResolvedValue("ok"),
@@ -58,7 +58,11 @@ describe("GET /api/score/:userId", () => {
   it("should return a score for a valid userId", async () => {
     mockedQuery.mockResolvedValueOnce({
       rows: [{ current_score: 750 }],
-    } as any);
+      command: "SELECT",
+      rowCount: 1,
+      oid: 0,
+      fields: [],
+    });
 
     const response = await request(app)
       .get("/api/score/user123")
@@ -71,7 +75,13 @@ describe("GET /api/score/:userId", () => {
   });
 
   it("should return the same score for the same userId", async () => {
-    mockedQuery.mockResolvedValue({ rows: [{ current_score: 600 }] } as any);
+    mockedQuery.mockResolvedValue({
+      rows: [{ current_score: 600 }],
+      command: "SELECT",
+      rowCount: 1,
+      oid: 0,
+      fields: [],
+    });
 
     const r1 = await request(app).get("/api/score/alice").set(bearer("alice"));
     const r2 = await request(app).get("/api/score/alice").set(bearer("alice"));
@@ -80,7 +90,13 @@ describe("GET /api/score/:userId", () => {
   });
 
   it("should return 500 if user not found", async () => {
-    mockedQuery.mockResolvedValueOnce({ rows: [] } as any);
+    mockedQuery.mockResolvedValueOnce({
+      rows: [],
+      command: "SELECT",
+      rowCount: 0,
+      oid: 0,
+      fields: [],
+    });
 
     const response = await request(app)
       .get("/api/score/newuser")
@@ -95,10 +111,18 @@ describe("POST /api/score/update", () => {
   it("should increase score by 15 for on-time repayment", async () => {
     mockedQuery.mockResolvedValueOnce({
       rows: [{ current_score: 500 }],
-    } as any);
+      command: "SELECT",
+      rowCount: 1,
+      oid: 0,
+      fields: [],
+    });
     mockedQuery.mockResolvedValueOnce({
       rows: [{ current_score: 515 }],
-    } as any);
+      command: "SELECT",
+      rowCount: 1,
+      oid: 0,
+      fields: [],
+    });
 
     const response = await request(app)
       .post("/api/score/update")

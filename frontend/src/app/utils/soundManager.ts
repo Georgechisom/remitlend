@@ -27,8 +27,8 @@ class SoundManager {
   }
 
   private initializeSounds() {
-     // Placeholder silent sound effects.
-// Replace with real audio assets or generated tones in production.
+    // Placeholder silent sound effects.
+    // Replace with real audio assets or generated tones in production.
 
     const soundEffects: Record<SoundEffect, string> = {
       // Level up - triumphant sound
@@ -65,17 +65,17 @@ class SoundManager {
   }
 
   /**
- * Placeholder sound generator.
- *
- * Gamification sound effects are currently disabled and all generated
- * clips are intentionally silent placeholders until real audio assets
- * or Web Audio API tone generation is implemented.
- *
- * The frequency and duration parameters are currently unused.
- */
-private generateTone(_frequencies: number[], _duration: number): string {
-  return "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=";
-}
+   * Placeholder sound generator.
+   *
+   * Gamification sound effects are currently disabled and all generated
+   * clips are intentionally silent placeholders until real audio assets
+   * or Web Audio API tone generation is implemented.
+   *
+   * The frequency and duration parameters are currently unused.
+   */
+  private generateTone(_frequencies: number[], _duration: number): string {
+    return "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=";
+  }
 
   /**
    * Play a sound effect

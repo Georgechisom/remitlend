@@ -7,9 +7,15 @@ import { jest, describe, it, expect, beforeEach } from "@jest/globals";
  * right key).
  */
 
-const mockDelete = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
-const mockSet = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
-const mockGet = jest.fn<() => Promise<any>>().mockResolvedValue(null);
+const mockDelete = jest
+  .fn<(key: string) => Promise<void>>()
+  .mockResolvedValue(undefined);
+const mockSet = jest
+  .fn<(key: string, value: unknown) => Promise<void>>()
+  .mockResolvedValue(undefined);
+const mockGet = jest
+  .fn<(key: string) => Promise<null>>()
+  .mockResolvedValue(null);
 
 jest.unstable_mockModule("../services/cacheService.js", () => ({
   cacheService: {
@@ -124,11 +130,11 @@ describe("cacheKeys helpers", () => {
         [CacheKeys.borrowerLoans(BORROWER)]: { loans: [] },
       };
 
-      mockGet.mockImplementation(async (key: unknown) => {
-        return (cache[key as string] as unknown) ?? null;
+      mockGet.mockImplementation(async (key: string) => {
+        return ((cache[key] as unknown) ?? null) as null;
       });
-      mockDelete.mockImplementation(async (key: unknown) => {
-        delete cache[key as string];
+      mockDelete.mockImplementation(async (key: string) => {
+        delete cache[key];
       });
 
       // Confirm warm

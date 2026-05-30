@@ -2,7 +2,6 @@ import type { Request, Response } from "express";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { query } from "../db/connection.js";
 import { cacheService } from "../services/cacheService.js";
-import { AppError } from "../errors/AppError.js";
 import { sorobanService } from "../services/sorobanService.js";
 
 // ---------------------------------------------------------------------------

@@ -91,8 +91,14 @@ const shutdown = async (signal: "SIGTERM" | "SIGINT") => {
     stopScoreReconciliationScheduler();
     stopNotificationCleanupScheduler();
 
-    if (typeof (eventStreamService as any).closeAll === "function") {
-      (eventStreamService as any).closeAll("Server shutting down");
+    if (
+      typeof (
+        eventStreamService as unknown as { closeAll: (reason: string) => void }
+      ).closeAll === "function"
+    ) {
+      (
+        eventStreamService as unknown as { closeAll: (reason: string) => void }
+      ).closeAll("Server shutting down");
     } else if (typeof eventStreamService.closeAllConnections === "function") {
       eventStreamService.closeAllConnections("Server shutting down");
     }

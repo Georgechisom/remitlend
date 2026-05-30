@@ -1,6 +1,5 @@
 import { jest, describe, it, expect, beforeEach } from "@jest/globals";
 import type { Request, Response, NextFunction } from "express";
-import { AppError } from "../../errors/AppError.js";
 
 // Mock the rate limit service before importing middleware that depends on it
 jest.unstable_mockModule("../../services/rateLimitService.js", () => ({
@@ -49,7 +48,7 @@ describe("Rate Limit Middleware", () => {
 
     mockResponse = {
       set: jest.fn(),
-    } as any;
+    } as unknown as Response;
 
     mockNext = jest.fn();
   });

@@ -30,7 +30,7 @@ const mockQuery: jest.MockedFunction<
 > = jest.fn();
 
 const mockRelease = jest.fn();
-const mockClient: any = { query: mockQuery, release: mockRelease };
+const mockClient = { query: mockQuery, release: mockRelease };
 
 jest.unstable_mockModule("../db/connection.js", () => ({
   default: { query: mockQuery },
@@ -44,7 +44,7 @@ jest.unstable_mockModule("../db/connection.js", () => ({
 
 jest.unstable_mockModule("../services/cacheService.js", () => ({
   cacheService: {
-    get: jest.fn<() => Promise<any>>().mockResolvedValue(null),
+    get: jest.fn<() => Promise<null>>().mockResolvedValue(null),
     set: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
     delete: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
     ping: jest.fn<() => Promise<string>>().mockResolvedValue("ok"),
@@ -57,10 +57,12 @@ jest.unstable_mockModule("../services/cacheService.js", () => ({
 jest.unstable_mockModule("../services/sorobanService.js", () => ({
   sorobanService: {
     ping: jest.fn<() => Promise<string>>().mockResolvedValue("ok"),
-    healthCheck: jest.fn<() => Promise<any>>().mockResolvedValue({
-      connected: true,
-      latestLedger: 1000,
-    }),
+    healthCheck: jest
+      .fn<() => Promise<{ connected: boolean; latestLedger: number }>>()
+      .mockResolvedValue({
+        connected: true,
+        latestLedger: 1000,
+      }),
   },
 }));
 

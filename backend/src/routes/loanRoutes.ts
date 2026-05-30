@@ -48,14 +48,8 @@ import {
   liquidateLoanSchema,
   borrowerLoansQuerySchema,
 } from "../schemas/loanSchemas.js";
-import {
-  authenticateJWT,
-} from '../middleware/jwtAuth';
-
-import { requireJwtAuth } from "../middleware/jwtAuth.js";
 
 import { buildCancelLoanTx } from "../controllers/loanController.js";
-
 
 const router = Router();
 
@@ -133,10 +127,9 @@ router.get("/config", getLoanConfigEndpoint);
  *         description: Reject transaction built
  */
 
-
 router.post(
-  '/:loanId/build-cancel',
-  authenticateJWT,
+  "/:loanId/build-cancel",
+  requireJwtAuth,
   requireLoanOwner,
   buildCancelLoanTx,
 );

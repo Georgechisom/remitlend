@@ -1,10 +1,5 @@
 import { jest } from "@jest/globals";
-import {
-  getAccountUrl,
-  getTxUrl,
-  isValidStellarAddress,
-  truncateHash,
-} from "./stellar";
+import { getAccountUrl, getTxUrl, isValidStellarAddress, truncateHash } from "./stellar";
 
 describe("Stellar Utilities", () => {
   describe("isValidStellarAddress", () => {
@@ -100,12 +95,8 @@ describe("Stellar Utilities", () => {
       jest.resetModules();
       const stellar = await import("./stellar");
 
-      expect(stellar.getTxUrl("txhash")).toBe(
-        "https://example.com/explorer/tx/txhash",
-      );
-      expect(stellar.getAccountUrl("GABC")).toBe(
-        "https://example.com/explorer/account/GABC",
-      );
+      expect(stellar.getTxUrl("txhash")).toBe("https://example.com/explorer/tx/txhash");
+      expect(stellar.getAccountUrl("GABC")).toBe("https://example.com/explorer/account/GABC");
     });
 
     it("default exports still build paths", () => {

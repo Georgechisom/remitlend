@@ -20,6 +20,8 @@ import {
 import { LoanStatusBadge, type LoanStatus } from "../components/ui/LoanStatusBadge";
 import { useUserStore } from "../stores/useUserStore";
 import { isJwtExpired, logoutUser, SessionExpiredError } from "../lib/session";
+import { useWallet } from "../components/providers/WalletProvider";
+import { useContractToast } from "./useContractToast";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
@@ -1784,88 +1786,64 @@ export function useAdminGovernancePending() {
   });
 }
 
+export async function buildDepositCollateralTransaction(params: {
+  loanId: string | number;
+  amount: string;
+}) {
+  return apiFetch<BuildLoanTxResponse>(`/loans/${params.loanId}/deposit-collateral`, {
+    method: "POST",
+    body: JSON.stringify({ amount: params.amount }),
+  });
+}
+
+export async function buildReleaseCollateralTransaction(params: {
+  loanId: string | number;
+  amount: string;
+}) {
+  return apiFetch<BuildLoanTxResponse>(`/loans/${params.loanId}/release-collateral`, {
+    method: "POST",
+    body: JSON.stringify({ amount: params.amount }),
+  });
+}
 
 export function useDepositCollateral() {
-  const api = useApiClient();
-  const { signAndSubmit } = useWallet();
+  const { signTransaction } = useWallet();
   const toast = useContractToast();
 
   return useMutation({
-    mutationFn: async ({
-      loanId,
-      amount,
-    }: {
-      loanId: string;
-      amount: string;
-    }) => {
-      const tx =
-        await api.loans.buildDepositCollateralTx(
-          loanId,
-          amount,
-        );
-
-      const signedTx =
-        await signAndSubmit(tx);
-
-      return api.transactions.submit(
-        signedTx.hash,
-      );
+    mutationFn: async ({ loanId, amount }: { loanId: string; amount: string }) => {
+      const { unsignedTxXdr } = await buildDepositCollateralTransaction({ loanId, amount });
+      const signedTxXdr = await signTransaction(unsignedTxXdr);
+      return submitLoanTransaction(signedTxXdr);
     },
 
     onSuccess: () => {
-      toast.success(
-        'Collateral deposited successfully',
-      );
+      toast.success("Collateral deposited successfully");
     },
 
     onError: (error: any) => {
-      toast.error(
-        error.message ??
-          'Failed to deposit collateral',
-      );
+      toast.error(error.message ?? "Failed to deposit collateral");
     },
   });
 }
 
 export function useReleaseCollateral() {
-  const api = useApiClient();
-  const { signAndSubmit } = useWallet();
+  const { signTransaction } = useWallet();
   const toast = useContractToast();
 
   return useMutation({
-    mutationFn: async ({
-      loanId,
-      amount,
-    }: {
-      loanId: string;
-      amount: string;
-    }) => {
-      const tx =
-        await api.loans.buildReleaseCollateralTx(
-          loanId,
-          amount,
-        );
-
-      const signedTx =
-        await signAndSubmit(tx);
-
-      return api.transactions.submit(
-        signedTx.hash,
-      );
+    mutationFn: async ({ loanId, amount }: { loanId: string; amount: string }) => {
+      const { unsignedTxXdr } = await buildReleaseCollateralTransaction({ loanId, amount });
+      const signedTxXdr = await signTransaction(unsignedTxXdr);
+      return submitLoanTransaction(signedTxXdr);
     },
 
     onSuccess: () => {
-      toast.success(
-        'Collateral released successfully',
-      );
+      toast.success("Collateral released successfully");
     },
 
     onError: (error: any) => {
-      toast.error(
-        error.message ??
-          'Failed to release collateral',
-      );
+      toast.error(error.message ?? "Failed to release collateral");
     },
   });
 }
-

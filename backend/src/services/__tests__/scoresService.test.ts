@@ -66,9 +66,9 @@ beforeAll(async () => {
 
   jest.unstable_mockModule("../cacheService.js", () => ({
     cacheService: {
-      get: jest.fn<any>().mockResolvedValue(null),
-      set: jest.fn<any>().mockResolvedValue(undefined),
-      delete: jest.fn<any>().mockResolvedValue(undefined),
+      get: jest.fn<() => Promise<null>>().mockResolvedValue(null),
+      set: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
+      delete: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
     },
   }));
 

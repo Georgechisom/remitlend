@@ -44,6 +44,18 @@ The backend exposes an interactive Swagger UI for exploring and testing API endp
 
 Both endpoints are gated to non-production environments (`NODE_ENV !== "production"`).
 
+### Webhooks
+
+RemitLend supports real-time event notifications via webhooks. See the
+[Webhook Integration Guide](docs/webhooks.md) for details on subscribing,
+event payloads, retry semantics, circuit-breaker behavior, and HMAC signature
+verification.
+
+- **Swagger UI**: [http://localhost:3001/docs](http://localhost:3001/docs)
+- **OpenAPI JSON**: [http://localhost:3001/docs.json](http://localhost:3001/docs.json)
+
+Both endpoints are gated to non-production environments (`NODE_ENV !== "production"`).
+
 ## 🛠 Tech Stack
 
 - **Blockchain**: [Stellar](https://stellar.org) (Soroban Smart Contracts)
@@ -66,7 +78,7 @@ Both endpoints are gated to non-production environments (`NODE_ENV !== "producti
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/your-username/remitlend.git
+   git clone https://github.com/LabsCrypt/remitlend.git
    cd remitlend
    ```
 

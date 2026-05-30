@@ -225,28 +225,28 @@ export default function AdminDisputeDetailPage() {
         onClose={() => setPendingAction(null)}
         title={modalCopy.title}
         size="md"
-      />
-      <div className="space-y-5">
-        <p className="text-sm text-zinc-600 dark:text-zinc-300">{modalCopy.description}</p>
-        <div className="flex justify-end gap-3">
-          <button
-            type="button"
-            onClick={() => setPendingAction(null)}
-            className="rounded-lg border border-zinc-200 px-4 py-2 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-900"
-          >
-            {t("modal.cancel")}
-          </button>
-          <button
-            type="button"
-            onClick={submitResolution}
-            disabled={resolveDispute.isPending}
-            className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200"
-          >
-            {resolveDispute.isPending ? t("modal.submitting") : t("modal.submit")}
-          </button>
+      >
+        <div className="space-y-5">
+          <p className="text-sm text-zinc-600 dark:text-zinc-300">{modalCopy.description}</p>
+          <div className="flex justify-end gap-3">
+            <button
+              type="button"
+              onClick={() => setPendingAction(null)}
+              className="rounded-lg border border-zinc-200 px-4 py-2 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-900"
+            >
+              {t("modal.cancel")}
+            </button>
+            <button
+              type="button"
+              onClick={submitResolution}
+              disabled={resolveDispute.isPending}
+              className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200"
+            >
+              {resolveDispute.isPending ? t("modal.submitting") : t("modal.submit")}
+            </button>
+          </div>
         </div>
-      </div>
-    </Modal>
-    </section >
+      </Modal>
+    </section>
   );
 }

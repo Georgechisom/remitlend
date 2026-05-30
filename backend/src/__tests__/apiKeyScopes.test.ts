@@ -60,7 +60,7 @@ describe("requireApiKey – scope support", () => {
         next,
       );
       expect(next.calls.length).toBe(1);
-      expect(next.calls[0][0]).toBeUndefined();
+      expect(next.calls[0]![0]).toBeUndefined();
     });
 
     it("is accepted on a route with admin:disputes scope", async () => {
@@ -72,7 +72,7 @@ describe("requireApiKey – scope support", () => {
         next,
       );
       expect(next.calls.length).toBe(1);
-      expect(next.calls[0][0]).toBeUndefined();
+      expect(next.calls[0]![0]).toBeUndefined();
     });
 
     it("is accepted on any admin scope (admin:loans)", async () => {
@@ -84,7 +84,7 @@ describe("requireApiKey – scope support", () => {
         next,
       );
       expect(next.calls.length).toBe(1);
-      expect(next.calls[0][0]).toBeUndefined();
+      expect(next.calls[0]![0]).toBeUndefined();
     });
   });
 
@@ -103,7 +103,7 @@ describe("requireApiKey – scope support", () => {
         next,
       );
       expect(next.calls.length).toBe(1);
-      expect(next.calls[0][0]).toBeUndefined();
+      expect(next.calls[0]![0]).toBeUndefined();
     });
 
     it("throws on a different scope (admin:loans)", async () => {
@@ -145,7 +145,7 @@ describe("requireApiKey – scope support", () => {
         makeRes() as Response,
         next,
       );
-      expect(next.calls[0][0]).toBeUndefined();
+      expect(next.calls[0]![0]).toBeUndefined();
     });
 
     it("accepts sec2 for admin:indexer", async () => {
@@ -156,7 +156,7 @@ describe("requireApiKey – scope support", () => {
         makeRes() as Response,
         next,
       );
-      expect(next.calls[0][0]).toBeUndefined();
+      expect(next.calls[0]![0]).toBeUndefined();
     });
 
     it("rejects sec1 for admin:indexer", async () => {
@@ -179,7 +179,7 @@ describe("requireApiKey – scope support", () => {
         makeRes() as Response,
         next,
       );
-      expect(next.calls[0][0]).toBeUndefined();
+      expect(next.calls[0]![0]).toBeUndefined();
     });
   });
 

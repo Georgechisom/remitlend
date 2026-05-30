@@ -35,6 +35,7 @@ const supportedWebhookEventTypes = [
   "LoanRepaid",
   "LoanDefaulted",
   "CollateralLiquidated",
+  "LoanLiquidated",
   "Deposit",
   "Withdraw",
   "YieldDistributed",
@@ -175,7 +176,11 @@ function makeRawEvent(params: {
     case "LoanRequested":
       return {
         ...base,
-        topic: [scSymbol("LoanRequested"), scAddress(borrower)],
+        topic: [
+          scSymbol("LoanRequested"),
+          scU32(params.loanId ?? 1),
+          scAddress(borrower),
+        ],
         value: scI128(params.amount ?? 500),
       };
     case "LoanApproved":
@@ -748,7 +753,7 @@ describe("EventIndexer", () => {
     process.env.QUARANTINE_ALERT_THRESHOLD = "2";
 
     mockQuery.mockImplementation(
-      async (sql: string, params: unknown[] = []) => {
+      async (sql: string, _params: unknown[] = []) => {
         if (sql.includes("INSERT INTO quarantine_events")) {
           return { rows: [], rowCount: 1 };
         }
