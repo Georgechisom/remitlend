@@ -623,8 +623,8 @@ class NotificationService {
 
   private mapRow(row: Record<string, unknown>): Notification {
     const loanId = row.loan_id != null ? (row.loan_id as number) : undefined;
-    const actionUrl: string | null =
-      row.action_url != null ? (row.action_url as string) : null;
+    const actionUrl: string | undefined =
+      row.action_url != null ? (row.action_url as string) : undefined;
     const base = {
       id: row.id as number,
       userId: row.user_id as string,

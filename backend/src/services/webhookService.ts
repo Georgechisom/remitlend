@@ -343,6 +343,14 @@ export class WebhookService {
           payload: Record<string, unknown>;
           attempt_count: number;
         };
+        // Protect against DB returning rows at/above max attempts — skip them
+        if (delivery.attempt_count >= MAX_RETRY_ATTEMPTS) {
+          logger.warn("Skipping delivery at or above max retry attempts", {
+            id: delivery.id,
+            attempt_count: delivery.attempt_count,
+          });
+          continue;
+        }
         await WebhookService.retryWebhookDelivery(
           delivery.id,
           delivery.subscription_id,
