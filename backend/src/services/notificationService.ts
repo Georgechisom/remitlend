@@ -623,21 +623,23 @@ class NotificationService {
 
   private mapRow(row: Record<string, unknown>): Notification {
     const loanId = row.loan_id != null ? (row.loan_id as number) : undefined;
-    const actionUrl: string | null =
-      row.action_url != null ? (row.action_url as string) : null;
+    const actionUrl =
+      row.action_url != null ? (row.action_url as string) : undefined;
     const base = {
       id: row.id as number,
       userId: row.user_id as string,
       type: row.type as NotificationType,
       title: row.title as string,
       message: row.message as string,
-      actionUrl,
       read: row.read as boolean,
       status:
         (row.status as NotificationStatus) ?? (row.read ? "read" : "unread"),
       createdAt: new Date(row.created_at as string),
     };
-    return loanId !== undefined ? { ...base, loanId } : base;
+    // Keep optional fields omitted rather than null so the mapped shape is
+    // consistent (loanId is treated the same way).
+    const withLoan = loanId !== undefined ? { ...base, loanId } : base;
+    return actionUrl !== undefined ? { ...withLoan, actionUrl } : withLoan;
   }
 }
 

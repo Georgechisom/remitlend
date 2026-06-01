@@ -343,6 +343,12 @@ export class WebhookService {
           payload: Record<string, unknown>;
           attempt_count: number;
         };
+        // Defensive circuit breaker: the SQL filter above already excludes
+        // deliveries at the retry ceiling, but guard here too so a delivery
+        // at MAX_RETRY_ATTEMPTS is never re-sent even if it slips through.
+        if (delivery.attempt_count >= MAX_RETRY_ATTEMPTS) {
+          continue;
+        }
         await WebhookService.retryWebhookDelivery(
           delivery.id,
           delivery.subscription_id,
