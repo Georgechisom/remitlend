@@ -118,9 +118,7 @@ async function sendEmail(
   const fromEmail = process.env.FROM_EMAIL;
 
   if (!fromEmail) {
-    logger
-      .withContext()
-      .info("[Email] FROM_EMAIL not set", { email, message });
+    logger.withContext().info("[Email] FROM_EMAIL not set", { email, message });
     return;
   }
 

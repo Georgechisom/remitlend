@@ -191,7 +191,9 @@ class ScoreReconciliationService {
           };
           divergences.push(divergence);
 
-          logger.withContext().warn("score_reconciliation.mismatch", divergence);
+          logger
+            .withContext()
+            .warn("score_reconciliation.mismatch", divergence);
 
           const exceedsThreshold =
             absoluteDifference === null ||
