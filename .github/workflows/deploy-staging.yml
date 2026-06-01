@@ -64,7 +64,7 @@ jobs:
       - name: Run Trivy vulnerability scanner (HIGH - warn)
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: 'ghcr.io/${{ github.repository_owner }}/remitlend-backend:staging-${{ github.sha }}'
+          image-ref: 'ghcr.io/${{ env.OWNER_LC }}/remitlend-backend:staging-${{ github.sha }}'
           format: 'table'
           severity: 'HIGH'
           exit-code: '0'
@@ -73,7 +73,7 @@ jobs:
       - name: Run Trivy vulnerability scanner (CRITICAL - fail)
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: 'ghcr.io/${{ github.repository_owner }}/remitlend-backend:staging-${{ github.sha }}'
+          image-ref: 'ghcr.io/${{ env.OWNER_LC }}/remitlend-backend:staging-${{ github.sha }}'
           format: 'sarif'
           output: 'trivy-results.sarif'
           severity: 'CRITICAL'
