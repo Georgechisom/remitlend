@@ -15,6 +15,7 @@ import {
 } from "../config/stellar.js";
 
 import { cacheService } from "./cacheService.js";
+import { jobMetricsService } from "./jobMetricsService.js";
 
 /**
  * Mirrors `LoanManager::DEFAULT_TERM_LEDGERS` in `contracts/loan_manager/src/lib.rs`.
@@ -156,6 +157,10 @@ export class DefaultChecker {
     return { signer, server, passphrase };
   }
 
+  /**
+   * Fetches IDs of loans that are overdue based on the current ledger sequence.
+   * Queries the local database for active loans exceeding the term limit.
+   */
   private async fetchOverdueLoanIds(currentLedger: number): Promise<number[]> {
     const result = await query(
       `
@@ -193,6 +198,10 @@ export class DefaultChecker {
       .filter((id: number) => Number.isInteger(id) && id > 0);
   }
 
+  /**
+   * Calculates statistics for all currently overdue loans.
+   * Provides the total count and the age of the oldest overdue loan for monitoring.
+   */
   private async fetchOverdueStats(currentLedger: number): Promise<{
     overdueCount: number;
     oldestDueLedger?: number;
@@ -258,6 +267,10 @@ export class DefaultChecker {
     };
   }
 
+  /**
+   * Builds and submits a Soroban transaction to mark loans as defaulted.
+   * Invokes `check_defaults` on-chain; results in state changes and fee consumption.
+   */
   private async submitCheckDefaults(
     server: rpc.Server,
     signer: Keypair,
@@ -334,6 +347,10 @@ export class DefaultChecker {
     };
   }
 
+  /**
+   * Executes `submitCheckDefaults` with a maximum execution time limit.
+   * Ensures that slow Soroban RPC responses do not block the entire processing queue.
+   */
   private async submitCheckDefaultsWithTimeout(
     server: rpc.Server,
     signer: Keypair,
@@ -423,6 +440,9 @@ export class DefaultChecker {
   async checkOverdueLoans(
     loanIds?: number[],
   ): Promise<DefaultCheckRunResult | null> {
+    const startTime = Date.now();
+    const jobName = "defaultChecker";
+
     // Try to acquire distributed lock to prevent overlapping runs
     const lockAcquired = await this.acquireLock();
     if (!lockAcquired) {
@@ -516,6 +536,10 @@ export class DefaultChecker {
         ledgersPastOldestDue: stats.ledgersPastOldestDue,
       });
 
+      // Record success metrics
+      const durationMs = Date.now() - startTime;
+      jobMetricsService.recordSuccess(jobName, durationMs);
+
       return {
         runId,
         currentLedger,
@@ -532,6 +556,15 @@ export class DefaultChecker {
           : {}),
         batches: batchResults,
       };
+    } catch (error) {
+      // Record failure metrics
+      const durationMs = Date.now() - startTime;
+      jobMetricsService.recordFailure(
+        jobName,
+        error as Error | string,
+        durationMs,
+      );
+      throw error;
     } finally {
       // Always release the lock, even if the run failed
       await this.releaseLock();

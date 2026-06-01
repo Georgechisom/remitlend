@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page, type Route } from "@playwright/test";
 
 /**
  * E2E Test Suite for Borrower Repayment Flow
@@ -30,9 +30,10 @@ function connectedWalletState(usdc: string) {
 
 test.describe("Borrower Repayment Flow", () => {
   test.beforeEach(async ({ page }: { page: Page }) => {
-    await page.addInitScript((state: any) => {
-      window.localStorage.setItem("remitlend-wallet", JSON.stringify(state));
-    }, connectedWalletState("5000.00"));
+    const walletStateJson = JSON.stringify(connectedWalletState("5000.00"));
+    await page.addInitScript((stateJson: string) => {
+      window.localStorage.setItem("remitlend-wallet", stateJson);
+    }, walletStateJson);
     await page.addInitScript(() => {
       window.localStorage.setItem(
         "remitlend-user",
@@ -53,7 +54,7 @@ test.describe("Borrower Repayment Flow", () => {
     });
 
     // Active (approved) loan with an outstanding balance the borrower can repay.
-    await page.route("**/api/loans/borrower/**", async (route: any) => {
+    await page.route("**/api/loans/borrower/**", async (route: Route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -93,7 +94,7 @@ test.describe("Borrower Repayment Flow", () => {
     await page.fill('input[type="number"]', "500");
 
     // Mock the repayment submission.
-    await page.route(`**/api/loans/${MOCK_LOAN_ID}/repay`, async (route: any) => {
+    await page.route(`**/api/loans/${MOCK_LOAN_ID}/repay`, async (route: Route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -107,9 +108,10 @@ test.describe("Borrower Repayment Flow", () => {
     });
 
     // Wallet balance after paying 500 USDC.
-    await page.evaluate((state: any) => {
-      window.localStorage.setItem("remitlend-wallet", JSON.stringify(state));
-    }, connectedWalletState("4500.00"));
+    const updatedWalletStateJson = JSON.stringify(connectedWalletState("4500.00"));
+    await page.evaluate((stateJson: string) => {
+      window.localStorage.setItem("remitlend-wallet", stateJson);
+    }, updatedWalletStateJson);
 
     await page.click('button:has-text("Review Repayment")');
     await page.click('button:has-text("Confirm Payment")');
@@ -151,7 +153,7 @@ test.describe("Borrower Repayment Flow", () => {
     page: Page;
   }) => {
     let detailReads = 0;
-    await page.route(`**/api/loans/${MOCK_LOAN_ID}`, async (route: any) => {
+    await page.route(`**/api/loans/${MOCK_LOAN_ID}`, async (route: Route) => {
       detailReads += 1;
       const repaid = detailReads > 1;
       await route.fulfill({
@@ -185,7 +187,7 @@ test.describe("Borrower Repayment Flow", () => {
       });
     });
 
-    await page.route(`**/api/loans/${MOCK_LOAN_ID}/amortization-schedule`, async (route: any) => {
+    await page.route(`**/api/loans/${MOCK_LOAN_ID}/amortization-schedule`, async (route: Route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -200,7 +202,7 @@ test.describe("Borrower Repayment Flow", () => {
       });
     });
 
-    await page.route("**/api/events/stream?borrower=**", async (route: any) => {
+    await page.route("**/api/events/stream?borrower=**", async (route: Route) => {
       await route.fulfill({
         status: 200,
         headers: {

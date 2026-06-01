@@ -21,8 +21,8 @@ const mockQuery = jest
     (
       sql?: string,
       params?: unknown[],
-    ) => Promise<{ rows: any[]; rowCount: number }>
-  >() // eslint-disable-line @typescript-eslint/no-explicit-any
+    ) => Promise<{ rows: unknown[]; rowCount: number }>
+  >()
   .mockResolvedValue({ rows: [], rowCount: 0 });
 
 // All ESM mocks must be declared before any dynamic import
@@ -31,14 +31,26 @@ jest.unstable_mockModule("../db/connection.js", () => ({
   query: mockQuery,
   getClient: jest.fn(),
   closePool: jest.fn(),
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  withTransaction: jest.fn<any>().mockImplementation(async (fn: any) =>
-    fn({
-      query: jest.fn((sql: string, params?: unknown[]) =>
-        mockQuery(sql, params ?? []),
-      ),
-    }),
-  ),
+  withTransaction: jest
+    .fn<
+      (
+        fn: (client: {
+          query: (sql: string, params?: unknown[]) => Promise<unknown>;
+        }) => Promise<unknown>,
+      ) => Promise<unknown>
+    >()
+    .mockImplementation(
+      async (
+        fn: (client: {
+          query: (sql: string, params?: unknown[]) => Promise<unknown>;
+        }) => Promise<unknown>,
+      ) =>
+        fn({
+          query: jest.fn((sql: string, params?: unknown[]) =>
+            mockQuery(sql, params ?? []),
+          ),
+        }),
+    ),
 }));
 
 jest.unstable_mockModule("../services/sorobanService.js", () => ({
@@ -59,15 +71,17 @@ jest.unstable_mockModule("../services/eventStreamService.js", () => ({
 
 jest.unstable_mockModule("../services/cacheService.js", () => ({
   cacheService: {
-    get: jest.fn<any>().mockResolvedValue(null),
-    set: jest.fn<any>().mockResolvedValue(undefined),
-    delete: jest.fn<any>().mockResolvedValue(undefined),
+    get: jest.fn<() => Promise<null>>().mockResolvedValue(null),
+    set: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
+    delete: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
   },
 }));
 
 jest.unstable_mockModule("../services/notificationService.js", () => ({
   notificationService: {
-    createNotification: jest.fn<any>().mockResolvedValue(undefined),
+    createNotification: jest
+      .fn<() => Promise<void>>()
+      .mockResolvedValue(undefined),
   },
 }));
 
@@ -82,25 +96,25 @@ describe("SorobanService.getScoreConfig()", () => {
   it("returns default repaymentDelta of 15 when env var is not set", () => {
     delete process.env.SCORE_REPAYMENT_DELTA;
     const cfg = mockGetScoreConfig();
-    expect((cfg as any).repaymentDelta).toBe(15);
+    expect(cfg.repaymentDelta).toBe(15);
   });
 
   it("returns default defaultPenalty of 50 when env var is not set", () => {
     delete process.env.SCORE_DEFAULT_PENALTY;
     const cfg = mockGetScoreConfig();
-    expect((cfg as any).defaultPenalty).toBe(50);
+    expect(cfg.defaultPenalty).toBe(50);
   });
 
   it("returns repaymentDelta from SCORE_REPAYMENT_DELTA env var", () => {
     process.env.SCORE_REPAYMENT_DELTA = "20";
     const cfg = mockGetScoreConfig();
-    expect((cfg as any).repaymentDelta).toBe(20);
+    expect(cfg.repaymentDelta).toBe(20);
   });
 
   it("returns defaultPenalty from SCORE_DEFAULT_PENALTY env var", () => {
     process.env.SCORE_DEFAULT_PENALTY = "75";
     const cfg = mockGetScoreConfig();
-    expect((cfg as any).defaultPenalty).toBe(75);
+    expect(cfg.defaultPenalty).toBe(75);
   });
 });
 

@@ -3,10 +3,14 @@
  * Registers a test user with email and password. Returns a fake JWT.
  */
 // Only import types once at the top
+import {
+  getAuditLogs,
+  type AuditLogFilters,
+} from "../services/auditLogService.js";
 import type { Request, Response, NextFunction } from "express";
 import { asyncHandler } from "../utils/asyncHandler.js";
 export const registerTestUser = asyncHandler(
-  async (req: Request, res: Response, next: NextFunction) => {
+  async (req: Request, res: Response, _next: NextFunction) => {
     const { email, password } = req.body;
     if (!email || !password) {
       res
@@ -158,6 +162,28 @@ export const login = (req: Request, res: Response): void => {
     },
   });
 };
+
+export async function listAuditLogs(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const result = await getAuditLogs({
+      actor: req.query.actor as string | undefined,
+      action: req.query.action as string | undefined,
+      from: req.query.from as string | undefined,
+      to: req.query.to as string | undefined,
+      cursor: req.query.cursor as string | undefined,
+      limit: Number(req.query.limit ?? 25),
+      withTotal: req.query.withTotal === "true",
+    } as AuditLogFilters);
+
+    return res.json(result);
+  } catch (error) {
+    next(error);
+  }
+}
 
 export const verify = (req: Request, res: Response): void => {
   res.status(200).json({

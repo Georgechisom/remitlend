@@ -5,11 +5,11 @@ import request from "supertest";
 jest.unstable_mockModule("../db/connection.js", () => ({
   default: {
     query: jest
-      .fn<() => Promise<any>>()
+      .fn<() => Promise<{ rows: unknown[]; rowCount: number }>>()
       .mockResolvedValue({ rows: [], rowCount: 0 }),
   },
   query: jest
-    .fn<() => Promise<any>>()
+    .fn<() => Promise<{ rows: unknown[]; rowCount: number }>>()
     .mockResolvedValue({ rows: [], rowCount: 0 }),
   getClient: jest.fn(),
   withTransaction: jest.fn(),

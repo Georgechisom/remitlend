@@ -12,7 +12,7 @@ const validateSource = (schema: ZodType, source: ValidationSource) => {
           : source === "query"
             ? req.query
             : req.params;
-      req[source] = schema.parse(data);
+      schema.parse(data);
       next();
     } catch (error) {
       next(error);

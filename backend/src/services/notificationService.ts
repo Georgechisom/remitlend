@@ -1,8 +1,6 @@
 import { query } from "../db/connection.js";
 import logger from "../utils/logger.js";
 import type { Response } from "express";
-import twilio from "twilio";
-import sgMail from "@sendgrid/mail";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -11,6 +9,7 @@ export type NotificationType =
   | "repayment_due"
   | "repayment_confirmed"
   | "loan_defaulted"
+  | "loan_liquidated"
   | "score_changed";
 
 export type NotificationStatus = "unread" | "read" | "archived";
@@ -22,6 +21,7 @@ export interface Notification {
   title: string;
   message: string;
   loanId?: number | undefined;
+  actionUrl?: string | null;
   read: boolean;
   status: NotificationStatus;
   createdAt: Date;
@@ -33,6 +33,7 @@ interface CreateNotificationParams {
   title: string;
   message: string;
   loanId?: number | undefined;
+  actionUrl?: string | undefined | null;
 }
 
 export interface NotificationPreferences {
@@ -40,6 +41,7 @@ export interface NotificationPreferences {
   smsEnabled: boolean;
   phone: string | null;
   perTypeOverrides: Record<string, boolean>;
+  digestFrequency?: "off" | "daily" | "weekly";
 }
 
 // ─── SSE subscriber registry ──────────────────────────────────────────────────
@@ -49,17 +51,28 @@ export interface NotificationPreferences {
 type SseClient = Response;
 const sseClients = new Map<string, Set<SseClient>>();
 
-// Initialize Twilio client if credentials are provided
-const twilioClient =
-  process.env.TWILIO_ACCOUNT_SID &&
-  process.env.TWILIO_AUTH_TOKEN &&
-  process.env.TWILIO_PHONE_NUMBER
-    ? twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN)
-    : null;
+// Lazy-init Twilio client — dynamic import avoids ESM/CJS interop issues in tests
+async function getTwilioClient() {
+  if (
+    !process.env.TWILIO_ACCOUNT_SID ||
+    !process.env.TWILIO_AUTH_TOKEN ||
+    !process.env.TWILIO_PHONE_NUMBER
+  ) {
+    return null;
+  }
+  const { default: twilio } = await import("twilio");
+  return twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+}
 
-// Configure SendGrid if API key is present
-if (process.env.SENDGRID_API_KEY) {
-  sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+// Lazy-init SendGrid — called once on first sendEmail
+let _sgInitialized = false;
+async function ensureSendGrid() {
+  if (_sgInitialized) return;
+  _sgInitialized = true;
+  if (process.env.SENDGRID_API_KEY) {
+    const sgMail = await import("@sendgrid/mail");
+    sgMail.default.setApiKey(process.env.SENDGRID_API_KEY);
+  }
 }
 
 function buildEmailTemplate(
@@ -84,6 +97,10 @@ function buildEmailTemplate(
         subject: "Loan default notice — RemitLend",
         html: `<h2>Loan Defaulted</h2><p>${message}</p><p>Contact support immediately if you believe this is an error.</p>`,
       },
+      loan_liquidated: {
+        subject: "Your loan has been liquidated — RemitLend",
+        html: `<h2>Loan Liquidated</h2><p>${message}</p><p>Contact support if you have questions about the outcome.</p>`,
+      },
       score_changed: {
         subject: "Your credit score has changed — RemitLend",
         html: `<h2>Credit Score Update</h2><p>${message}</p><p>Log in to see your updated score and history.</p>`,
@@ -100,7 +117,16 @@ async function sendEmail(
 ): Promise<void> {
   const fromEmail = process.env.FROM_EMAIL;
 
-  if (!process.env.SENDGRID_API_KEY || !fromEmail) {
+  if (!fromEmail) {
+    logger
+      .withContext()
+      .info("[Email] FROM_EMAIL not set", { email, message });
+    return;
+  }
+
+  await ensureSendGrid();
+
+  if (!process.env.SENDGRID_API_KEY) {
     logger
       .withContext()
       .info(
@@ -114,7 +140,8 @@ async function sendEmail(
     : { subject: "Notification from RemitLend", html: `<p>${message}</p>` };
 
   try {
-    await sgMail.send({
+    const sgMail = await import("@sendgrid/mail");
+    await sgMail.default.send({
       to: email,
       from: fromEmail,
       subject: template.subject,
@@ -132,6 +159,7 @@ async function sendEmail(
 }
 
 async function sendSMS(phone: string, message: string) {
+  const twilioClient = await getTwilioClient();
   if (!twilioClient || !process.env.TWILIO_PHONE_NUMBER) {
     logger
       .withContext()
@@ -225,13 +253,16 @@ class NotificationService {
   async createNotification(
     params: CreateNotificationParams,
   ): Promise<Notification> {
-    const { userId, type, title, message, loanId } = params;
+    const { userId, type, title, message, loanId, actionUrl } = params;
+
+    const resolvedActionUrl =
+      actionUrl ?? (loanId != null ? `/loans/${loanId}` : null);
 
     const result = await query(
-      `INSERT INTO notifications (user_id, type, title, message, loan_id, status)
-       VALUES ($1, $2, $3, $4, $5, 'unread')
-       RETURNING id, user_id, type, title, message, loan_id, read, status, created_at`,
-      [userId, type, title, message, loanId ?? null],
+      `INSERT INTO notifications (user_id, type, title, message, loan_id, action_url, status)
+       VALUES ($1, $2, $3, $4, $5, $6, 'unread')
+       RETURNING id, user_id, type, title, message, loan_id, action_url, read, status, created_at`,
+      [userId, type, title, message, loanId ?? null, resolvedActionUrl],
     );
 
     const notification = this.mapRow(result.rows[0]);
@@ -241,6 +272,48 @@ class NotificationService {
     await this.notifyUserExternal(userId, message, type);
 
     return notification;
+  }
+
+  /**
+   * Batches repayment_due notifications per user based on digest frequency.
+   * Returns grouped notifications by user and digest frequency.
+   */
+  async batchRepaymentNotificationsForDigest(
+    notifications: Array<{ userId: string; message: string; loanId?: number }>,
+  ): Promise<
+    Map<string, Array<{ userId: string; message: string; loanId?: number }>>
+  > {
+    const grouped = new Map<
+      string,
+      Array<{ userId: string; message: string; loanId?: number }>
+    >();
+
+    for (const notif of notifications) {
+      const prefResult = await query(
+        `SELECT digest_frequency FROM user_notification_preferences WHERE user_id = $1`,
+        [notif.userId],
+      );
+
+      const digestFrequency = prefResult.rows[0]?.digest_frequency ?? "off";
+
+      if (digestFrequency === "off") {
+        // Send immediately
+        const key = `${notif.userId}:immediate`;
+        if (!grouped.has(key)) {
+          grouped.set(key, []);
+        }
+        grouped.get(key)!.push(notif);
+      } else {
+        // Batch for daily or weekly digest
+        const key = `${notif.userId}:${digestFrequency}`;
+        if (!grouped.has(key)) {
+          grouped.set(key, []);
+        }
+        grouped.get(key)!.push(notif);
+      }
+    }
+
+    return grouped;
   }
 
   /**
@@ -268,9 +341,11 @@ class NotificationService {
         await sendEmail(user.email, message, type);
       }
 
-      // Trigger SMS for critical events: repayment_due and loan_defaulted
+      // Trigger SMS for critical events: repayment_due, loan_defaulted, and loan_liquidated
       const smsEnabledForType =
-        type === "repayment_due" || type === "loan_defaulted";
+        type === "repayment_due" ||
+        type === "loan_defaulted" ||
+        type === "loan_liquidated";
 
       if (user.sms_enabled && user.phone && smsEnabledForType) {
         await sendSMS(user.phone, message);
@@ -284,18 +359,59 @@ class NotificationService {
 
   /**
    * Returns the most recent notifications for a user (newest first).
+   * Supports filtering by type, status, and date range.
    */
   async getNotificationsForUser(
     userId: string,
     limit = 50,
+    type?: string,
+    status?: string,
+    from?: string,
+    to?: string,
   ): Promise<Notification[]> {
+    let whereClause = "user_id = $1";
+    const params: (string | number)[] = [userId];
+    let paramIndex = 2;
+
+    if (type) {
+      whereClause += ` AND type = $${paramIndex}`;
+      params.push(type);
+      paramIndex++;
+    }
+
+    if (status) {
+      whereClause += ` AND status = $${paramIndex}`;
+      params.push(status);
+      paramIndex++;
+    }
+
+    if (from) {
+      const fromDate = new Date(from);
+      if (Number.isNaN(fromDate.getTime())) {
+        throw new Error("Invalid 'from' date format");
+      }
+      whereClause += ` AND created_at >= $${paramIndex}`;
+      params.push(fromDate.toISOString());
+      paramIndex++;
+    }
+
+    if (to) {
+      const toDate = new Date(to);
+      if (Number.isNaN(toDate.getTime())) {
+        throw new Error("Invalid 'to' date format");
+      }
+      whereClause += ` AND created_at <= $${paramIndex}`;
+      params.push(toDate.toISOString());
+      paramIndex++;
+    }
+
     const result = await query(
-      `SELECT id, user_id, type, title, message, loan_id, read, status, created_at
-       FROM notifications
-       WHERE user_id = $1
-       ORDER BY created_at DESC
-       LIMIT $2`,
-      [userId, limit],
+      `SELECT id, user_id, type, title, message, loan_id, action_url, read, status, created_at
+         FROM notifications
+         WHERE ${whereClause}
+         ORDER BY created_at DESC
+         LIMIT $${paramIndex}`,
+      [...params, limit],
     );
     return result.rows.map(this.mapRow);
   }
@@ -383,11 +499,12 @@ class NotificationService {
 
       for (const row of adminResult.rows) {
         const adminId = row.public_key as string;
+        const actionUrl = loanId != null ? `/loans/${loanId}` : null;
         const result = await query(
-          `INSERT INTO notifications (user_id, type, title, message, loan_id, status)
-           VALUES ($1, 'loan_defaulted', $2, $3, $4, 'unread')
-           RETURNING id, user_id, type, title, message, loan_id, read, status, created_at`,
-          [adminId, title, message, loanId ?? null],
+          `INSERT INTO notifications (user_id, type, title, message, loan_id, action_url, status)
+           VALUES ($1, 'loan_defaulted', $2, $3, $4, $5, 'unread')
+           RETURNING id, user_id, type, title, message, loan_id, action_url, read, status, created_at`,
+          [adminId, title, message, loanId ?? null, actionUrl],
         );
         const notification = this.mapRow(result.rows[0]);
         this.broadcast(adminId, notification);
@@ -528,6 +645,8 @@ class NotificationService {
 
   private mapRow(row: Record<string, unknown>): Notification {
     const loanId = row.loan_id != null ? (row.loan_id as number) : undefined;
+    const actionUrl =
+      row.action_url != null ? (row.action_url as string) : undefined;
     const base = {
       id: row.id as number,
       userId: row.user_id as string,
@@ -539,7 +658,10 @@ class NotificationService {
         (row.status as NotificationStatus) ?? (row.read ? "read" : "unread"),
       createdAt: new Date(row.created_at as string),
     };
-    return loanId !== undefined ? { ...base, loanId } : base;
+    // Keep optional fields omitted rather than null so the mapped shape is
+    // consistent (loanId is treated the same way).
+    const withLoan = loanId !== undefined ? { ...base, loanId } : base;
+    return actionUrl !== undefined ? { ...withLoan, actionUrl } : withLoan;
   }
 }
 

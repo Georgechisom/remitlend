@@ -12,7 +12,8 @@ import {
 /**
  * GET /api/notifications
  * Returns the authenticated user's notifications (newest first).
- * Optional query param: ?limit=N (default 50, max 100)
+ * Supports filtering by type, status, and date range.
+ * Optional query params: ?type=X&status=Y&from=ISO&to=ISO&limit=N (default 50, max 100)
  */
 export const getNotifications = asyncHandler(
   async (req: Request, res: Response) => {
@@ -20,9 +21,28 @@ export const getNotifications = asyncHandler(
     if (!userId) throw AppError.unauthorized("Authentication required");
 
     const limit = parseCappedLimit(req, 50);
+    const type = req.query.type as string | undefined;
+    const status = req.query.status as string | undefined;
+    const from = req.query.from as string | undefined;
+    const to = req.query.to as string | undefined;
+
+    // Validate date formats
+    if (from && Number.isNaN(Date.parse(from))) {
+      throw AppError.badRequest("Invalid 'from' date format");
+    }
+    if (to && Number.isNaN(Date.parse(to))) {
+      throw AppError.badRequest("Invalid 'to' date format");
+    }
 
     const [notifications, unreadCount] = await Promise.all([
-      notificationService.getNotificationsForUser(userId, limit),
+      notificationService.getNotificationsForUser(
+        userId,
+        limit,
+        type,
+        status,
+        from,
+        to,
+      ),
       notificationService.getUnreadCount(userId),
     ]);
 

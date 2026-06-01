@@ -5,10 +5,10 @@ import logger from "../utils/logger.js";
 /**
  * Sanitizes the request body to remove sensitive fields before logging.
  */
-function sanitizePayload(body: any): any {
+function sanitizePayload(body: unknown): unknown {
   if (!body || typeof body !== "object") return body;
 
-  const sanitized = { ...body };
+  const sanitized = { ...body } as Record<string, unknown>;
   // List of fields that should be redacted in audit logs
   const sensitiveFields = [
     "secret",
@@ -41,7 +41,7 @@ function extractTarget(req: Request): string | undefined {
   if (req.params.borrower) return `Borrower:${req.params.borrower}`;
 
   // Check common body fields
-  const body = req.body as any;
+  const body = req.body as Record<string, unknown>;
   if (body) {
     if (body.loanId) return `LoanID:${body.loanId}`;
     if (Array.isArray(body.loanIds))
@@ -74,7 +74,10 @@ export const auditLog = async (
     const payload = sanitizePayload(req.body);
     const ipAddress =
       req.ip ||
-      (req.headers["x-forwarded-for"] as string)?.split(",")[0] ||
+      (Array.isArray(req.headers["x-forwarded-for"])
+        ? req.headers["x-forwarded-for"][0]
+        : (req.headers["x-forwarded-for"] as string)
+      )?.split(",")[0] ||
       req.socket.remoteAddress;
 
     // Log the action asynchronously to avoid blocking the main request thread

@@ -5,6 +5,8 @@ export const createRateLimiter = (max: number, windowMinutes: number = 15) =>
     windowMs: windowMinutes * 60 * 1000,
     max,
     message: { error: "Too many requests, please try again later." },
+    standardHeaders: true,
+    legacyHeaders: false,
   });
 
 export const globalRateLimiter = createRateLimiter(100);
@@ -79,7 +81,7 @@ export const simulationRateLimiter = rateLimit({
   max: 5,
   keyGenerator: (req) => {
     // Use authenticated user's public key if available, otherwise fall back to IP
-    const user = (req as any).user;
+    const user = (req as unknown as { user?: { publicKey: string } }).user;
     return user?.publicKey ?? ipKeyGenerator(req.ip ?? "unknown");
   },
   message: {

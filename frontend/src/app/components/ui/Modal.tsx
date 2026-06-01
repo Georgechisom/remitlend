@@ -7,15 +7,13 @@ import { twMerge } from "tailwind-merge";
 import { motion, AnimatePresence } from "framer-motion";
 import { useModalFocusTrap } from "../../hooks/useModalFocusTrap";
 
-/** Tool to merge Tailwind classes safely */
-function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
+import { cn } from "@/app/utils/cn";
 
 interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
   title?: string;
+  ariaLabel?: string;
   children: React.ReactNode;
   className?: string;
   size?: "sm" | "md" | "lg" | "xl";
@@ -32,6 +30,7 @@ const Modal: React.FC<ModalProps> = ({
   isOpen,
   onClose,
   title,
+  ariaLabel,
   children,
   className,
   size = "lg",
@@ -70,6 +69,7 @@ const Modal: React.FC<ModalProps> = ({
             role="dialog"
             aria-modal="true"
             aria-labelledby={title ? titleId : undefined}
+            aria-label={!title ? ariaLabel : undefined}
             tabIndex={-1}
             className={cn(
               "relative w-full overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-zinc-950 dark:border dark:border-zinc-800 focus:outline-none",

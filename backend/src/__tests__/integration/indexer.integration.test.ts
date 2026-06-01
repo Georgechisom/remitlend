@@ -75,9 +75,18 @@ describe("Integration: EventIndexer end-to-end", () => {
       placeholderContractId,
     );
     // Bypass the actual Soroban RPC call for deterministic integration test
-    (indexer as any).fetchEventsInRange = async () => [dummyEvent];
+    (
+      indexer as unknown as { fetchEventsInRange: () => Promise<unknown[]> }
+    ).fetchEventsInRange = async () => [dummyEvent];
 
-    const chunkResult = await (indexer as any).processChunk(1000, 1000);
+    const chunkResult = await (
+      indexer as unknown as {
+        processChunk: (
+          start: number,
+          end: number,
+        ) => Promise<{ insertedEvents: number }>;
+      }
+    ).processChunk(1000, 1000);
     expect(chunkResult.insertedEvents).toBe(1);
 
     const rows = await query(

@@ -16,6 +16,9 @@ const router = Router();
  * /notifications:
  *   get:
  *     summary: Get notifications for the authenticated user
+ *     description: >
+ *       Returns a paginated list of notifications for the authenticated user.
+ *       Supports filtering by type, status, and date range.
  *     tags: [Notifications]
  *     security:
  *       - BearerAuth: []
@@ -26,6 +29,30 @@ const router = Router();
  *           type: integer
  *           default: 50
  *           maximum: 100
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [loan_approved, repayment_due, repayment_confirmed, loan_defaulted, score_changed]
+ *         description: Filter by notification type
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [unread, read, archived]
+ *         description: Filter by notification status
+ *       - in: query
+ *         name: from
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *         description: Filter by created_at start date (ISO-8601)
+ *       - in: query
+ *         name: to
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *         description: Filter by created_at end date (ISO-8601)
  *     responses:
  *       200:
  *         description: List of notifications and unread count

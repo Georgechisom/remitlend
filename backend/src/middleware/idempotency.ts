@@ -6,7 +6,7 @@ const IDEMPOTENCY_TTL = 24 * 60 * 60; // 24 hours in seconds
 
 interface CachedResponse {
   status: number;
-  body: any;
+  body: unknown;
 }
 
 /**
@@ -35,9 +35,13 @@ export const idempotencyMiddleware = async (
         method: req.method,
       });
 
+      // X-Idempotent-Replayed: true signals to the client that this response
+      // is a cached replay of a prior request, not a fresh execution.
+      // Clients can use this to de-duplicate toasts and avoid double-counting.
       res
         .status(cached.status)
         .set("X-Idempotency-Cache", "HIT")
+        .set("X-Idempotent-Replayed", "true")
         .json(cached.body);
       return;
     }
@@ -46,16 +50,16 @@ export const idempotencyMiddleware = async (
     const originalJson = res.json;
     const originalSend = res.send;
 
-    let responseBody: any;
+    let responseBody: unknown;
 
     // Override res.json
-    res.json = function (body: any) {
+    res.json = function (body: unknown) {
       responseBody = body;
       return originalJson.call(this, body);
     };
 
     // Override res.send (as res.json eventually calls res.send)
-    res.send = function (body: any) {
+    res.send = function (body: unknown) {
       if (!responseBody) {
         if (typeof body === "string") {
           try {
@@ -69,6 +73,10 @@ export const idempotencyMiddleware = async (
       }
       return originalSend.call(this, body);
     };
+
+    // X-Idempotent-Replayed: false on the first (fresh) execution so the
+    // client always receives the header and can branch on its value.
+    res.set("X-Idempotent-Replayed", "false");
 
     // Store the response in cache once the request is finished
     res.on("finish", async () => {

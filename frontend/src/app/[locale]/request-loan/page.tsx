@@ -23,11 +23,38 @@ const LoanApplicationWizard = dynamic(
   { ssr: false, loading: () => <WizardSkeleton /> },
 );
 
+// Score band thresholds
+const EXCELLENT_SCORE_THRESHOLD = 750;
+const GOOD_SCORE_THRESHOLD = 670;
+const FAIR_SCORE_THRESHOLD = 580;
+const MINIMUM_ELIGIBLE_SCORE_THRESHOLD = 500;
+
+// Maximum loan amounts per score band
+const EXCELLENT_SCORE_MAX_LOAN = 50_000;
+const GOOD_SCORE_MAX_LOAN = 25_000;
+const FAIR_SCORE_MAX_LOAN = 10_000;
+const MINIMUM_SCORE_MAX_LOAN = 5_000;
+
+// Warning range
+const NEAR_MINIMUM_SCORE_DELTA = 40;
+
 function getScoreBandMax(score: number): number {
-  if (score >= 750) return 50_000;
-  if (score >= 670) return 25_000;
-  if (score >= 580) return 10_000;
-  if (score >= 500) return 5_000;
+  if (score >= EXCELLENT_SCORE_THRESHOLD) {
+    return EXCELLENT_SCORE_MAX_LOAN;
+  }
+
+  if (score >= GOOD_SCORE_THRESHOLD) {
+    return GOOD_SCORE_MAX_LOAN;
+  }
+
+  if (score >= FAIR_SCORE_THRESHOLD) {
+    return FAIR_SCORE_MAX_LOAN;
+  }
+
+  if (score >= MINIMUM_ELIGIBLE_SCORE_THRESHOLD) {
+    return MINIMUM_SCORE_MAX_LOAN;
+  }
+
   return 0;
 }
 
@@ -83,7 +110,7 @@ export default function RequestLoanPage() {
     minScoreConfig?.maxAmount ?? Number.POSITIVE_INFINITY,
   );
   const scoreDelta = resolvedCreditScore - minimumScore;
-  const isCloseToMinimum = scoreDelta >= 0 && scoreDelta <= 40;
+  const isCloseToMinimum = scoreDelta >= 0 && scoreDelta <= NEAR_MINIMUM_SCORE_DELTA;
   const isIneligible = isWalletConnected && !isLoadingConfig && !isLoadingScore && scoreDelta < 0;
   const isCheckingEligibility =
     isWalletConnected && (isLoadingConfig || (isLoadingScore && !!borrowerAddress));

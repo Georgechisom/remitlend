@@ -61,6 +61,8 @@
     "repay": "Repay",
     "dashboard": "Dashboard",
     "activity": "Activity",
+    "notifications": "Notifications",
+    "liquidations": "Liquidations",
     "adminDisputes": "Disputes"
   },
   "Loans": {
@@ -108,7 +110,56 @@
     "unlockedCount": "{unlocked} / {total}",
     "progress": "Progress",
     "unlocked": "Unlocked {date}",
-    "repaymentProgress": "Repayment Progress"
+    "repaymentProgress": "Repayment Progress",
+    "nft": {
+      "eyebrow": "Credit Asset",
+      "title": "Remittance NFT",
+      "description": "View the on-chain credit asset built from your remittance and repayment history.",
+      "connectTitle": "Connect your wallet",
+      "connectDescription": "Your Remittance NFT appears here once your wallet is connected.",
+      "error": "Unable to load your Remittance NFT right now.",
+      "emptyTitle": "No Remittance NFT yet",
+      "emptyDescription": "Send your first remittance to start building an on-chain credit asset.",
+      "emptyAction": "Send first remittance",
+      "score": "Score",
+      "historyHash": "History hash",
+      "defaultCount": "Default count",
+      "cooldownRemaining": "Transfer cooldown remaining",
+      "lastUpdateLedger": "Last update ledger",
+      "metadataUri": "Metadata URI",
+      "ledgers": "{count} ledgers",
+      "notAvailable": "Not available"
+    }
+  },
+  "Notifications": {
+    "eyebrow": "Inbox",
+    "title": "Notifications",
+    "description": "Review repayment reminders, score changes, loan updates, and alerts from one place.",
+    "viewAll": "View all notifications",
+    "unread": "Unread",
+    "markRead": "Mark read",
+    "markAllVisibleRead": "Mark unread as read",
+    "filters": {
+      "title": "Filters",
+      "unreadOnly": "Unread only"
+    },
+    "types": {
+      "all": "All",
+      "loan_approved": "Loan approved",
+      "repayment_due": "Repayment due",
+      "repayment_confirmed": "Repayment confirmed",
+      "loan_defaulted": "Loan defaulted",
+      "score_changed": "Score changed"
+    },
+    "empty": {
+      "title": "No notifications found",
+      "description": "New alerts and reminders will appear here.",
+      "action": "Back to dashboard"
+    },
+    "error": "Unable to load notifications. Please try again.",
+    "pagination": {
+      "summary": "Showing {count} of {total} notifications on page {page}"
+    }
   },
   "LoanCard": {
     "totalOwed": "Total Owed",
@@ -198,6 +249,29 @@
       "cancel": "Cancel",
       "confirming": "Confirming..."
     },
+    "health": {
+      "title": "Loan health",
+      "loading": "Loading health factor...",
+      "unavailableTitle": "Health data unavailable",
+      "unavailableDescription": "Collateral and debt data are not available for this loan yet.",
+      "collateral": "Collateral",
+      "totalDebt": "Total debt",
+      "threshold": "Liquidation threshold",
+      "sourceContract": "Using contract health view",
+      "sourceBackend": "Using backend-computed health data",
+      "sourceDerived": "Derived from collateral and total debt",
+      "cta": "Add collateral",
+      "states": {
+        "healthy": "Healthy",
+        "watch": "Watch",
+        "atRisk": "At risk"
+      },
+      "descriptions": {
+        "healthy": "Collateral coverage is comfortably above the liquidation threshold.",
+        "watch": "Collateral coverage is close to the safety margin. Consider adding collateral.",
+        "atRisk": "This loan is at risk of liquidation. Add collateral to restore coverage."
+      }
+    },
     "refinance": {
       "title": "Refinance loan",
       "principal": "New principal amount",
@@ -212,6 +286,40 @@
       "extraLedgers": "Additional ledgers",
       "newDueDate": "New due date",
       "submit": "Build, Sign & Submit"
+    }
+  },
+  "Lend": {
+    "cooldownActive": "Withdraw available in about {minutes} minute(s) while cooldown is active."
+  },
+  "Liquidations": {
+    "eyebrow": "Liquidator Console",
+    "title": "Liquidatable Loans",
+    "description": "Review active positions below the liquidation threshold and submit liquidation transactions.",
+    "refresh": "Refresh",
+    "liquidate": "Liquidate",
+    "liquidating": "Liquidating...",
+    "pending": "Building liquidation transaction...",
+    "success": "Liquidation submitted",
+    "unknownBorrower": "Unknown borrower",
+    "walletRequired": {
+      "title": "Connect wallet",
+      "description": "Connect a liquidator wallet before submitting liquidation transactions."
+    },
+    "empty": {
+      "title": "No liquidatable loans",
+      "description": "Active loans are currently above the liquidation threshold."
+    },
+    "error": {
+      "title": "Unable to load liquidations",
+      "description": "Check the liquidations API and try again."
+    },
+    "table": {
+      "loan": "Loan",
+      "borrower": "Borrower",
+      "collateral": "Collateral",
+      "debt": "Total debt",
+      "health": "Health",
+      "action": "Action"
     }
   }
 }

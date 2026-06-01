@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page, type Route } from "@playwright/test";
 
 // Mock wallet address for all tests
 const MOCK_ADDRESS = "GCJPBXSE6WCQDCEYZW6C3YVZCSSCHC4AE72L5KWKCYL2CLLL7NH5VSCI";
@@ -21,12 +21,13 @@ test.beforeEach(async ({ page }: { page: Page }) => {
     version: 0,
   };
 
-  await page.addInitScript((state: any) => {
-    window.localStorage.setItem("remitlend-wallet", JSON.stringify(state));
-  }, walletState);
+  const walletStateJson = JSON.stringify(walletState);
+  await page.addInitScript((stateJson: string) => {
+    window.localStorage.setItem("remitlend-wallet", stateJson);
+  }, walletStateJson);
 
   // Mock User Profile
-  await page.route("**/api/user/profile", async (route: any) => {
+  await page.route("**/api/user/profile", async (route: Route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -40,7 +41,7 @@ test.beforeEach(async ({ page }: { page: Page }) => {
   });
 
   // Mock initial Pool Stats
-  await page.route("**/api/pool/stats", async (route: any) => {
+  await page.route("**/api/pool/stats", async (route: Route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -62,7 +63,7 @@ test.beforeEach(async ({ page }: { page: Page }) => {
 
 test("Borrow: Connect wallet → Request Loan → Wizard steps", async ({ page }: { page: Page }) => {
   // Mock Loan Config (min score, etc)
-  await page.route("**/api/loans/config", async (route: any) => {
+  await page.route("**/api/loans/config", async (route: Route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -74,7 +75,7 @@ test("Borrow: Connect wallet → Request Loan → Wizard steps", async ({ page }
   });
 
   // Mock User Credit Score
-  await page.route("**/api/score/*", async (route: any) => {
+  await page.route("**/api/score/*", async (route: Route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -107,7 +108,7 @@ test("Borrow: Connect wallet → Request Loan → Wizard steps", async ({ page }
   await expect(page.locator("text=Ready to Sign")).toBeVisible();
 
   // Mock creation request
-  await page.route("**/api/loans", async (route: any) => {
+  await page.route("**/api/loans", async (route: Route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -131,7 +132,7 @@ test("Lend: Deposit funds → View updated pool stats", async ({ page }: { page:
   await expect(page.locator("text=1,000,000")).toBeVisible(); // total deposits
 
   // Mock deposit submission
-  await page.route("**/api/pool/deposit", async (route: any) => {
+  await page.route("**/api/pool/deposit", async (route: Route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -140,7 +141,7 @@ test("Lend: Deposit funds → View updated pool stats", async ({ page }: { page:
   });
 
   // Mock updated stats (after deposit)
-  await page.route("**/api/pool/stats", async (route: any) => {
+  await page.route("**/api/pool/stats", async (route: Route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -175,7 +176,7 @@ test("Borrower: Repay loan → Confirm transaction → Check status update", asy
   page: Page;
 }) => {
   // Mock existing loans for borrower
-  await page.route("**/api/loans/borrower/**", async (route: any) => {
+  await page.route("**/api/loans/borrower/**", async (route: Route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -208,7 +209,7 @@ test("Borrower: Repay loan → Confirm transaction → Check status update", asy
   await page.fill('input[type="number"]', "500");
 
   // Mock repayment finish
-  await page.route("**/api/loans/123/repay", async (route: any) => {
+  await page.route("**/api/loans/123/repay", async (route: Route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -228,7 +229,7 @@ test("Borrower: Repay loan → Confirm transaction → Check status update", asy
 
 test("Remittance: View history", async ({ page }: { page: Page }) => {
   // Mock remittances list
-  await page.route("**/api/remittances", async (route: any) => {
+  await page.route("**/api/remittances", async (route: Route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",

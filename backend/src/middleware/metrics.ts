@@ -40,7 +40,7 @@ export const scoreReconciliationLastRunTimestampGauge = new client.Gauge({
 export const httpRequestDurationHistogram = new client.Histogram({
   name: "http_request_duration_seconds",
   help: "HTTP request duration in seconds.",
-  labelNames: ["route", "status_code"] as const,
+  labelNames: ["method", "route", "status_class"] as const,
   buckets: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10],
   registers: [metricsRegistry],
 });
@@ -67,8 +67,9 @@ export function metricsMiddleware(
 
   res.on("finish", () => {
     endTimer({
+      method: req.method,
       route: routeLabel(req),
-      status_code: String(res.statusCode),
+      status_class: `${Math.floor(res.statusCode / 100)}xx`,
     });
   });
 

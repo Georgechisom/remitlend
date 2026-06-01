@@ -263,7 +263,7 @@ The backend serves as a bridge between the frontend and blockchain, handling off
 - `GET /api/health` - Health check
 - `GET /api/score/:userId` - Get user credit score
 - `POST /api/score/simulate` - Simulate remittance history
-- `GET /api-docs` - Swagger documentation
+- `GET /docs` - Swagger documentation
 
 **Middleware**:
 - `errorHandler` - Centralized error handling
@@ -1322,3 +1322,7 @@ graph TB
 ---
 
 For implementation details, see the code in respective directories. For contribution guidelines, see [CONTRIBUTING.md](CONTRIBUTING.md).
+
+### Runbooks
+
+Operational runbooks for on-call engineers are available in [docs/runbooks/](docs/runbooks/). See the [Indexer Recovery Runbook](docs/runbooks/indexer-recovery.md) for procedures on handling indexer lag, RPC outages, and quarantined events.

@@ -61,7 +61,10 @@ export function toStroops(value: string, decimals = STROOP_DECIMALS): bigint | n
   const normalizedFraction = fraction.padEnd(decimals, "0");
 
   try {
-    return BigInt(whole || "0") * BigInt(STROOP_SCALE) + BigInt(normalizedFraction || "0");
+    // Scale by the requested precision, not the fixed 7-decimal stroop scale,
+    // so non-XLM assets (e.g. 2-decimal USDC) convert correctly.
+    const scale = BigInt(10) ** BigInt(decimals);
+    return BigInt(whole || "0") * scale + BigInt(normalizedFraction || "0");
   } catch {
     return null;
   }

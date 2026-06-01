@@ -2,13 +2,19 @@
   "name": "frontend",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "prettier --check .",
+    "typecheck": "tsc --noEmit",
     "audit:a11y": "next build && npx axe-playwright",
     "format": "prettier --write .",
+    "test": "jest",
+    "test:watch": "jest --watch",
     "test:e2e": "playwright test",
     "prepare": "husky"
   },

@@ -8,6 +8,7 @@ permissions:
   contents: read
   packages: write
   id-token: write
+  security-events: write
 
 jobs:
   build-and-push:
@@ -59,6 +60,31 @@ jobs:
             ghcr.io/${{ env.OWNER_LC }}/remitlend-frontend:staging-${{ github.sha }}
             ghcr.io/${{ env.OWNER_LC }}/remitlend-frontend:staging-latest
           target: runner
+
+      - name: Run Trivy vulnerability scanner (HIGH - warn)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'ghcr.io/${{ env.OWNER_LC }}/remitlend-backend:staging-${{ github.sha }}'
+          format: 'table'
+          severity: 'HIGH'
+          exit-code: '0'
+          trivyignores: '.trivyignore'
+
+      - name: Run Trivy vulnerability scanner (CRITICAL - fail)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'ghcr.io/${{ env.OWNER_LC }}/remitlend-backend:staging-${{ github.sha }}'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL'
+          exit-code: '1'
+          trivyignores: '.trivyignore'
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
 
       - name: Smoke-test the backend staging image
         run: |

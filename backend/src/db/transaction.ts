@@ -7,7 +7,7 @@ import logger from "../utils/logger.js";
  * @returns Promise with the result of the operations
  */
 export async function withTransaction<T>(
-  operations: (client: any) => Promise<T>,
+  operations: (client: import("pg").PoolClient) => Promise<T>,
 ): Promise<T> {
   let client;
   try {
@@ -49,7 +49,7 @@ export async function withTransaction<T>(
  */
 export async function executeTransactionQueries(
   queries: Array<{ text: string; params?: unknown[] }>,
-): Promise<any[]> {
+): Promise<unknown[]> {
   return withTransaction(async (client) => {
     const results = [];
 
@@ -69,9 +69,12 @@ export async function executeTransactionQueries(
  * @returns Promise with combined result
  */
 export async function withStellarAndDbTransaction<T>(
-  stellarOperation: () => Promise<any>,
-  dbOperations: (stellarResult: any, client: any) => Promise<T>,
-): Promise<{ stellarResult: any; dbResult: T }> {
+  stellarOperation: () => Promise<unknown>,
+  dbOperations: (
+    stellarResult: unknown,
+    client: import("pg").PoolClient,
+  ) => Promise<T>,
+): Promise<{ stellarResult: unknown; dbResult: T }> {
   return withTransaction(async (client) => {
     try {
       // Execute Stellar operation first

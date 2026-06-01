@@ -7,7 +7,7 @@ process.env.NODE_ENV = "test";
 import { jest } from "@jest/globals";
 
 // ESM-compatible mocking
-const mockQuery: any = jest.fn();
+const mockQuery = jest.fn<(...args: unknown[]) => Promise<unknown>>();
 jest.unstable_mockModule("../db/connection.js", () => ({
   query: mockQuery,
   default: { query: mockQuery, connect: jest.fn(), end: jest.fn() },
@@ -47,12 +47,12 @@ function mintToken(publicKey = TEST_PUBLIC_KEY) {
 
 /** Shorthand for a resolved pg QueryResult with rows */
 function dbRows(rows: object[], command = "SELECT") {
-  return { rows, rowCount: rows.length, command, oid: 0, fields: [] } as any;
+  return { rows, rowCount: rows.length, command, oid: 0, fields: [] };
 }
 
 /** Shorthand for a resolved pg QueryResult with no rows */
 function dbOk(command = "INSERT") {
-  return { rows: [], rowCount: 1, command, oid: 0, fields: [] } as any;
+  return { rows: [], rowCount: 1, command, oid: 0, fields: [] };
 }
 
 // ─── Test state ───────────────────────────────────────────────────────────────

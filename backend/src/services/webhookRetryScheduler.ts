@@ -20,13 +20,23 @@ async function markAsFailed(deliveryId: number) {
     .error(`Webhook delivery ${deliveryId} marked as permanently failed.`);
 }
 
-function shouldRetry(delivery: any, delay: number): boolean {
+function shouldRetry(delivery: { updated_at: string }, delay: number): boolean {
   const lastAttempt = new Date(delivery.updated_at).getTime();
   const now = Date.now();
   return now >= lastAttempt + delay * 1000;
 }
 
-async function sendWebhookAgain(delivery: any) {
+async function sendWebhookAgain(delivery: {
+  id: number;
+  attempt_count: number;
+  subscription_id: number;
+  callback_url: string;
+  secret: string | null;
+  event_id: number;
+  event_type: string;
+  payload: unknown;
+  updated_at: string;
+}) {
   logger
     .withContext()
     .info(
@@ -38,9 +48,9 @@ async function sendWebhookAgain(delivery: any) {
     delivery.subscription_id,
     delivery.callback_url,
     delivery.secret || undefined,
-    delivery.event_id,
+    String(delivery.event_id),
     delivery.event_type as WebhookEventType,
-    delivery.payload,
+    delivery.payload as Record<string, unknown>,
     delivery.attempt_count,
   );
 }

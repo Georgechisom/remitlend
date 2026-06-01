@@ -35,10 +35,31 @@ The repository is organized as a monorepo containing three core packages:
 *For a detailed look at how these components interact, see our [Architecture Diagram](ARCHITECTURE.md).*
 *New contributor? Start with the in-repo wiki: [docs/wiki/README.md](docs/wiki/README.md).*
 
+### API Reference
+
+The backend exposes an interactive Swagger UI for exploring and testing API endpoints. Start the backend server (see [Quick Start](#quick-start-with-docker-recommended) or [Manual Setup](#manual-setup)), then open:
+
+- **Swagger UI**: [http://localhost:3001/docs](http://localhost:3001/docs)
+- **OpenAPI JSON**: [http://localhost:3001/docs.json](http://localhost:3001/docs.json)
+
+Both endpoints are gated to non-production environments (`NODE_ENV !== "production"`).
+
+### Webhooks
+
+RemitLend supports real-time event notifications via webhooks. See the
+[Webhook Integration Guide](docs/webhooks.md) for details on subscribing,
+event payloads, retry semantics, circuit-breaker behavior, and HMAC signature
+verification.
+
+- **Swagger UI**: [http://localhost:3001/docs](http://localhost:3001/docs)
+- **OpenAPI JSON**: [http://localhost:3001/docs.json](http://localhost:3001/docs.json)
+
+Both endpoints are gated to non-production environments (`NODE_ENV !== "production"`).
+
 ## 🛠 Tech Stack
 
 - **Blockchain**: [Stellar](https://stellar.org) (Soroban Smart Contracts)
-- **Frontend**: Next.js 14, React, TypeScript, Tailwind CSS
+- **Frontend**: Next.js 16, React 19, TypeScript, Tailwind CSS
 - **Backend**: Node.js, Express, TypeScript, Jest
 - **Wallet Integration**: [Stellar Wallet Kit](https://github.com/stellar/stellar-wallet-kit) (Freighter)
 
@@ -57,7 +78,7 @@ The repository is organized as a monorepo containing three core packages:
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/your-username/remitlend.git
+   git clone https://github.com/LabsCrypt/remitlend.git
    cd remitlend
    ```
 
@@ -79,7 +100,7 @@ The repository is organized as a monorepo containing three core packages:
 4. **Access the application:**
    - Frontend: [http://localhost:3000](http://localhost:3000)
    - Backend API: [http://localhost:3001](http://localhost:3001)
-   - API Documentation: [http://localhost:3001/api-docs](http://localhost:3001/api-docs)
+   - API Documentation: [http://localhost:3001/docs](http://localhost:3001/docs)
 
 ### Manual Setup
 
@@ -188,9 +209,17 @@ The repository is organized as a monorepo containing three core packages:
      --network-passphrase "Test SDF Network ; September 2015"
    ```
 
+## 🔒 Security
+
+For details on how to report a security vulnerability, please see our [Security Policy](SECURITY.md).
+
 ## 🤝 Contributing
 
 We welcome contributions from developers of all skill levels! Please see our [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines on how to get started.
+
+### Environment Variables
+
+See [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md) for a full reference of all environment variables across backend, frontend, and scripts. Each `.env.example` file also links to this document.
 
 ### Quick Contribution Guide
 
@@ -202,4 +231,4 @@ We welcome contributions from developers of all skill levels! Please see our [CO
 
 ## 📄 License
 
-This project is licensed under the ISC License. See the `LICENSE` file for details..
+This project is licensed under the ISC License. See the `LICENSE` file for details.

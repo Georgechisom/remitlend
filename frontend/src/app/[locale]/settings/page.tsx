@@ -8,14 +8,15 @@ import {
   Shield,
   Monitor,
   Crown,
-  Copy,
-  CheckCheck,
   LogOut,
   Key,
+  CheckCheck,
+  Copy,
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "../../components/ui/Card";
 import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
+import { useLogout } from "../../hooks/useLogout";
 import { GamificationSettings } from "../../components/gamification/GamificationSettings";
 import { useThemeStore } from "../../stores/useThemeStore";
 import {
@@ -25,7 +26,8 @@ import {
 } from "../../stores/useWalletStore";
 import { useUserStore, selectUser } from "../../stores/useUserStore";
 import { logoutUser } from "../../lib/session";
-
+import { useNotificationPreferences, useUpdateNotificationPreferences } from "../../hooks/useApi";
+import { COPY_FEEDBACK_RESET_MS } from "../../components/ui";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface NotificationPrefs {
@@ -37,6 +39,7 @@ interface NotificationPrefs {
   email: boolean;
   sms: boolean;
   inApp: boolean;
+  phone: string;
 }
 
 // ─── Section navigation ───────────────────────────────────────────────────────
@@ -60,7 +63,7 @@ function CopyButton({ value }: { value: string }) {
   const handleCopy = () => {
     navigator.clipboard.writeText(value).then(() => {
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      setTimeout(() => setCopied(false), COPY_FEEDBACK_RESET_MS);
     });
   };
 
@@ -186,6 +189,7 @@ function WalletSection() {
   const address = useWalletStore(selectWalletAddress);
   const network = useWalletStore(selectWalletNetwork);
   const disconnect = useWalletStore((s) => s.disconnect);
+  const { logout } = useLogout();
 
   return (
     <Card>
@@ -229,14 +233,22 @@ function WalletSection() {
               </span>
             </div>
 
-            <div className="pt-2 border-t border-zinc-200 dark:border-zinc-800">
+            <div className="pt-2 border-t border-zinc-200 dark:border-zinc-800 flex flex-col gap-2 sm:flex-row">
               <Button
                 variant="outline"
-                onClick={disconnect}
+                onClick={() => disconnect()}
+                leftIcon={<LogOut className="h-4 w-4" />}
+                className="text-amber-600 border-amber-200 hover:bg-amber-50 dark:text-amber-400 dark:border-amber-900/50 dark:hover:bg-amber-950/20"
+              >
+                Disconnect Wallet
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => logout()}
                 leftIcon={<LogOut className="h-4 w-4" />}
                 className="text-red-600 border-red-200 hover:bg-red-50 dark:text-red-400 dark:border-red-900/50 dark:hover:bg-red-950/20"
               >
-                Disconnect Wallet
+                Sign Out
               </Button>
             </div>
           </>
@@ -254,6 +266,8 @@ function WalletSection() {
 // ─── Notifications section ────────────────────────────────────────────────────
 
 function NotificationsSection() {
+  const { data, isLoading, error } = useNotificationPreferences();
+  const updateNotificationPreferences = useUpdateNotificationPreferences();
   const [prefs, setPrefs] = useState<NotificationPrefs>({
     loanApproved: true,
     repaymentDue: true,
@@ -263,9 +277,61 @@ function NotificationsSection() {
     email: false,
     sms: false,
     inApp: true,
+    phone: "",
   });
+  const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!data) return;
+
+    // Sync server-fetched preferences into local editable form state once the
+    // query resolves. This is the intended pattern here, not a render-loop.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setPrefs((current) => ({
+      ...current,
+      email: data.emailEnabled,
+      sms: data.smsEnabled,
+      phone: data.phone ?? "",
+    }));
+    // Reset save feedback when fresh server preferences replace the editable form state.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSaveError(null);
+    // Reset save confirmation when fresh server preferences replace the editable form state.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSaved(false);
+  }, [data]);
 
   const toggle = (key: keyof NotificationPrefs) => setPrefs((p) => ({ ...p, [key]: !p[key] }));
+
+  const perTypeOverrides = {
+    loan_approved: prefs.loanApproved,
+    repayment_due: prefs.repaymentDue,
+    repayment_confirmed: prefs.repaymentConfirmed,
+    loan_defaulted: prefs.loanDefaulted,
+    score_changed: prefs.scoreChanged,
+  };
+
+  const handleSave = () => {
+    setSaveError(null);
+    updateNotificationPreferences.mutate(
+      {
+        emailEnabled: prefs.email,
+        smsEnabled: prefs.sms,
+        phone: prefs.phone.trim() || null,
+        perTypeOverrides,
+      },
+      {
+        onSuccess: () => {
+          setSaved(true);
+          setTimeout(() => setSaved(false), 2000);
+        },
+        onError: (error) => {
+          setSaveError(error.message);
+        },
+      },
+    );
+  };
 
   return (
     <Card>
@@ -275,66 +341,100 @@ function NotificationsSection() {
           Choose which events you want to be notified about and how.
         </p>
       </CardHeader>
-      <CardContent className="space-y-2">
-        <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 pb-2">
-          Delivery
-        </p>
-        <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
-          <Toggle
-            checked={prefs.inApp}
-            onChange={() => toggle("inApp")}
-            label="In-App Notifications"
-            description="Show notifications inside RemitLend"
-          />
-          <Toggle
-            checked={prefs.email}
-            onChange={() => toggle("email")}
-            label="Email Notifications"
-            description="Requires a verified email address"
-          />
-          <Toggle
-            checked={prefs.sms}
-            onChange={() => toggle("sms")}
-            label="SMS Notifications"
-            description="Requires a verified phone number"
+      <CardContent className="space-y-4">
+        <div className="space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 pb-2">
+            Delivery
+          </p>
+          <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
+            <Toggle
+              checked={prefs.inApp}
+              onChange={() => toggle("inApp")}
+              label="In-App Notifications"
+              description="Show notifications inside RemitLend"
+            />
+            <Toggle
+              checked={prefs.email}
+              onChange={() => toggle("email")}
+              label="Email Notifications"
+              description="Requires a verified email address"
+            />
+            <Toggle
+              checked={prefs.sms}
+              onChange={() => toggle("sms")}
+              label="SMS Notifications"
+              description="Requires a verified phone number"
+            />
+          </div>
+          <Input
+            label="Phone number"
+            placeholder="+14155552671"
+            value={prefs.phone}
+            onChange={(e) => setPrefs((p) => ({ ...p, phone: e.target.value }))}
+            helperText={
+              prefs.sms
+                ? "A phone number is required for SMS notifications."
+                : "Optional unless SMS notifications are enabled."
+            }
           />
         </div>
 
-        <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 pb-2 pt-4">
-          Events
-        </p>
-        <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
-          <Toggle
-            checked={prefs.loanApproved}
-            onChange={() => toggle("loanApproved")}
-            label="Loan Approved"
-            description="When your loan application is approved"
-          />
-          <Toggle
-            checked={prefs.repaymentDue}
-            onChange={() => toggle("repaymentDue")}
-            label="Repayment Due"
-            description="Reminder before a payment is due"
-          />
-          <Toggle
-            checked={prefs.repaymentConfirmed}
-            onChange={() => toggle("repaymentConfirmed")}
-            label="Repayment Confirmed"
-            description="When a repayment is recorded on-chain"
-          />
-          <Toggle
-            checked={prefs.loanDefaulted}
-            onChange={() => toggle("loanDefaulted")}
-            label="Loan Defaulted"
-            description="When a loan is marked as defaulted"
-          />
-          <Toggle
-            checked={prefs.scoreChanged}
-            onChange={() => toggle("scoreChanged")}
-            label="Credit Score Changed"
-            description="When your score goes up or down"
-          />
+        <div className="space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 pb-2 pt-4">
+            Events
+          </p>
+          <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
+            <Toggle
+              checked={prefs.loanApproved}
+              onChange={() => toggle("loanApproved")}
+              label="Loan Approved"
+              description="When your loan application is approved"
+            />
+            <Toggle
+              checked={prefs.repaymentDue}
+              onChange={() => toggle("repaymentDue")}
+              label="Repayment Due"
+              description="Reminder before a payment is due"
+            />
+            <Toggle
+              checked={prefs.repaymentConfirmed}
+              onChange={() => toggle("repaymentConfirmed")}
+              label="Repayment Confirmed"
+              description="When a repayment is recorded on-chain"
+            />
+            <Toggle
+              checked={prefs.loanDefaulted}
+              onChange={() => toggle("loanDefaulted")}
+              label="Loan Defaulted"
+              description="When a loan is marked as defaulted"
+            />
+            <Toggle
+              checked={prefs.scoreChanged}
+              onChange={() => toggle("scoreChanged")}
+              label="Credit Score Changed"
+              description="When your score goes up or down"
+            />
+          </div>
         </div>
+
+        {error && (
+          <p className="text-sm text-red-600 dark:text-red-400">
+            Unable to load notification settings.
+          </p>
+        )}
+        {saveError && <p className="text-sm text-red-600 dark:text-red-400">{saveError}</p>}
+        <Button
+          variant="primary"
+          onClick={handleSave}
+          disabled={updateNotificationPreferences.isPending || isLoading}
+          className="w-full sm:w-auto"
+        >
+          {updateNotificationPreferences.isPending
+            ? "Saving..."
+            : saved
+              ? "Saved!"
+              : "Save Preferences"}
+        </Button>
       </CardContent>
     </Card>
   );
@@ -464,7 +564,7 @@ function DisplaySection() {
               return (
                 <button
                   key={opt}
-                  onClick={() => setTheme(opt as any)}
+                  onClick={() => setTheme(opt)}
                   className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
                     active
                       ? "bg-indigo-600 text-white"

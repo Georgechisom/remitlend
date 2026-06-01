@@ -2,6 +2,7 @@ import { query } from "../db/connection.js";
 import { setAbsoluteUserScoresBulk } from "./scoresService.js";
 import { sorobanService } from "./sorobanService.js";
 import { recordScoreReconciliationRun } from "../middleware/metrics.js";
+import { jobMetricsService } from "./jobMetricsService.js";
 import logger from "../utils/logger.js";
 
 interface ActiveBorrowerScoreRow {
@@ -128,6 +129,9 @@ class ScoreReconciliationService {
   }
 
   async reconcileActiveBorrowerScores(): Promise<ScoreReconciliationResult> {
+    const startTime = Date.now();
+    const jobName = "scoreReconciliationService";
+
     const activeBorrowers = await this.fetchActiveBorrowerScores();
     const batchSize = this.getBatchSize();
     const autoCorrectEnabled = this.isAutoCorrectEnabled();
@@ -144,94 +148,109 @@ class ScoreReconciliationService {
       autoCorrectThreshold,
     });
 
-    for (const batch of chunk(activeBorrowers, batchSize)) {
-      const batchResults = await Promise.allSettled(
-        batch.map(async (borrowerRow) => {
-          const contractScore = await sorobanService.getOnChainCreditScore(
-            borrowerRow.address,
-          );
-          return {
-            ...borrowerRow,
-            contractScore,
-          };
-        }),
-      );
+    try {
+      for (const batch of chunk(activeBorrowers, batchSize)) {
+        const batchResults = await Promise.allSettled(
+          batch.map(async (borrowerRow) => {
+            const contractScore = await sorobanService.getOnChainCreditScore(
+              borrowerRow.address,
+            );
+            return {
+              ...borrowerRow,
+              contractScore,
+            };
+          }),
+        );
 
-      batchResults.forEach((result, index) => {
-        const address = batch[index]?.address ?? "unknown";
-        if (result.status === "rejected") {
-          failedBorrowerCount += 1;
-          logger.withContext().error("score_reconciliation.borrower.failed", {
+        batchResults.forEach((result, index) => {
+          const address = batch[index]?.address ?? "unknown";
+          if (result.status === "rejected") {
+            failedBorrowerCount += 1;
+            logger.withContext().error("score_reconciliation.borrower.failed", {
+              address,
+              error: result.reason,
+            });
+            return;
+          }
+
+          checkedBorrowerCount += 1;
+          const { dbScore, contractScore } = result.value;
+          const absoluteDifference =
+            dbScore === null ? null : Math.abs(contractScore - dbScore);
+          const isDivergent = dbScore === null || dbScore !== contractScore;
+
+          if (!isDivergent) {
+            return;
+          }
+
+          const divergence: ScoreDivergence = {
             address,
-            error: result.reason,
-          });
-          return;
-        }
+            dbScore,
+            contractScore,
+            absoluteDifference,
+          };
+          divergences.push(divergence);
 
-        checkedBorrowerCount += 1;
-        const { dbScore, contractScore } = result.value;
-        const absoluteDifference =
-          dbScore === null ? null : Math.abs(contractScore - dbScore);
-        const isDivergent = dbScore === null || dbScore !== contractScore;
+          logger.withContext().warn("score_reconciliation.mismatch", divergence);
 
-        if (!isDivergent) {
-          return;
-        }
+          const exceedsThreshold =
+            absoluteDifference === null ||
+            absoluteDifference >= autoCorrectThreshold;
 
-        const divergence: ScoreDivergence = {
-          address,
-          dbScore,
-          contractScore,
-          absoluteDifference,
-        };
-        divergences.push(divergence);
+          if (autoCorrectEnabled && exceedsThreshold) {
+            corrections.set(address, contractScore);
+          }
+        });
+      }
 
-        logger.withContext().warn("score_reconciliation.mismatch", divergence);
-
-        const exceedsThreshold =
-          absoluteDifference === null ||
-          absoluteDifference >= autoCorrectThreshold;
-
-        if (autoCorrectEnabled && exceedsThreshold) {
-          corrections.set(address, contractScore);
-        }
+      logger.withContext().info("score_divergence_count", {
+        metric: "score_divergence_count",
+        value: divergences.length,
       });
-    }
 
-    logger.withContext().info("score_divergence_count", {
-      metric: "score_divergence_count",
-      value: divergences.length,
-    });
+      if (corrections.size > 0) {
+        await setAbsoluteUserScoresBulk(corrections);
+        logger.withContext().warn("score_reconciliation.autocorrect.applied", {
+          correctedCount: corrections.size,
+          threshold: autoCorrectThreshold,
+        });
+      }
 
-    if (corrections.size > 0) {
-      await setAbsoluteUserScoresBulk(corrections);
-      logger.withContext().warn("score_reconciliation.autocorrect.applied", {
+      const result: ScoreReconciliationResult = {
+        activeBorrowerCount: activeBorrowers.length,
+        checkedBorrowerCount,
+        failedBorrowerCount,
+        divergenceCount: divergences.length,
         correctedCount: corrections.size,
-        threshold: autoCorrectThreshold,
+        autoCorrectEnabled,
+        autoCorrectThreshold,
+        divergences,
+      };
+
+      logger.withContext().info("score_reconciliation.run.complete", {
+        activeBorrowerCount: result.activeBorrowerCount,
+        checkedBorrowerCount: result.checkedBorrowerCount,
+        failedBorrowerCount: result.failedBorrowerCount,
+        divergenceCount: result.divergenceCount,
+        correctedCount: result.correctedCount,
       });
+      recordScoreReconciliationRun();
+
+      // Record success metrics
+      const durationMs = Date.now() - startTime;
+      jobMetricsService.recordSuccess(jobName, durationMs);
+
+      return result;
+    } catch (error) {
+      // Record failure metrics
+      const durationMs = Date.now() - startTime;
+      jobMetricsService.recordFailure(
+        jobName,
+        error as Error | string,
+        durationMs,
+      );
+      throw error;
     }
-
-    const result: ScoreReconciliationResult = {
-      activeBorrowerCount: activeBorrowers.length,
-      checkedBorrowerCount,
-      failedBorrowerCount,
-      divergenceCount: divergences.length,
-      correctedCount: corrections.size,
-      autoCorrectEnabled,
-      autoCorrectThreshold,
-      divergences,
-    };
-
-    logger.withContext().info("score_reconciliation.run.complete", {
-      activeBorrowerCount: result.activeBorrowerCount,
-      checkedBorrowerCount: result.checkedBorrowerCount,
-      failedBorrowerCount: result.failedBorrowerCount,
-      divergenceCount: result.divergenceCount,
-      correctedCount: result.correctedCount,
-    });
-    recordScoreReconciliationRun();
-
-    return result;
   }
 }
 

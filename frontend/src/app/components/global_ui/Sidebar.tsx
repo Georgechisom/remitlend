@@ -62,6 +62,7 @@ export function Sidebar({ onClose, className }: SidebarProps) {
     { name: t("home"), href: `/${locale}`, icon: LayoutDashboard },
     { name: t("loans"), href: `/${locale}/loans`, icon: HandCoins },
     { name: "Lend", href: `/${locale}/lend`, icon: PiggyBank },
+    { name: t("liquidations"), href: `/${locale}/liquidations`, icon: ShieldAlert },
     { name: t("activity"), href: `/${locale}/activity`, icon: Clock },
     { name: "Wallet", href: `/${locale}/wallet`, icon: CreditCard },
     ...(isAdmin

@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page, type Route } from "@playwright/test";
 
 /**
  * E2E Test Suite for Lender Withdraw Flow
@@ -29,12 +29,13 @@ function lenderWalletState(usdc: string) {
 
 test.describe("Lender Withdraw Flow", () => {
   test.beforeEach(async ({ page }: { page: Page }) => {
-    await page.addInitScript((state: any) => {
-      window.localStorage.setItem("remitlend-wallet", JSON.stringify(state));
-    }, lenderWalletState("1000.00"));
+    const walletStateJson = JSON.stringify(lenderWalletState("1000.00"));
+    await page.addInitScript((stateJson: string) => {
+      window.localStorage.setItem("remitlend-wallet", stateJson);
+    }, walletStateJson);
 
     // Pool stats.
-    await page.route("**/api/pool/stats", async (route: any) => {
+    await page.route("**/api/pool/stats", async (route: Route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -52,7 +53,7 @@ test.describe("Lender Withdraw Flow", () => {
     });
 
     // The lender's position in the pool — what they can withdraw.
-    await page.route("**/api/pool/position/**", async (route: any) => {
+    await page.route("**/api/pool/position/**", async (route: Route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -83,7 +84,7 @@ test.describe("Lender Withdraw Flow", () => {
     await page.fill('input[type="number"]', "500");
 
     // Mock the withdraw submission.
-    await page.route("**/api/pool/withdraw", async (route: any) => {
+    await page.route("**/api/pool/withdraw", async (route: Route) => {
       if (route.request().method() === "POST") {
         await route.fulfill({
           status: 200,
@@ -101,9 +102,10 @@ test.describe("Lender Withdraw Flow", () => {
     });
 
     // Wallet balance after receiving the 500 USDC withdrawal.
-    await page.evaluate((state: any) => {
-      window.localStorage.setItem("remitlend-wallet", JSON.stringify(state));
-    }, lenderWalletState("1500.00"));
+    const updatedWalletStateJson = JSON.stringify(lenderWalletState("1500.00"));
+    await page.evaluate((stateJson: string) => {
+      window.localStorage.setItem("remitlend-wallet", stateJson);
+    }, updatedWalletStateJson);
 
     await page.click('button:has-text("Review Withdrawal"), button:has-text("Confirm Withdrawal")');
     await page

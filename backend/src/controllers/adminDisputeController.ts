@@ -1,25 +1,73 @@
 import { query } from "../db/connection.js";
 import { AppError } from "../errors/AppError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
-import { notificationService } from "../services/notificationService.js";
+import {
+  notificationService,
+  type NotificationType,
+} from "../services/notificationService.js";
+import {
+  parseCursorQueryParams,
+  createCursorPaginatedResponse,
+} from "../utils/pagination.js";
 
 /**
- * List all open loan disputes for admin review
+ * List all loan disputes for admin review with cursor-based pagination.
+ * Defaults to "open" status, orders newest-first by created_at.
  */
 export const listLoanDisputes = asyncHandler(async (req, res) => {
-  const status = (req.query.status as string | undefined) ?? "open";
-  if (!["open", "resolved", "rejected", "all"].includes(status)) {
+  const { limit, cursor, status } = parseCursorQueryParams(req);
+  const statusFilter = status ?? "open";
+
+  if (
+    statusFilter !== "open" &&
+    statusFilter !== "resolved" &&
+    statusFilter !== "rejected" &&
+    statusFilter !== "all"
+  ) {
     throw AppError.badRequest("Invalid status filter");
   }
 
-  const result =
-    status === "all"
-      ? await query(`SELECT * FROM loan_disputes ORDER BY created_at ASC`, [])
-      : await query(
-          `SELECT * FROM loan_disputes WHERE status = $1 ORDER BY created_at ASC`,
-          [status],
-        );
-  res.json({ success: true, disputes: result.rows });
+  const values: unknown[] = [];
+  let whereClause = "";
+
+  if (statusFilter !== "all") {
+    values.push(statusFilter);
+    whereClause = `WHERE status = $${values.length}`;
+  }
+
+  if (cursor) {
+    values.push(cursor);
+    whereClause += whereClause
+      ? ` AND created_at < $${values.length}`
+      : `WHERE created_at < $${values.length}`;
+  }
+
+  const queryLimit = limit + 1;
+  values.push(queryLimit);
+
+  const result = await query(
+    `SELECT * FROM loan_disputes${whereClause} ORDER BY created_at DESC LIMIT $${values.length}`,
+    values,
+  );
+
+  const rows = result.rows;
+  const hasMore = rows.length > limit;
+  const pageRows = hasMore ? rows.slice(0, limit) : rows;
+  const nextCursor =
+    hasMore && pageRows.length > 0
+      ? new Date(pageRows[pageRows.length - 1]!.created_at).toISOString()
+      : null;
+
+  res.json(
+    createCursorPaginatedResponse(
+      pageRows,
+      null,
+      limit,
+      pageRows.length,
+      nextCursor,
+      cursor !== null,
+    ),
+  );
 });
 
 /**
@@ -96,12 +144,12 @@ export const resolveLoanDispute = asyncHandler(async (req, res) => {
       action === "reverse" ? "repayment_confirmed" : "loan_defaulted";
     await notificationService.createNotification({
       userId: dispute.borrower,
-      type: type as any,
+      type: type as NotificationType,
       title: "Dispute resolved",
       message: msg,
       loanId: dispute.loan_id,
     });
-  } catch (_err) {
+  } catch {
     // Log and continue — resolution shouldn't fail because of notifications
     // notificationService already logs errors internally
   }
@@ -136,12 +184,12 @@ export const rejectLoanDispute = asyncHandler(async (req, res) => {
     const msg = `Your dispute for loan ${dispute.loan_id} was rejected by admin.`;
     await notificationService.createNotification({
       userId: dispute.borrower,
-      type: "loan_defaulted" as any,
+      type: "loan_defaulted" as NotificationType,
       title: "Dispute rejected",
       message: admin_note ? `${msg} Note: ${admin_note}` : msg,
       loanId: dispute.loan_id,
     });
-  } catch (_err) {
+  } catch {
     // swallow
   }
 

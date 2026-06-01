@@ -9,6 +9,8 @@ export const SUPPORTED_WEBHOOK_EVENT_TYPES = [
   "LoanDefaulted",
   "CollateralLiquidated",
   "CollateralReturned",
+  "CollateralDeposited",
+  "CollateralReleased",
   "ColDep",
   "ColRel",
   "LateFeeCharged",
@@ -268,7 +270,10 @@ async function postWebhook(
       method: "POST",
       headers: {
         "content-type": "application/json",
-        ...(signature && { "x-remitlend-signature": signature }),
+        // X-RemitLend-Signature uses the GitHub/Stripe-style "sha256=<hex>"
+        // format so subscribers can verify payload integrity (see
+        // docs/wiki/webhook-signatures.md for the verification recipe).
+        ...(signature && { "x-remitlend-signature": `sha256=${signature}` }),
       },
       body,
       signal: controller.signal,
@@ -342,6 +347,12 @@ export class WebhookService {
           payload: Record<string, unknown>;
           attempt_count: number;
         };
+        // Defensive circuit breaker: the SQL filter above already excludes
+        // deliveries at the retry ceiling, but guard here too so a delivery
+        // at MAX_RETRY_ATTEMPTS is never re-sent even if it slips through.
+        if (delivery.attempt_count >= MAX_RETRY_ATTEMPTS) {
+          continue;
+        }
         await WebhookService.retryWebhookDelivery(
           delivery.id,
           delivery.subscription_id,

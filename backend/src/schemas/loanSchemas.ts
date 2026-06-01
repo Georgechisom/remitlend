@@ -1,6 +1,15 @@
 import { z } from "zod";
 import { stellarAddressSchema } from "./stellarSchemas.js";
 
+export const rejectLoanSchema = z.object({
+  reason: z
+    .string()
+    .min(5, "Reason must be at least 5 characters")
+    .max(500, "Reason cannot exceed 500 characters"),
+});
+
+export type RejectLoanInput = z.infer<typeof rejectLoanSchema>;
+
 export const positiveAmountSchema = z
   .number()
   .int()
@@ -63,4 +72,28 @@ export const extendLoanSchema = z.object({
 
 export const liquidateLoanSchema = z.object({
   liquidatorPublicKey: stellarAddressSchema,
+});
+
+/**
+ * Validated query params for GET /loans/borrower/:borrower.
+ * `status`  – one of the five loan statuses or "all" (default all)
+ * `from`    – ISO-8601 date string (start of approved_at range)
+ * `to`      – ISO-8601 date string (end of approved_at range)
+ * `limit`   – page size (default 50, max 100)
+ * `cursor`  – opaque cursor (loan_id string from previous response)
+ */
+const isoDateString = z
+  .string()
+  .refine((val) => !Number.isNaN(Date.parse(val)), {
+    message: "Must be a valid ISO-8601 date string",
+  });
+
+export const borrowerLoansQuerySchema = z.object({
+  status: z
+    .enum(["active", "repaid", "defaulted", "liquidated", "pending", "all"])
+    .optional(),
+  from: isoDateString.optional(),
+  to: isoDateString.optional(),
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+  cursor: z.string().optional(),
 });

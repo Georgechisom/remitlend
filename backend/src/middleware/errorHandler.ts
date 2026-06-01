@@ -54,8 +54,6 @@ export const errorHandler = (
 
   // ── Known Operational Errors ─────────────────────────────────
   if (err instanceof AppError) {
-    const message = err.isOperational ? err.message : "Internal server error";
-
     if (!err.isOperational) {
       logger.error(`Internal AppError: ${err.message}`, {
         requestId: req.requestId,

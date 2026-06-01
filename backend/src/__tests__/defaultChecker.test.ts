@@ -31,40 +31,45 @@ describe("DefaultChecker", () => {
       .spyOn(logger, "warn")
       .mockImplementation(() => logger as typeof logger);
 
-    (checker as any).acquireLock = async () => true;
-    (checker as any).releaseLock = async () => undefined;
-    (checker as any).assertConfigured = () => ({
+    (checker as unknown as Record<string, unknown>).acquireLock = async () =>
+      true;
+    (checker as unknown as Record<string, unknown>).releaseLock = async () =>
+      undefined;
+    (checker as unknown as Record<string, unknown>).assertConfigured = () => ({
       signer: {},
       server: {
         getLatestLedger: async () => ({ sequence: 4321 }),
       },
       passphrase: "test-passphrase",
     });
-    (checker as any).fetchOverdueStats = async () => ({
-      overdueCount: 2,
-      oldestDueLedger: 4200,
-      ledgersPastOldestDue: 121,
-    });
-    (checker as any).fetchOverdueLoanIds = async () => [101, 102];
+    (checker as unknown as Record<string, unknown>).fetchOverdueStats =
+      async () => ({
+        overdueCount: 2,
+        oldestDueLedger: 4200,
+        ledgersPastOldestDue: 121,
+      });
+    (checker as unknown as Record<string, unknown>).fetchOverdueLoanIds =
+      async () => [101, 102];
 
     let submissionCount = 0;
-    (checker as any).submitCheckDefaults = async (
-      _server: unknown,
-      _signer: unknown,
-      _passphrase: string,
-      loanIds: number[],
-    ) => {
-      submissionCount += 1;
-      if (submissionCount === 1) {
-        return new Promise<never>(() => undefined);
-      }
+    (checker as unknown as Record<string, unknown>).submitCheckDefaults =
+      async (
+        _server: unknown,
+        _signer: unknown,
+        _passphrase: string,
+        loanIds: number[],
+      ) => {
+        submissionCount += 1;
+        if (submissionCount === 1) {
+          return new Promise<never>(() => undefined);
+        }
 
-      return {
-        loanIds,
-        txHash: "second-batch-hash",
-        submitStatus: "PENDING",
+        return {
+          loanIds,
+          txHash: "second-batch-hash",
+          submitStatus: "PENDING",
+        };
       };
-    };
 
     const result = await checker.checkOverdueLoans();
 

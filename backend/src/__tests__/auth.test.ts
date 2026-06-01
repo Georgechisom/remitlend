@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, beforeAll } from "@jest/globals";
+import { describe, it, expect, beforeAll } from "@jest/globals";
 import request from "supertest";
 import app from "../app.js";
 import { Keypair } from "@stellar/stellar-sdk";
@@ -164,7 +164,15 @@ describe("Auth API", () => {
   describe("Rate limiting", () => {
     it("should return 429 after 10 challenge requests from same IP", async () => {
       const keypair = Keypair.random();
-      let lastResponse: any;
+      let lastResponse: {
+        status: number;
+        body: { success: boolean };
+        headers: Record<string, string>;
+      } = undefined as unknown as {
+        status: number;
+        body: { success: boolean };
+        headers: Record<string, string>;
+      };
       for (let i = 0; i < 11; i++) {
         lastResponse = await request(app)
           .post("/api/auth/challenge")
@@ -177,7 +185,15 @@ describe("Auth API", () => {
 
     it("should return 429 and Retry-After after 5 login attempts from same IP", async () => {
       const keypair = Keypair.random();
-      let lastResponse: any;
+      let lastResponse: {
+        status: number;
+        body: { success: boolean };
+        headers: Record<string, string>;
+      } = undefined as unknown as {
+        status: number;
+        body: { success: boolean };
+        headers: Record<string, string>;
+      };
       for (let i = 0; i < 6; i++) {
         lastResponse = await request(app)
           .post("/api/auth/login")
@@ -194,7 +210,15 @@ describe("Auth API", () => {
 
     it("should return 429 after 5 login attempts with same public key", async () => {
       const keypair = Keypair.random();
-      let lastResponse: any;
+      let lastResponse: {
+        status: number;
+        body: { success: boolean };
+        headers: Record<string, string>;
+      } = undefined as unknown as {
+        status: number;
+        body: { success: boolean };
+        headers: Record<string, string>;
+      };
       for (let i = 0; i < 6; i++) {
         lastResponse = await request(app)
           .post("/api/auth/login")
