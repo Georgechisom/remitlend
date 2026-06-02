@@ -66,23 +66,6 @@ export const buildCancelLoanTx = async (
 
     const borrower = (req as any).user?.publicKey as string;
 
-    // In test mode, accept synthetic `test-*` users and return a fake
-    // transaction immediately to avoid hitting the DB or external RPCs.
-    if (process.env.NODE_ENV === "test" && borrower?.startsWith("test")) {
-      // Simulate non-cancellable loan scenario for the test-suite.
-      if (loanId === "completed-loan") {
-        return res.status(400).json({ message: "Loan cannot be cancelled" });
-      }
-
-      return res.json({
-        success: true,
-        transaction: {
-          unsignedTxXdr: "test-xdr-cancel",
-          networkPassphrase: "TEST",
-        },
-      });
-    }
-
     const result = await query("SELECT * FROM loans WHERE id = $1", [loanId]);
     const loan = result.rows[0] as Record<string, unknown> | undefined;
 
@@ -121,21 +104,6 @@ export const buildRejectLoanTx = async (
     const { loanId } = req.params;
 
     const { reason } = rejectLoanSchema.parse(req.body);
-
-    // In test mode, accept synthetic `test-*` users and return a fake
-    // transaction after validating `reason` to avoid DB/external calls.
-    if (
-      process.env.NODE_ENV === "test" &&
-      req.user?.publicKey?.startsWith("test")
-    ) {
-      return res.json({
-        success: true,
-        transaction: {
-          unsignedTxXdr: "test-xdr-reject",
-          networkPassphrase: "TEST",
-        },
-      });
-    }
 
     const result = await query("SELECT * FROM loans WHERE id = $1", [loanId]);
     const loan = result.rows[0] as Record<string, unknown> | undefined;

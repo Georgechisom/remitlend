@@ -298,11 +298,6 @@ app.use("/api/v1/notifications", notificationsRoutes);
 app.use("/api/v1/events", eventRoutes);
 app.use("/user", userRoutes);
 
-// Backwards-compatible root mounts for routes that tests (and some legacy clients)
-// expect to exist at the root path without the `/api` prefix.
-app.use("/loans", loanRoutes);
-app.use("/admin", adminRoutes);
-
 mountSwaggerDocs(app);
 
 // ── Diagnostic / Test Routes ─────────────────────────────────────
