@@ -145,7 +145,8 @@ app.get("/version", (_req: Request, res: Response) => {
       loanManager: process.env.LOAN_MANAGER_CONTRACT_ID ?? "unknown",
       lendingPool: process.env.LENDING_POOL_CONTRACT_ID ?? "unknown",
       remittanceNft: process.env.REMITTANCE_NFT_CONTRACT_ID ?? "unknown",
-      multisigGovernance: process.env.MULTISIG_GOVERNANCE_CONTRACT_ID ?? "unknown",
+      multisigGovernance:
+        process.env.MULTISIG_GOVERNANCE_CONTRACT_ID ?? "unknown",
     },
   });
 });
