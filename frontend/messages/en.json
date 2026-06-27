@@ -26,6 +26,23 @@
       "title": "Community Outreach",
       "description": "New borrowers in Ghana are looking for micro-loans for agricultural tools. Help grow the ecosystem!",
       "explore": "Explore Opportunities"
+    },
+    "disconnected": {
+      "heading": "Dashboard",
+      "subheading": "Welcome to RemitLend. Please connect your wallet to view your portfolio.",
+      "walletNotConnected": "Wallet Not Connected",
+      "connectPrompt": "Connect your wallet to analyze your on-chain credit score, manage active positions, and track cross-border remittances.",
+      "connectButton": "Connect Wallet"
+    },
+    "reminder": {
+      "due": "Repayment due in {hours}h — Loan #{loanId}",
+      "repayNow": "Repay now",
+      "dismiss": "Dismiss repayment reminder"
+    },
+    "creditScore": {
+      "label": "Credit Score",
+      "tooltip": "Credit Score: An on-chain signal of repayment reliability. Higher scores can unlock better terms over time.",
+      "tooltipLabel": "Credit score info"
     }
   },
   "ActivityPage": {

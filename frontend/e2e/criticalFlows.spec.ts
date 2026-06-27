@@ -59,69 +59,8 @@ test.beforeEach(async ({ page }: { page: Page }) => {
   });
 });
 
-// ─── Flow 1: Loan Wizard ───────────────────────────────────────────────────────
-
-test("Borrow: Connect wallet → Request Loan → Wizard steps", async ({ page }: { page: Page }) => {
-  // Mock Loan Config (min score, etc)
-  await page.route("**/api/loans/config", async (route: Route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        success: true,
-        data: { minScore: 500, maxAmount: 10000, interestRatePercent: 8 },
-      }),
-    });
-  });
-
-  // Mock User Credit Score
-  await page.route("**/api/score/*", async (route: Route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({ success: true, score: 715 }),
-    });
-  });
-
-  await page.goto("/en"); // Explicitly go to English locale
-
-  // Navigate to Loan Wizard (via Apply button in quick actions)
-  // Text matches HomePage.quickActions.applyLoan in en.json
-  const applyBtn = page.getByRole("button", { name: /Apply for Loan/i });
-  await applyBtn.waitFor();
-  await applyBtn.click();
-
-  // Step 1: Amount & Asset
-  await expect(page.locator("text=Loan Amount")).toBeVisible();
-  await page.selectOption('select[name="asset"]', "USDC");
-  await page.fill('input[placeholder="0.00"]', "1000");
-  const continueToCollateral = page.getByRole("button", { name: /Continue to Collateral/i });
-  await continueToCollateral.click();
-
-  // Step 2: Collateral & NFT Link
-  await expect(page.locator("text=Collateral & NFT Link")).toBeVisible();
-  await page.click('input[type="checkbox"]'); // Accept terms
-  const continueToSignature = page.getByRole("button", { name: /Continue to Signature/i });
-  await continueToSignature.click();
-
-  // Step 3: Transaction Signature
-  await expect(page.locator("text=Ready to Sign")).toBeVisible();
-
-  // Mock creation request
-  await page.route("**/api/loans", async (route: Route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({ id: "loan_123", status: "pending", txHash: "tx_abc" }),
-    });
-  });
-
-  await page.click('button:has-text("Sign & Submit Application")');
-
-  // Success view
-  await expect(page.locator("text=Application Submitted")).toBeVisible();
-  await expect(page.locator("text=Reviewing your application")).toBeVisible();
-});
+// Loan wizard and repay flows removed: covered by borrower-loan-flow.spec.ts
+// and borrower-repay-flow.spec.ts with a single consistent set of route mocks.
 
 // ─── Flow 2: Lending Pool ──────────────────────────────────────────────────────
 
@@ -166,63 +105,6 @@ test("Lend: Deposit funds → View updated pool stats", async ({ page }: { page:
 
   // Verify success toast or UI update
   await expect(page.locator("text=1,002,500")).toBeVisible();
-});
-
-// ─── Flow 3: Repayment ─────────────────────────────────────────────────────────
-
-test("Borrower: Repay loan → Confirm transaction → Check status update", async ({
-  page,
-}: {
-  page: Page;
-}) => {
-  // Mock existing loans for borrower
-  await page.route("**/api/loans/borrower/**", async (route: Route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        success: true,
-        data: {
-          borrower: MOCK_ADDRESS,
-          loans: [
-            {
-              id: 123,
-              principal: 1000,
-              totalOwed: 500,
-              status: "active",
-              nextPaymentDeadline: "2026-12-31T00:00:00Z",
-            },
-          ],
-        },
-      }),
-    });
-  });
-
-  await page.goto("/en");
-
-  // Click repay on the specific loan (assuming dashboard has a 'Repay' button in the loans list or card)
-  const repayBtn = page.getByRole("button", { name: "Repay" }).first();
-  await repayBtn.click();
-
-  // Perform repayment
-  await expect(page.locator("text=Repayment Amount")).toBeVisible();
-  await page.fill('input[type="number"]', "500");
-
-  // Mock repayment finish
-  await page.route("**/api/loans/123/repay", async (route: Route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({ success: true, txHash: "tx_repay" }),
-    });
-  });
-
-  await page.click('button:has-text("Review Repayment")');
-  await page.click('button:has-text("Confirm Payment")'); // assuming it's in the preview modal
-
-  // Success message
-  await expect(page.locator("text=Progress")).toBeVisible(); // transaction progress
-  await expect(page.locator("text=Repayment Successful")).toBeVisible();
 });
 
 // ─── Flow 4: Remittance History ────────────────────────────────────────────────

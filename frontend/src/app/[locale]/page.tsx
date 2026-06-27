@@ -78,6 +78,7 @@ function RepaymentReminderBanner({
   onDismiss: () => void;
 }) {
   const router = useRouter();
+  const t = useTranslations("HomePage");
   const mostUrgent = urgentLoans[0];
   if (!mostUrgent) return null;
 
@@ -96,7 +97,7 @@ function RepaymentReminderBanner({
         />
         <div>
           <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">
-            Repayment due in {hoursLeft}h — Loan #{mostUrgent.id}
+            {t("reminder.due", { hours: hoursLeft, loanId: mostUrgent.id })}
             {urgentLoans.length > 1 && (
               <span className="ml-2 inline-flex items-center rounded-full bg-amber-200 px-2 py-0.5 text-xs font-bold text-amber-800 dark:bg-amber-500/30 dark:text-amber-300">
                 +{urgentLoans.length - 1} more
@@ -123,11 +124,11 @@ function RepaymentReminderBanner({
           onClick={() => router.push(`/repay/${mostUrgent.id}`)}
           className="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 transition-colors"
         >
-          Repay now
+          {t("reminder.repayNow")}
         </button>
         <button
           onClick={onDismiss}
-          aria-label="Dismiss repayment reminder"
+          aria-label={t("reminder.dismiss")}
           className="rounded p-1 text-amber-600 hover:bg-amber-100 dark:hover:bg-amber-500/20 transition-colors"
         >
           ✕
@@ -242,14 +243,19 @@ export default function Home() {
     return (
       <main className="space-y-8 min-h-screen p-8 lg:p-12 max-w-7xl mx-auto animate-in fade-in duration-500">
         <header>
-          <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">Dashboard</h1>
+          <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">{t("disconnected.heading")}</h1>
           <p className="text-zinc-500 dark:text-zinc-400">
-            Welcome to RemitLend. Please connect your wallet to view your portfolio.
+            {t("disconnected.subheading")}
           </p>
         </header>
 
         <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 opacity-50 grayscale-[0.5]">
-          {["Net Worth", "Active Loans", "Total Remitted", "Yield (APY)"].map((label, i) => (
+          {([
+            t("stats.netWorth"),
+            t("stats.activeLoans"),
+            t("stats.totalRemitted"),
+            t("stats.yieldApy"),
+          ] as string[]).map((label, i) => (
             <div
               key={i}
               className="rounded-xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-950"
@@ -265,11 +271,10 @@ export default function Home() {
             <WalletCards className="h-8 w-8 text-indigo-600 dark:text-indigo-400" />
           </div>
           <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-50">
-            Wallet Not Connected
+            {t("disconnected.walletNotConnected")}
           </h2>
           <p className="mt-2 text-zinc-500 dark:text-zinc-400 max-w-sm mx-auto">
-            Connect your wallet to analyze your on-chain credit score, manage active positions, and
-            track cross-border remittances.
+            {t("disconnected.connectPrompt")}
           </p>
           <button
             onClick={() => {
@@ -277,7 +282,7 @@ export default function Home() {
             }}
             className="mt-6 inline-flex items-center gap-2 rounded-full bg-indigo-600 px-6 py-3 text-sm font-semibold text-white hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-500/20"
           >
-            Connect Wallet
+            {t("disconnected.connectButton")}
           </button>
         </div>
       </main>
@@ -496,15 +501,15 @@ export default function Home() {
             {/* Credit Score Gauge */}
             <section
               className="rounded-xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-950"
-              aria-label="Credit Score"
+              aria-label={t("creditScore.label")}
             >
               <div className="mb-3 flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
-                  Credit Score
+                  {t("creditScore.label")}
                 </h3>
                 <Tooltip
-                  content="Credit Score: An on-chain signal of repayment reliability. Higher scores can unlock better terms over time."
-                  label="Credit score info"
+                  content={t("creditScore.tooltip")}
+                  label={t("creditScore.tooltipLabel")}
                 />
               </div>
               <CreditScoreGauge

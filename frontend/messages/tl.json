@@ -5,10 +5,10 @@
     "getStarted": "Magsimula Na",
     "learnMore": "Matuto Nang Higit Pa",
     "stats": {
-      "netWorth": "Net Worth",
+      "netWorth": "Netong Halaga",
       "activeLoans": "Mga aktibong loan",
       "totalRemitted": "Kabuuang naipadala",
-      "yieldApy": "Yield (APY)"
+      "yieldApy": "Kita (APY)"
     },
     "activity": {
       "title": "Kamakailang aktibidad",
@@ -23,9 +23,26 @@
       "sendRemittanceDesc": "Maglipat ng pondo sa buong mundo"
     },
     "outreach": {
-      "title": "Community Outreach",
+      "title": "Pakikilahok sa Komunidad",
       "description": "Ang mga bagong borrower sa Ghana ay naghahanap ng mga micro-loan para sa mga kagamitang pang-agrikultura. Tulungang palaguin ang ecosystem!",
       "explore": "Galugarin ang mga pagkakataon"
+    },
+    "disconnected": {
+      "heading": "Dashboard",
+      "subheading": "Maligayang pagdating sa RemitLend. Ikonekta ang iyong wallet upang makita ang iyong portfolio.",
+      "walletNotConnected": "Hindi Nakakonekta ang Wallet",
+      "connectPrompt": "Ikonekta ang iyong wallet upang suriin ang iyong on-chain credit score, pamahalaan ang mga aktibong posisyon, at subaybayan ang mga cross-border na remittance.",
+      "connectButton": "Ikonekta ang Wallet"
+    },
+    "reminder": {
+      "due": "Dapat bayaran sa loob ng {hours}h — Loan #{loanId}",
+      "repayNow": "Bayaran ngayon",
+      "dismiss": "Itago ang paalala ng pagbabayad"
+    },
+    "creditScore": {
+      "label": "Credit Score",
+      "tooltip": "Credit Score: Isang on-chain na senyales ng pagiging mapagkakatiwalaan sa pagbabayad. Ang mas mataas na score ay maaaring mag-unlock ng mas magagandang kondisyon sa paglipas ng panahon.",
+      "tooltipLabel": "Impormasyon tungkol sa credit score"
     }
   },
   "ActivityPage": {
@@ -46,7 +63,7 @@
       "completed": "Nakumpleto",
       "repaid": "Binayaran",
       "failed": "Nabigo",
-      "liquidated": "Liquidated",
+      "liquidated": "Na-liquidate",
       "defaulted": "Di-nakamit"
     },
     "pagination": {
@@ -56,13 +73,13 @@
     }
   },
   "Navigation": {
-    "home": "Home",
+    "home": "Tahanan",
     "loans": "Mga Loan",
     "repay": "Bayaran",
     "dashboard": "Dashboard",
     "activity": "Aktibidad",
     "notifications": "Mga Notification",
-    "liquidations": "Liquidations",
+    "liquidations": "Mga Liquidasyon",
     "adminDisputes": "Mga Dispute"
   },
   "Loans": {
@@ -82,7 +99,7 @@
       "all": "Lahat",
       "active": "Aktibo",
       "repaid": "Bayad Na",
-      "defaulted": "Defaulted"
+      "defaulted": "Hindi Nabayaran"
     },
     "empty": {
       "title": "Walang nahanap na loan",
@@ -102,7 +119,7 @@
     }
   },
   "Kingdom": {
-    "title": "Kingdom Dashboard",
+    "title": "Dashboard ng Kaharian",
     "description": "Subaybayan ang iyong pag-unlad, i-unlock ang mga tagumpay, at umangat sa mga ranggo",
     "welcome": "Maligayang pagdating, {kingdomTitle}!",
     "level": "Ngayon ay nasa Level {level} ka",
@@ -120,14 +137,14 @@
       "error": "Hindi ma-load ang iyong Remittance NFT ngayon.",
       "emptyTitle": "Wala pang Remittance NFT",
       "emptyDescription": "Ipadala ang unang remittance para simulan ang paggawa ng on-chain credit asset.",
-      "emptyAction": "Send first remittance",
+      "emptyAction": "Magpadala ng unang remittance",
       "score": "Score",
       "historyHash": "History hash",
-      "defaultCount": "Default count",
+      "defaultCount": "Bilang ng default",
       "cooldownRemaining": "Natitirang transfer cooldown",
       "lastUpdateLedger": "Huling update ledger",
       "metadataUri": "Metadata URI",
-      "ledgers": "{count} ledgers",
+      "ledgers": "{count} na ledger",
       "notAvailable": "Hindi available"
     }
   },
@@ -136,7 +153,7 @@
     "title": "Mga Notification",
     "description": "Suriin ang repayment reminders, score changes, loan updates, at alerts sa iisang lugar.",
     "viewAll": "Tingnan lahat ng notifications",
-    "unread": "Unread",
+    "unread": "Hindi pa Nababasa",
     "markRead": "Markahan read",
     "markAllVisibleRead": "Markahan ang unread bilang read",
     "filters": {
@@ -163,7 +180,7 @@
   },
   "LoanCard": {
     "totalOwed": "Kabuuang Utang",
-    "principal": "Principal",
+    "principal": "Pangunahing Halaga",
     "accruedInterest": "Naipon na Interes",
     "interest": "Interes",
     "nextPayment": "Susunod na Pagbabayad",
@@ -173,7 +190,7 @@
     "onTrack": "Sa Track",
     "dueSoon": "Malapit nang Dapat Bayaran",
     "overdue": "Lintasan",
-    "defaulted": "Defaulted",
+    "defaulted": "Hindi Nabayaran",
     "repayNow": "Bayaran Ngayon",
     "payNowOverdue": "Bayaran Ngayon (Lintasan)",
     "contactSupport": "Kontakin ang Support",
@@ -181,7 +198,7 @@
     "details": "Mga Detalye"
   },
   "AdminDisputes": {
-    "eyebrow": "Admin Review",
+    "eyebrow": "Pagsusuri ng Admin",
     "title": "Mga Dispute",
     "description": "Suriin ang bukas na default disputes at itala ang pinal na resolusyon.",
     "checkingAccess": "Sinusuri ang admin access...",
@@ -197,8 +214,8 @@
       "description": "Suriin ang iyong admin session at subukan muli."
     },
     "table": {
-      "borrower": "Borrower",
-      "loanId": "Loan ID",
+      "borrower": "Nangungutang",
+      "loanId": "ID ng Loan",
       "reason": "Buod ng dahilan",
       "submitted": "Isinumite",
       "action": "Aksyon"
@@ -210,7 +227,7 @@
       "back": "Bumalik sa disputes",
       "error": "Hindi ma-load ang dispute na ito.",
       "reason": "Dahilan ng borrower",
-      "noteLabel": "Resolution note",
+      "noteLabel": "Tala ng resolusyon",
       "notePlaceholder": "Ipaliwanag kung bakit kinukumpirma o binabaligtad ang default.",
       "noteHelp": "Maglagay ng hindi bababa sa 5 character.",
       "confirmDefault": "Kumpirmahin ang default",
@@ -218,10 +235,10 @@
       "loan": {
         "title": "Buod ng kaugnay na loan",
         "openLoan": "Buksan ang loan",
-        "principal": "Principal",
+        "principal": "Pangunahing Halaga",
         "totalOwed": "Kabuuang utang",
         "totalRepaid": "Kabuuang nabayaran",
-        "status": "Status",
+        "status": "Katayuan",
         "nextPayment": "Susunod na bayad"
       },
       "modal": {
@@ -242,7 +259,7 @@
   },
   "LoanDetails": {
     "actions": {
-      "refinance": "Refinance",
+      "refinance": "I-refinance",
       "requestExtension": "Humiling ng extension"
     },
     "common": {
@@ -250,19 +267,19 @@
       "confirming": "Kinukumpirma..."
     },
     "health": {
-      "title": "Loan health",
+      "title": "Kalusugan ng Loan",
       "loading": "Naglo-load ng health factor...",
       "unavailableTitle": "Hindi available ang health data",
       "unavailableDescription": "Hindi pa available ang collateral at debt data para sa loan na ito.",
       "collateral": "Collateral",
       "totalDebt": "Kabuuang utang",
-      "threshold": "Liquidation threshold",
+      "threshold": "Limitasyon ng liquidasyon",
       "sourceContract": "Gamit ang contract health view",
       "sourceBackend": "Gamit ang backend-computed health data",
       "sourceDerived": "Derived mula sa collateral at kabuuang utang",
       "cta": "Magdagdag ng collateral",
       "states": {
-        "healthy": "Healthy",
+        "healthy": "Malusog",
         "watch": "Bantayan",
         "atRisk": "Nasa panganib"
       },
@@ -275,9 +292,9 @@
     "refinance": {
       "title": "I-refinance ang loan",
       "principal": "Bagong principal na halaga",
-      "interestRate": "Interest rate (%)",
+      "interestRate": "Rate ng interes (%)",
       "term": "Termino",
-      "previewTitle": "Projected amortization",
+      "previewTitle": "Inaasahang amortisasyon",
       "previewDescription": "Preview ng inaasahang repayment schedule bago pumirma.",
       "submit": "I-build, Pirmahan at Isumite"
     },
@@ -292,7 +309,7 @@
     "cooldownActive": "Available ang withdraw sa humigit-kumulang {minutes} minuto habang aktibo ang cooldown."
   },
   "Liquidations": {
-    "eyebrow": "Liquidator Console",
+    "eyebrow": "Console ng Liquidator",
     "title": "Mga Liquidatable Loan",
     "description": "Suriin ang active positions na mababa sa liquidation threshold at magsumite ng liquidation transactions.",
     "refresh": "I-refresh",
@@ -315,10 +332,10 @@
     },
     "table": {
       "loan": "Loan",
-      "borrower": "Borrower",
+      "borrower": "Nangungutang",
       "collateral": "Collateral",
       "debt": "Kabuuang utang",
-      "health": "Health",
+      "health": "Kalusugan",
       "action": "Aksyon"
     }
   }

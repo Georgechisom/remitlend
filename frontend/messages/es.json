@@ -26,6 +26,23 @@
       "title": "Alcance comunitario",
       "description": "Nuevos prestatarios en Ghana buscan micropréstamos para herramientas agrícolas. ¡Ayuda a hacer crecer el ecosistema!",
       "explore": "Explorar oportunidades"
+    },
+    "disconnected": {
+      "heading": "Tablero",
+      "subheading": "Bienvenido a RemitLend. Por favor conecta tu billetera para ver tu portafolio.",
+      "walletNotConnected": "Billetera no conectada",
+      "connectPrompt": "Conecta tu billetera para analizar tu puntuación crediticia on-chain, gestionar posiciones activas y rastrear remesas internacionales.",
+      "connectButton": "Conectar billetera"
+    },
+    "reminder": {
+      "due": "Pago pendiente en {hours}h — Préstamo #{loanId}",
+      "repayNow": "Pagar ahora",
+      "dismiss": "Descartar recordatorio de pago"
+    },
+    "creditScore": {
+      "label": "Puntuación crediticia",
+      "tooltip": "Puntuación crediticia: una señal on-chain de confiabilidad de pago. Las puntuaciones más altas pueden desbloquear mejores condiciones con el tiempo.",
+      "tooltipLabel": "Información sobre puntuación crediticia"
     }
   },
   "ActivityPage": {
