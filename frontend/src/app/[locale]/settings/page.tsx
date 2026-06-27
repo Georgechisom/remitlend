@@ -102,17 +102,15 @@ function Toggle({
       </div>
       <button
         onClick={() => onChange(!checked)}
-        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-          checked ? "bg-indigo-600" : "bg-zinc-300 dark:bg-zinc-700"
-        }`}
+        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${checked ? "bg-indigo-600" : "bg-zinc-300 dark:bg-zinc-700"
+          }`}
         role="switch"
         aria-checked={checked}
         aria-label={label}
       >
         <span
-          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-            checked ? "translate-x-6" : "translate-x-1"
-          }`}
+          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${checked ? "translate-x-6" : "translate-x-1"
+            }`}
         />
       </button>
     </div>
@@ -222,11 +220,10 @@ function WalletSection() {
                 </p>
               </div>
               <span
-                className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${
-                  network?.isSupported
-                    ? "bg-green-50 text-green-700 dark:bg-green-500/10 dark:text-green-400"
-                    : "bg-yellow-50 text-yellow-700 dark:bg-yellow-500/10 dark:text-yellow-400"
-                }`}
+                className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${network?.isSupported
+                  ? "bg-green-50 text-green-700 dark:bg-green-500/10 dark:text-green-400"
+                  : "bg-yellow-50 text-yellow-700 dark:bg-yellow-500/10 dark:text-yellow-400"
+                  }`}
               >
                 <span className="h-1.5 w-1.5 rounded-full bg-current" />
                 {network?.isSupported ? "Supported" : "Unsupported"}
@@ -281,6 +278,7 @@ function NotificationsSection() {
   });
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [phoneError, setPhoneError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!data) return;
@@ -314,11 +312,30 @@ function NotificationsSection() {
 
   const handleSave = () => {
     setSaveError(null);
+    setPhoneError(null);
+
+    const phone = prefs.phone.trim();
+
+    if (prefs.sms) {
+      if (!phone) {
+        setPhoneError("A phone number is required for SMS notifications.");
+        return;
+      }
+
+      // Basic international phone validation
+      const phoneRegex = /^\+?[1-9]\d{7,14}$/;
+
+      if (!phoneRegex.test(phone)) {
+        setPhoneError("Please enter a valid phone number.");
+        return;
+      }
+    }
+
     updateNotificationPreferences.mutate(
       {
         emailEnabled: prefs.email,
         smsEnabled: prefs.sms,
-        phone: prefs.phone.trim() || null,
+        phone: phone || null,
         perTypeOverrides,
       },
       {
@@ -361,7 +378,10 @@ function NotificationsSection() {
             />
             <Toggle
               checked={prefs.sms}
-              onChange={() => toggle("sms")}
+              onChange={() => {
+                setPhoneError(null);
+                toggle("sms");
+              }}
               label="SMS Notifications"
               description="Requires a verified phone number"
             />
@@ -370,13 +390,21 @@ function NotificationsSection() {
             label="Phone number"
             placeholder="+14155552671"
             value={prefs.phone}
-            onChange={(e) => setPrefs((p) => ({ ...p, phone: e.target.value }))}
+            onChange={(e) => {
+              setPhoneError(null);
+              setPrefs((p) => ({ ...p, phone: e.target.value }));
+            }}
             helperText={
               prefs.sms
                 ? "A phone number is required for SMS notifications."
                 : "Optional unless SMS notifications are enabled."
             }
           />
+          {phoneError && (
+            <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+              {phoneError}
+            </p>
+          )}
         </div>
 
         <div className="space-y-2">
@@ -471,11 +499,10 @@ function SecuritySection() {
             <div className="flex justify-between text-sm">
               <span className="text-zinc-500 dark:text-zinc-400">KYC Status</span>
               <span
-                className={`font-medium ${
-                  user?.kycVerified
-                    ? "text-green-600 dark:text-green-400"
-                    : "text-yellow-600 dark:text-yellow-400"
-                }`}
+                className={`font-medium ${user?.kycVerified
+                  ? "text-green-600 dark:text-green-400"
+                  : "text-yellow-600 dark:text-yellow-400"
+                  }`}
               >
                 {user?.kycVerified ? "Verified" : "Not Verified"}
               </span>
@@ -565,11 +592,10 @@ function DisplaySection() {
                 <button
                   key={opt}
                   onClick={() => setTheme(opt)}
-                  className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
-                    active
-                      ? "bg-indigo-600 text-white"
-                      : "bg-zinc-100 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-200"
-                  }`}
+                  className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${active
+                    ? "bg-indigo-600 text-white"
+                    : "bg-zinc-100 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-200"
+                    }`}
                 >
                   {opt[0].toUpperCase() + opt.slice(1)}
                 </button>
@@ -653,11 +679,10 @@ export default function SettingsPage() {
               <li key={id}>
                 <button
                   onClick={() => setActiveSection(id)}
-                  className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium w-full transition-colors whitespace-nowrap ${
-                    activeSection === id
-                      ? "bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400"
-                      : "text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-50"
-                  }`}
+                  className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium w-full transition-colors whitespace-nowrap ${activeSection === id
+                    ? "bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400"
+                    : "text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-50"
+                    }`}
                 >
                   <Icon className="h-4 w-4 flex-shrink-0" />
                   {label}
