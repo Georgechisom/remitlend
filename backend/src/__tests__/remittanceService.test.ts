@@ -1,5 +1,10 @@
 import { jest } from "@jest/globals";
-import { Keypair, Networks, TransactionBuilder } from "@stellar/stellar-sdk";
+import {
+  Account,
+  Keypair,
+  Networks,
+  TransactionBuilder,
+} from "@stellar/stellar-sdk";
 
 const mockWithTransaction = jest.fn<(...args: unknown[]) => Promise<unknown>>();
 const mockQuery = jest.fn<
@@ -11,6 +16,7 @@ const mockQuery = jest.fn<
     fields: unknown[];
   }>
 >();
+const mockGetAccount = jest.fn<() => Promise<Account>>();
 
 jest.unstable_mockModule("../db/connection.js", () => ({
   query: mockQuery,
@@ -23,6 +29,9 @@ jest.unstable_mockModule("../db/transaction.js", () => ({
 
 jest.unstable_mockModule("../config/stellar.js", () => ({
   getStellarNetworkPassphrase: () => Networks.TESTNET,
+  createSorobanRpcServer: () => ({
+    getAccount: mockGetAccount,
+  }),
 }));
 
 const { remittanceService } = await import("../services/remittanceService.js");
@@ -31,12 +40,48 @@ const USDC_ISSUER = Keypair.random().publicKey();
 const SENDER = Keypair.random().publicKey();
 const RECIPIENT = Keypair.random().publicKey();
 
+function mockRemittanceInsert() {
+  mockWithTransaction.mockImplementation(async (...args: unknown[]) => {
+    const callback = args[0] as (client: {
+      query: (sql: string, params: unknown[]) => Promise<{ rows: unknown[] }>;
+    }) => Promise<unknown>;
+    const now = new Date();
+    let xdrValue = "";
+    const result = await callback({
+      query: async (_sql: string, queryParams: unknown[]) => {
+        xdrValue = queryParams[8] as string;
+        return {
+          rows: [
+            {
+              id: "remit-1",
+              sender_id: SENDER,
+              recipient_address: RECIPIENT,
+              amount: "25",
+              from_currency: queryParams[4],
+              to_currency: queryParams[5],
+              memo: queryParams[6],
+              status: "pending",
+              transaction_hash: null,
+              xdr: xdrValue,
+              created_at: now,
+              updated_at: now,
+            },
+          ],
+        };
+      },
+    });
+    return result;
+  });
+}
+
 describe("remittanceService.createRemittance", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     delete process.env.STELLAR_USDC_ISSUER;
     delete process.env.STELLAR_EURC_ISSUER;
     delete process.env.STELLAR_PHP_ISSUER;
+    mockGetAccount.mockResolvedValue(new Account(SENDER, "12345"));
+    mockRemittanceInsert();
   });
 
   it("rejects unsupported source currencies", async () => {
@@ -68,38 +113,6 @@ describe("remittanceService.createRemittance", () => {
   it("builds token transfer XDR for configured USDC remittances", async () => {
     process.env.STELLAR_USDC_ISSUER = USDC_ISSUER;
 
-    mockWithTransaction.mockImplementation(async (...args: unknown[]) => {
-      const callback = args[0] as (client: {
-        query: (sql: string, params: unknown[]) => Promise<{ rows: unknown[] }>;
-      }) => Promise<unknown>;
-      const now = new Date();
-      let xdrValue = "";
-      const result = await callback({
-        query: async (_sql: string, queryParams: unknown[]) => {
-          xdrValue = queryParams[8] as string;
-          return {
-            rows: [
-              {
-                id: "remit-1",
-                sender_id: SENDER,
-                recipient_address: RECIPIENT,
-                amount: "25",
-                from_currency: "USDC",
-                to_currency: "USDC",
-                memo: "test",
-                status: "pending",
-                transaction_hash: null,
-                xdr: xdrValue,
-                created_at: now,
-                updated_at: now,
-              },
-            ],
-          };
-        },
-      });
-      return result;
-    });
-
     const remittance = await remittanceService.createRemittance({
       recipientAddress: RECIPIENT,
       amount: 25,
@@ -116,6 +129,23 @@ describe("remittanceService.createRemittance", () => {
 
     expect(payment.asset.getCode()).toBe("USDC");
     expect(payment.asset.getIssuer()).toBe(USDC_ISSUER);
+  });
+
+  it("builds the payment XDR from the sender's live Stellar sequence", async () => {
+    const remittance = await remittanceService.createRemittance({
+      recipientAddress: RECIPIENT,
+      amount: 25,
+      fromCurrency: "XLM",
+      toCurrency: "XLM",
+      memo: "test",
+      senderAddress: SENDER,
+    });
+
+    expect(mockGetAccount).toHaveBeenCalledWith(SENDER);
+
+    const tx = TransactionBuilder.fromXDR(remittance.xdr!, Networks.TESTNET);
+    expect(tx.source).toBe(SENDER);
+    expect(tx.sequence).toBe("12346");
   });
 });
 
