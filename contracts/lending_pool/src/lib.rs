@@ -1,4 +1,5 @@
 #![no_std]
+// Lending pool contract for RemitLend.
 use soroban_sdk::token::Client as TokenClient;
 use soroban_sdk::{
     contract, contracterror, contractimpl, contracttype, Address, BytesN, Env, Symbol,
