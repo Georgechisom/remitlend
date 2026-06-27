@@ -161,8 +161,8 @@ router.get(
  *     summary: Update a user's credit score based on repayment history
  *     description: >
  *       Adjusts the user's credit score by +15 for on-time repayments or
- *       −30 for late payments. Requires the `x-api-key` header to be set
- *       to the value of the `INTERNAL_API_KEY` environment variable.
+ *       −30 for late payments. Requires an `admin:loans` scoped API key or a
+ *       legacy internal API key.
  *     tags: [Score]
  *     security:
  *       - ApiKeyAuth: []
@@ -207,7 +207,7 @@ router.get(
  */
 router.post(
   "/update",
-  requireApiKey(),
+  requireApiKey("admin:loans"),
   scoreUpdateRateLimit,
   validate(updateScoreSchema),
   updateScore,
