@@ -1,7 +1,11 @@
 import { jest } from "@jest/globals";
 
 // Explicitly type the mocks to match the real function signatures
-type Borrower = { id: string; score: number; last_repayment: string | null };
+type Borrower = {
+  borrower: string;
+  score: number;
+  last_repayment: string | null;
+};
 const mockGetInactiveBorrowers: jest.MockedFunction<() => Promise<Borrower[]>> =
   jest.fn();
 const mockApplyScoreDecay: jest.MockedFunction<
@@ -20,8 +24,12 @@ describe("scoreDecayJob", () => {
 
   it("should apply score decay to all inactive borrowers", async () => {
     const borrowers = [
-      { id: "user1", score: 700, last_repayment: "2024-01-01T00:00:00.000Z" },
-      { id: "user2", score: 650, last_repayment: null },
+      {
+        borrower: "user1",
+        score: 700,
+        last_repayment: "2024-01-01T00:00:00.000Z",
+      },
+      { borrower: "user2", score: 650, last_repayment: null },
     ];
     mockGetInactiveBorrowers.mockResolvedValue(borrowers);
     mockApplyScoreDecay.mockResolvedValue(0);
