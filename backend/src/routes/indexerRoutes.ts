@@ -138,7 +138,7 @@ router.get(
  *         name: limit
  *         schema:
  *           type: integer
- *           default: 20
+ *           default: 50
  *       - in: query
  *         name: eventType
  *         schema:

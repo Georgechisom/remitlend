@@ -10,13 +10,9 @@ export const getRemittanceHistorySchema = z.object({
   }),
 });
 
-// Schema for POST /simulate
+// Schema for POST /simulate — userId is derived from the JWT, not the request body
 export const simulatePaymentSchema = z.object({
   body: z.object({
-    userId: z
-      .string()
-      .min(1, "User ID is required")
-      .max(100, "User ID is too long"),
     amount: z
       .number()
       .positive("Amount must be positive")

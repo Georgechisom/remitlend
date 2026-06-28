@@ -82,7 +82,8 @@ export const getRemittanceHistory = asyncHandler(
 
 export const simulatePayment = asyncHandler(
   async (req: Request, res: Response) => {
-    const { userId, amount } = req.body;
+    const { amount } = req.body;
+    const userId = req.user!.publicKey;
 
     // Fetch current score
     const scoreResult = await query(

@@ -1,4 +1,4 @@
-import { describe, it, expect, jest, beforeEach } from "@jest/globals";
+import { describe, it, expect, jest, beforeEach, afterEach } from "@jest/globals";
 
 type QueryResult = { rows: Record<string, unknown>[]; rowCount: number };
 const mockQuery =
@@ -149,6 +149,79 @@ describe("notificationService", () => {
       });
 
       expect(notification.actionUrl).toBeUndefined();
+    });
+  });
+
+  describe("notifyAdmins", () => {
+    const originalAdminWallets = process.env.ADMIN_WALLETS;
+    const originalAdminEmail = process.env.ADMIN_EMAIL;
+
+    afterEach(() => {
+      if (originalAdminWallets === undefined) {
+        delete process.env.ADMIN_WALLETS;
+      } else {
+        process.env.ADMIN_WALLETS = originalAdminWallets;
+      }
+      if (originalAdminEmail === undefined) {
+        delete process.env.ADMIN_EMAIL;
+      } else {
+        process.env.ADMIN_EMAIL = originalAdminEmail;
+      }
+    });
+
+    const makeNotificationRow = (userId: string, loanId: number | null) => ({
+      id: 1,
+      user_id: userId,
+      type: "loan_defaulted",
+      title: "Loan Default",
+      message: "A loan has defaulted",
+      loan_id: loanId,
+      action_url: loanId != null ? `/loans/${loanId}` : null,
+      read: false,
+      status: "unread",
+      created_at: new Date("2026-05-28T12:00:00.000Z"),
+    });
+
+    it("inserts a notification for each wallet in ADMIN_WALLETS without querying role", async () => {
+      process.env.ADMIN_WALLETS = "wallet1,wallet2";
+      delete process.env.ADMIN_EMAIL;
+
+      mockQuery
+        .mockResolvedValueOnce({ rows: [makeNotificationRow("wallet1", 99)], rowCount: 1 })
+        .mockResolvedValueOnce({ rows: [makeNotificationRow("wallet2", 99)], rowCount: 1 });
+
+      await notificationService.notifyAdmins({
+        title: "Loan Default",
+        message: "A loan has defaulted",
+        loanId: 99,
+      });
+
+      const sqls = (mockQuery.mock.calls as [string, unknown[]][]).map((c) => c[0]);
+      expect(sqls.some((s) => s.includes("WHERE role"))).toBe(false);
+      expect(mockQuery).toHaveBeenCalledTimes(2);
+
+      const params0 = mockQuery.mock.calls[0][1] as unknown[];
+      const params1 = mockQuery.mock.calls[1][1] as unknown[];
+      expect(params0[0]).toBe("wallet1");
+      expect(params1[0]).toBe("wallet2");
+    });
+
+    it("does nothing when ADMIN_WALLETS is unset", async () => {
+      delete process.env.ADMIN_WALLETS;
+      delete process.env.ADMIN_EMAIL;
+
+      await notificationService.notifyAdmins({ title: "Test", message: "Test" });
+
+      expect(mockQuery).not.toHaveBeenCalled();
+    });
+
+    it("does nothing when ADMIN_WALLETS is empty or whitespace-only", async () => {
+      process.env.ADMIN_WALLETS = " , , ";
+      delete process.env.ADMIN_EMAIL;
+
+      await notificationService.notifyAdmins({ title: "Test", message: "Test" });
+
+      expect(mockQuery).not.toHaveBeenCalled();
     });
   });
 });

@@ -490,13 +490,12 @@ class NotificationService {
 
     // 2. Push SSE notification to every admin currently connected
     try {
-      const adminResult = await query(
-        `SELECT public_key FROM user_profiles WHERE role = 'admin'`,
-        [],
-      );
+      const adminWallets = (process.env.ADMIN_WALLETS ?? "")
+        .split(",")
+        .map((w) => w.trim())
+        .filter((w) => w.length > 0);
 
-      for (const row of adminResult.rows) {
-        const adminId = row.public_key as string;
+      for (const adminId of adminWallets) {
         const actionUrl = loanId != null ? `/loans/${loanId}` : null;
         const result = await query(
           `INSERT INTO notifications (user_id, type, title, message, loan_id, action_url, status)

@@ -68,6 +68,12 @@ export function mountSwaggerDocs(app: Express): void {
       return;
     }
 
+    // Swagger UI requires inline scripts. Override helmet's global script-src
+    // with a /docs-scoped policy so API routes stay hardened.
+    res.setHeader(
+      "Content-Security-Policy",
+      "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' https: 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' https: data:; frame-ancestors 'self'",
+    );
     docsRouter(req, res, next);
   });
 

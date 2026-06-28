@@ -94,7 +94,7 @@ router.post(
  *         name: limit
  *         schema:
  *           type: integer
- *           default: 20
+ *           default: 50
  *           maximum: 100
  *       - in: query
  *         name: cursor
