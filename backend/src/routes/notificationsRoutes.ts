@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router } from 'express';
 import {
   getNotifications,
   getNotificationPreferences,
@@ -6,8 +6,8 @@ import {
   markAllRead,
   streamNotifications,
   updateNotificationPreferences,
-} from "../controllers/notificationController.js";
-import { requireJwtAuth, requireScopes } from "../middleware/jwtAuth.js";
+} from '../controllers/notificationController.js';
+import { requireJwtAuth, requireScopes } from '../middleware/jwtAuth.js';
 
 const router = Router();
 
@@ -61,12 +61,7 @@ const router = Router();
  *             schema:
  *               $ref: '#/components/schemas/NotificationsResponse'
  */
-router.get(
-  "/",
-  requireJwtAuth,
-  requireScopes("read:notifications"),
-  getNotifications,
-);
+router.get('/', requireJwtAuth, requireScopes('read:notifications'), getNotifications);
 
 /**
  * @swagger
@@ -84,7 +79,7 @@ router.get(
  *             schema:
  *               $ref: '#/components/schemas/NotificationPreferences'
  */
-router.get("/preferences", requireJwtAuth, getNotificationPreferences);
+router.get('/preferences', requireJwtAuth, getNotificationPreferences);
 
 /**
  * @swagger
@@ -108,7 +103,7 @@ router.get("/preferences", requireJwtAuth, getNotificationPreferences);
  *             schema:
  *               $ref: '#/components/schemas/NotificationPreferences'
  */
-router.put("/preferences", requireJwtAuth, updateNotificationPreferences);
+router.put('/preferences', requireJwtAuth, updateNotificationPreferences);
 
 /**
  * @swagger
@@ -130,12 +125,7 @@ router.put("/preferences", requireJwtAuth, updateNotificationPreferences);
  *             schema:
  *               $ref: '#/components/schemas/ServerSentEventStream'
  */
-router.get(
-  "/stream",
-  requireJwtAuth,
-  requireScopes("read:notifications"),
-  streamNotifications,
-);
+router.get('/stream', requireJwtAuth, requireScopes('read:notifications'), streamNotifications);
 
 /**
  * @swagger
@@ -164,12 +154,7 @@ router.get(
  *             schema:
  *               $ref: '#/components/schemas/SimpleSuccessResponse'
  */
-router.post(
-  "/mark-read",
-  requireJwtAuth,
-  requireScopes("write:notifications"),
-  markRead,
-);
+router.post('/mark-read', requireJwtAuth, requireScopes('write:notifications'), markRead);
 
 /**
  * @swagger
@@ -187,11 +172,6 @@ router.post(
  *             schema:
  *               $ref: '#/components/schemas/SimpleSuccessResponse'
  */
-router.post(
-  "/mark-all-read",
-  requireJwtAuth,
-  requireScopes("write:notifications"),
-  markAllRead,
-);
+router.post('/mark-all-read', requireJwtAuth, requireScopes('write:notifications'), markAllRead);
 
 export default router;

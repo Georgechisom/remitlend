@@ -58,10 +58,7 @@
     {
       "assertionResults": [
         {
-          "ancestorTitles": [
-            "Database Services (skipped: no database)",
-            "UserProfileService"
-          ],
+          "ancestorTitles": ["Database Services (skipped: no database)", "UserProfileService"],
           "duration": null,
           "failing": false,
           "failureDetails": [],
@@ -76,10 +73,7 @@
           "title": "should create a user profile"
         },
         {
-          "ancestorTitles": [
-            "Database Services (skipped: no database)",
-            "UserProfileService"
-          ],
+          "ancestorTitles": ["Database Services (skipped: no database)", "UserProfileService"],
           "duration": null,
           "failing": false,
           "failureDetails": [],
@@ -94,10 +88,7 @@
           "title": "should find profile by public key"
         },
         {
-          "ancestorTitles": [
-            "Database Services (skipped: no database)",
-            "UserProfileService"
-          ],
+          "ancestorTitles": ["Database Services (skipped: no database)", "UserProfileService"],
           "duration": null,
           "failing": false,
           "failureDetails": [],
@@ -112,10 +103,7 @@
           "title": "should update a user profile"
         },
         {
-          "ancestorTitles": [
-            "Database Services (skipped: no database)",
-            "UserProfileService"
-          ],
+          "ancestorTitles": ["Database Services (skipped: no database)", "UserProfileService"],
           "duration": null,
           "failing": false,
           "failureDetails": [],
@@ -130,10 +118,7 @@
           "title": "should upsert a user profile"
         },
         {
-          "ancestorTitles": [
-            "Database Services (skipped: no database)",
-            "UserProfileService"
-          ],
+          "ancestorTitles": ["Database Services (skipped: no database)", "UserProfileService"],
           "duration": null,
           "failing": false,
           "failureDetails": [],
@@ -148,10 +133,7 @@
           "title": "should delete a user profile"
         },
         {
-          "ancestorTitles": [
-            "Database Services (skipped: no database)",
-            "LoanHistoryService"
-          ],
+          "ancestorTitles": ["Database Services (skipped: no database)", "LoanHistoryService"],
           "duration": null,
           "failing": false,
           "failureDetails": [],
@@ -166,10 +148,7 @@
           "title": "should create a loan history record"
         },
         {
-          "ancestorTitles": [
-            "Database Services (skipped: no database)",
-            "LoanHistoryService"
-          ],
+          "ancestorTitles": ["Database Services (skipped: no database)", "LoanHistoryService"],
           "duration": null,
           "failing": false,
           "failureDetails": [],
@@ -184,10 +163,7 @@
           "title": "should find loans by borrower"
         },
         {
-          "ancestorTitles": [
-            "Database Services (skipped: no database)",
-            "LoanHistoryService"
-          ],
+          "ancestorTitles": ["Database Services (skipped: no database)", "LoanHistoryService"],
           "duration": null,
           "failing": false,
           "failureDetails": [],
@@ -202,10 +178,7 @@
           "title": "should update loan status"
         },
         {
-          "ancestorTitles": [
-            "Database Services (skipped: no database)",
-            "IndexedEventsService"
-          ],
+          "ancestorTitles": ["Database Services (skipped: no database)", "IndexedEventsService"],
           "duration": null,
           "failing": false,
           "failureDetails": [],
@@ -220,10 +193,7 @@
           "title": "should create an indexed event"
         },
         {
-          "ancestorTitles": [
-            "Database Services (skipped: no database)",
-            "IndexedEventsService"
-          ],
+          "ancestorTitles": ["Database Services (skipped: no database)", "IndexedEventsService"],
           "duration": null,
           "failing": false,
           "failureDetails": [],
@@ -238,10 +208,7 @@
           "title": "should find unprocessed events"
         },
         {
-          "ancestorTitles": [
-            "Database Services (skipped: no database)",
-            "IndexedEventsService"
-          ],
+          "ancestorTitles": ["Database Services (skipped: no database)", "IndexedEventsService"],
           "duration": null,
           "failing": false,
           "failureDetails": [],
@@ -256,10 +223,7 @@
           "title": "should mark event as processed"
         },
         {
-          "ancestorTitles": [
-            "Database Services (skipped: no database)",
-            "IndexedEventsService"
-          ],
+          "ancestorTitles": ["Database Services (skipped: no database)", "IndexedEventsService"],
           "duration": null,
           "failing": false,
           "failureDetails": [],
@@ -274,10 +238,7 @@
           "title": "should find events by transaction hash"
         },
         {
-          "ancestorTitles": [
-            "Database Services (skipped: no database)",
-            "DatabaseService"
-          ],
+          "ancestorTitles": ["Database Services (skipped: no database)", "DatabaseService"],
           "duration": null,
           "failing": false,
           "failureDetails": [],
@@ -1163,10 +1124,7 @@
           "title": "should return 404 for unknown POST routes with error code"
         },
         {
-          "ancestorTitles": [
-            "Centralized Error Handling",
-            "Zod validation errors"
-          ],
+          "ancestorTitles": ["Centralized Error Handling", "Zod validation errors"],
           "duration": 33,
           "failing": false,
           "failureDetails": [],
@@ -1181,10 +1139,7 @@
           "title": "should return 400 with validation failed message and error code"
         },
         {
-          "ancestorTitles": [
-            "Centralized Error Handling",
-            "Zod validation errors"
-          ],
+          "ancestorTitles": ["Centralized Error Handling", "Zod validation errors"],
           "duration": 24,
           "failing": false,
           "failureDetails": [],
@@ -1199,10 +1154,7 @@
           "title": "should include field and message in each validation error detail"
         },
         {
-          "ancestorTitles": [
-            "Centralized Error Handling",
-            "Response structure consistency"
-          ],
+          "ancestorTitles": ["Centralized Error Handling", "Response structure consistency"],
           "duration": 21,
           "failing": false,
           "failureDetails": [],
@@ -1217,10 +1169,7 @@
           "title": "should always include success and error fields in error responses"
         },
         {
-          "ancestorTitles": [
-            "Centralized Error Handling",
-            "Response structure consistency"
-          ],
+          "ancestorTitles": ["Centralized Error Handling", "Response structure consistency"],
           "duration": 54,
           "failing": false,
           "failureDetails": [],
@@ -1235,10 +1184,7 @@
           "title": "should not expose stack traces in production-like responses"
         },
         {
-          "ancestorTitles": [
-            "Centralized Error Handling",
-            "Response structure consistency"
-          ],
+          "ancestorTitles": ["Centralized Error Handling", "Response structure consistency"],
           "duration": 211,
           "failing": false,
           "failureDetails": [],
@@ -1253,10 +1199,7 @@
           "title": "should expose stack traces only with explicit development opt-in"
         },
         {
-          "ancestorTitles": [
-            "Centralized Error Handling",
-            "Specific error scenarios (Diagnostic)"
-          ],
+          "ancestorTitles": ["Centralized Error Handling", "Specific error scenarios (Diagnostic)"],
           "duration": 46,
           "failing": false,
           "failureDetails": [],
@@ -1271,10 +1214,7 @@
           "title": "should handle operational AppErrors (400 Bad Request) with error code"
         },
         {
-          "ancestorTitles": [
-            "Centralized Error Handling",
-            "Specific error scenarios (Diagnostic)"
-          ],
+          "ancestorTitles": ["Centralized Error Handling", "Specific error scenarios (Diagnostic)"],
           "duration": 73,
           "failing": false,
           "failureDetails": [],
@@ -1289,10 +1229,7 @@
           "title": "should handle internal AppErrors (500 Internal Server Error) with error code"
         },
         {
-          "ancestorTitles": [
-            "Centralized Error Handling",
-            "Specific error scenarios (Diagnostic)"
-          ],
+          "ancestorTitles": ["Centralized Error Handling", "Specific error scenarios (Diagnostic)"],
           "duration": 37,
           "failing": false,
           "failureDetails": [],
@@ -1307,10 +1244,7 @@
           "title": "should handle unexpected exceptions (500 Internal Server Error) with error code"
         },
         {
-          "ancestorTitles": [
-            "Centralized Error Handling",
-            "Specific error scenarios (Diagnostic)"
-          ],
+          "ancestorTitles": ["Centralized Error Handling", "Specific error scenarios (Diagnostic)"],
           "duration": 77,
           "failing": false,
           "failureDetails": [],
@@ -1325,10 +1259,7 @@
           "title": "should catch async exceptions via asyncHandler middleware with error code"
         },
         {
-          "ancestorTitles": [
-            "Centralized Error Handling",
-            "Authentication error codes"
-          ],
+          "ancestorTitles": ["Centralized Error Handling", "Authentication error codes"],
           "duration": 46,
           "failing": false,
           "failureDetails": [],
@@ -1343,10 +1274,7 @@
           "title": "should return VALIDATION_ERROR error code for missing public key (Zod validation)"
         },
         {
-          "ancestorTitles": [
-            "Centralized Error Handling",
-            "Authentication error codes"
-          ],
+          "ancestorTitles": ["Centralized Error Handling", "Authentication error codes"],
           "duration": 28,
           "failing": false,
           "failureDetails": [],
@@ -1361,10 +1289,7 @@
           "title": "should return INVALID_PUBLIC_KEY error code for invalid key format"
         },
         {
-          "ancestorTitles": [
-            "Centralized Error Handling",
-            "Authentication error codes"
-          ],
+          "ancestorTitles": ["Centralized Error Handling", "Authentication error codes"],
           "duration": 36,
           "failing": false,
           "failureDetails": [],
@@ -1819,10 +1744,7 @@
     {
       "assertionResults": [
         {
-          "ancestorTitles": [
-            "Rate Limit Middleware",
-            "createRateLimitMiddleware"
-          ],
+          "ancestorTitles": ["Rate Limit Middleware", "createRateLimitMiddleware"],
           "duration": 9,
           "failing": false,
           "failureDetails": [],
@@ -1837,10 +1759,7 @@
           "title": "should allow request within rate limit"
         },
         {
-          "ancestorTitles": [
-            "Rate Limit Middleware",
-            "createRateLimitMiddleware"
-          ],
+          "ancestorTitles": ["Rate Limit Middleware", "createRateLimitMiddleware"],
           "duration": 3,
           "failing": false,
           "failureDetails": [],
@@ -1855,10 +1774,7 @@
           "title": "should block request exceeding rate limit"
         },
         {
-          "ancestorTitles": [
-            "Rate Limit Middleware",
-            "createRateLimitMiddleware"
-          ],
+          "ancestorTitles": ["Rate Limit Middleware", "createRateLimitMiddleware"],
           "duration": 2,
           "failing": false,
           "failureDetails": [],
@@ -1873,10 +1789,7 @@
           "title": "should use custom identifier function"
         },
         {
-          "ancestorTitles": [
-            "Rate Limit Middleware",
-            "createRateLimitMiddleware"
-          ],
+          "ancestorTitles": ["Rate Limit Middleware", "createRateLimitMiddleware"],
           "duration": 4,
           "failing": false,
           "failureDetails": [],
@@ -1891,10 +1804,7 @@
           "title": "should use custom configuration"
         },
         {
-          "ancestorTitles": [
-            "Rate Limit Middleware",
-            "createRateLimitMiddleware"
-          ],
+          "ancestorTitles": ["Rate Limit Middleware", "createRateLimitMiddleware"],
           "duration": 3,
           "failing": false,
           "failureDetails": [],
@@ -1909,10 +1819,7 @@
           "title": "should skip rate limiting when condition is met"
         },
         {
-          "ancestorTitles": [
-            "Rate Limit Middleware",
-            "createRateLimitMiddleware"
-          ],
+          "ancestorTitles": ["Rate Limit Middleware", "createRateLimitMiddleware"],
           "duration": 3,
           "failing": false,
           "failureDetails": [],
@@ -1927,10 +1834,7 @@
           "title": "should fail open when rate limit service fails"
         },
         {
-          "ancestorTitles": [
-            "Rate Limit Middleware",
-            "createRateLimitMiddleware"
-          ],
+          "ancestorTitles": ["Rate Limit Middleware", "createRateLimitMiddleware"],
           "duration": 5,
           "failing": false,
           "failureDetails": [],
@@ -1945,10 +1849,7 @@
           "title": "should handle missing userId gracefully"
         },
         {
-          "ancestorTitles": [
-            "Rate Limit Middleware",
-            "createRateLimitMiddleware"
-          ],
+          "ancestorTitles": ["Rate Limit Middleware", "createRateLimitMiddleware"],
           "duration": 40,
           "failing": false,
           "failureDetails": [],

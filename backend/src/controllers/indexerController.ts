@@ -1,23 +1,20 @@
-import type { Request, Response } from "express";
-import { xdr } from "@stellar/stellar-sdk";
-import { query } from "../db/connection.js";
-import {
-  EventIndexer,
-  type SorobanRawEvent,
-} from "../services/eventIndexer.js";
-import { cacheService } from "../services/cacheService.js";
+import type { Request, Response } from 'express';
+import { xdr } from '@stellar/stellar-sdk';
+import { query } from '../db/connection.js';
+import { EventIndexer, type SorobanRawEvent } from '../services/eventIndexer.js';
+import { cacheService } from '../services/cacheService.js';
 import {
   SUPPORTED_WEBHOOK_EVENT_TYPES,
   webhookService,
   type WebhookEventType,
-} from "../services/webhookService.js";
+} from '../services/webhookService.js';
 import {
   createCursorPaginatedResponse,
   parseCursorQueryParams,
   parseQueryParams,
-} from "../utils/pagination.js";
-import { parseCappedLimit } from "../utils/queryHelpers.js";
-import logger from "../utils/logger.js";
+} from '../utils/pagination.js';
+import { parseCappedLimit } from '../utils/queryHelpers.js';
+import logger from '../utils/logger.js';
 
 /**
  * Returns true if the hostname resolves to a private, loopback, or link-local
@@ -25,10 +22,10 @@ import logger from "../utils/logger.js";
  */
 function isPrivateHost(hostname: string): boolean {
   // Strip IPv6 brackets
-  const host = hostname.replace(/^\[|\]$/g, "");
+  const host = hostname.replace(/^\[|\]$/g, '');
 
   // Loopback
-  if (host === "localhost" || host === "::1") return true;
+  if (host === 'localhost' || host === '::1') return true;
   if (/^127\./.test(host)) return true;
 
   // Link-local (169.254.x.x, fe80::)
@@ -41,35 +38,28 @@ function isPrivateHost(hostname: string): boolean {
   if (/^192\.168\./.test(host)) return true;
 
   // AWS / GCP metadata endpoints
-  if (host === "169.254.169.254" || host === "metadata.google.internal")
-    return true;
+  if (host === '169.254.169.254' || host === 'metadata.google.internal') return true;
 
   // Catch-all for unqualified single-label hostnames (e.g. "internal", "db")
-  if (!host.includes(".") && host !== "::1") return true;
+  if (!host.includes('.') && host !== '::1') return true;
 
   return false;
 }
-import { getStellarRpcUrl } from "../config/stellar.js";
+import { getStellarRpcUrl } from '../config/stellar.js';
 
-const buildEventFilters = (
-  req: Request,
-  baseParams: unknown[],
-  initialWhereClause: string,
-) => {
+const buildEventFilters = (req: Request, baseParams: unknown[], initialWhereClause: string) => {
   const { status, dateRange, amountRange } = parseQueryParams(req);
   const params = [...baseParams];
   let whereClause = initialWhereClause;
 
   const appendCondition = (condition: string) => {
-    whereClause += whereClause.includes("WHERE")
-      ? ` AND ${condition}`
-      : ` WHERE ${condition}`;
+    whereClause += whereClause.includes('WHERE') ? ` AND ${condition}` : ` WHERE ${condition}`;
   };
 
   const requestedStatus =
-    status && status !== "all"
+    status && status !== 'all'
       ? status
-      : typeof req.query.eventType === "string"
+      : typeof req.query.eventType === 'string'
         ? req.query.eventType
         : null;
 
@@ -80,38 +70,30 @@ const buildEventFilters = (
 
   if (amountRange) {
     params.push(amountRange.min, amountRange.max);
-    appendCondition(
-      `CAST(amount AS NUMERIC) BETWEEN $${params.length - 1} AND $${params.length}`,
-    );
+    appendCondition(`CAST(amount AS NUMERIC) BETWEEN $${params.length - 1} AND $${params.length}`);
   }
 
   if (dateRange) {
     params.push(dateRange.start.toISOString(), dateRange.end.toISOString());
-    appendCondition(
-      `ledger_closed_at BETWEEN $${params.length - 1} AND $${params.length}`,
-    );
+    appendCondition(`ledger_closed_at BETWEEN $${params.length - 1} AND $${params.length}`);
   }
 
   return { params, whereClause };
 };
 
-const buildEventsCacheKey = (
-  scope: string,
-  resourceId: string | number,
-  req: Request,
-) =>
+const buildEventsCacheKey = (scope: string, resourceId: string | number, req: Request) =>
   [
-    "events",
+    'events',
     scope,
     String(resourceId),
-    `limit:${req.query.limit ?? "default"}`,
-    `cursor:${req.query.cursor ?? "default"}`,
-    `offset:${req.query.offset ?? "default"}`,
-    `sort:${req.query.sort ?? "default"}`,
-    `status:${req.query.status ?? req.query.eventType ?? "all"}`,
-    `date:${req.query.date_range ?? "all"}`,
-    `amount:${req.query.amount_range ?? "all"}`,
-  ].join(":");
+    `limit:${req.query.limit ?? 'default'}`,
+    `cursor:${req.query.cursor ?? 'default'}`,
+    `offset:${req.query.offset ?? 'default'}`,
+    `sort:${req.query.sort ?? 'default'}`,
+    `status:${req.query.status ?? req.query.eventType ?? 'all'}`,
+    `date:${req.query.date_range ?? 'all'}`,
+    `amount:${req.query.amount_range ?? 'all'}`,
+  ].join(':');
 
 type QuarantineEventRow = {
   id: number;
@@ -133,7 +115,7 @@ const buildIndexerFromConfig = (): EventIndexer => {
   ].filter((id): id is string => Boolean(id && id.trim().length > 0));
 
   if (contractIds.length === 0) {
-    throw new Error("At least one indexer contract ID must be configured");
+    throw new Error('At least one indexer contract ID must be configured');
   }
 
   const rpcUrl = getStellarRpcUrl();
@@ -147,11 +129,9 @@ const buildIndexerFromConfig = (): EventIndexer => {
   });
 };
 
-const decodeQuarantinedRawEvent = (
-  row: QuarantineEventRow,
-): SorobanRawEvent | null => {
+const decodeQuarantinedRawEvent = (row: QuarantineEventRow): SorobanRawEvent | null => {
   const raw = row.raw_xdr;
-  if (!raw || typeof raw !== "object") {
+  if (!raw || typeof raw !== 'object') {
     return null;
   }
 
@@ -165,27 +145,21 @@ const decodeQuarantinedRawEvent = (
     contractId?: unknown;
   };
 
-  if (!Array.isArray(candidate.topics) || typeof candidate.value !== "string") {
+  if (!Array.isArray(candidate.topics) || typeof candidate.value !== 'string') {
     return null;
   }
 
-  const topics = candidate.topics.filter(
-    (topic): topic is string => typeof topic === "string",
-  );
+  const topics = candidate.topics.filter((topic): topic is string => typeof topic === 'string');
 
   if (topics.length !== candidate.topics.length) {
     return null;
   }
 
   try {
-    const topicValues = topics.map((topic) =>
-      xdr.ScVal.fromXDR(topic, "base64"),
-    );
-    const value = xdr.ScVal.fromXDR(candidate.value, "base64");
+    const topicValues = topics.map((topic) => xdr.ScVal.fromXDR(topic, 'base64'));
+    const value = xdr.ScVal.fromXDR(candidate.value, 'base64');
     const ledgerClosedAt =
-      typeof candidate.ledgerClosedAt === "string"
-        ? candidate.ledgerClosedAt
-        : row.quarantined_at;
+      typeof candidate.ledgerClosedAt === 'string' ? candidate.ledgerClosedAt : row.quarantined_at;
 
     return {
       id: row.event_id,
@@ -194,15 +168,11 @@ const decodeQuarantinedRawEvent = (
       value,
       ledger: row.ledger,
       ledgerClosedAt,
-      txHash:
-        typeof candidate.txHash === "string" ? candidate.txHash : row.tx_hash,
-      contractId:
-        typeof candidate.contractId === "string"
-          ? candidate.contractId
-          : row.contract_id,
+      txHash: typeof candidate.txHash === 'string' ? candidate.txHash : row.tx_hash,
+      contractId: typeof candidate.contractId === 'string' ? candidate.contractId : row.contract_id,
     };
   } catch (error) {
-    logger.withContext().warn("Failed to decode quarantined raw event", {
+    logger.withContext().warn('Failed to decode quarantined raw event', {
       quarantineId: row.id,
       eventId: row.event_id,
       error,
@@ -217,14 +187,14 @@ const decodeQuarantinedRawEvent = (
 export const getIndexerStatus = async (req: Request, res: Response) => {
   try {
     const result = await query(
-      "SELECT last_indexed_ledger, last_indexed_cursor, updated_at FROM indexer_state ORDER BY id DESC LIMIT 1",
+      'SELECT last_indexed_ledger, last_indexed_cursor, updated_at FROM indexer_state ORDER BY id DESC LIMIT 1',
       [],
     );
 
     if (result.rows.length === 0) {
       return res.status(404).json({
         success: false,
-        message: "Indexer state not found",
+        message: 'Indexer state not found',
       });
     }
 
@@ -235,10 +205,7 @@ export const getIndexerStatus = async (req: Request, res: Response) => {
        GROUP BY event_type`,
       [],
     );
-    const totalEvents = await query(
-      "SELECT COUNT(*) as total FROM contract_events",
-      [],
-    );
+    const totalEvents = await query('SELECT COUNT(*) as total FROM contract_events', []);
 
     res.json({
       success: true,
@@ -257,10 +224,10 @@ export const getIndexerStatus = async (req: Request, res: Response) => {
       },
     });
   } catch (error) {
-    logger.withContext().error("Failed to get indexer status", { error });
+    logger.withContext().error('Failed to get indexer status', { error });
     res.status(500).json({
       success: false,
-      message: "Failed to get indexer status",
+      message: 'Failed to get indexer status',
     });
   }
 };
@@ -271,18 +238,16 @@ export const getIndexerStatus = async (req: Request, res: Response) => {
 export const getBorrowerEvents = async (req: Request, res: Response) => {
   try {
     const borrowerParam = req.params.borrower;
-    const borrower = Array.isArray(borrowerParam)
-      ? borrowerParam[0]
-      : borrowerParam;
+    const borrower = Array.isArray(borrowerParam) ? borrowerParam[0] : borrowerParam;
     if (!borrower) {
       return res.status(400).json({
         success: false,
-        message: "Borrower is required",
+        message: 'Borrower is required',
       });
     }
 
     const { limit, cursor } = parseCursorQueryParams(req);
-    const cacheKey = buildEventsCacheKey("borrower", borrower, req);
+    const cacheKey = buildEventsCacheKey('borrower', borrower, req);
     const cachedData = await cacheService.get(cacheKey);
 
     if (cachedData) {
@@ -290,17 +255,13 @@ export const getBorrowerEvents = async (req: Request, res: Response) => {
       return;
     }
 
-    const { params, whereClause } = buildEventFilters(
-      req,
-      [borrower],
-      "WHERE address = $1",
-    );
-    logger.debug("getBorrowerEvents after filters", {
+    const { params, whereClause } = buildEventFilters(req, [borrower], 'WHERE address = $1');
+    logger.debug('getBorrowerEvents after filters', {
       params,
       whereClause,
     });
     const cursorValue = cursor ? Number.parseInt(cursor, 10) : null;
-    const cursorClause = `${whereClause.trim().length ? "AND" : "WHERE"} ($${params.length + 1}::int IS NULL OR id > $${params.length + 1})`;
+    const cursorClause = `${whereClause.trim().length ? 'AND' : 'WHERE'} ($${params.length + 1}::int IS NULL OR id > $${params.length + 1})`;
     const queryText = `
       SELECT event_id, event_type, loan_id, address, amount,
              ledger, ledger_closed_at, tx_hash, created_at, id
@@ -310,20 +271,17 @@ export const getBorrowerEvents = async (req: Request, res: Response) => {
       ORDER BY id ASC
       LIMIT $${params.length + 2}
     `;
-    logger.debug("getBorrowerEvents query", {
+    logger.debug('getBorrowerEvents query', {
       queryText,
       queryParams: [...params, cursorValue, limit + 1],
     });
 
     const [result, totalCount] = await Promise.all([
       query(queryText, [...params, cursorValue, limit + 1]),
-      query(
-        `SELECT COUNT(*) as count FROM contract_events ${whereClause}`,
-        params,
-      ),
+      query(`SELECT COUNT(*) as count FROM contract_events ${whereClause}`, params),
     ]);
 
-    logger.debug("getBorrowerEvents after query", { result, totalCount });
+    logger.debug('getBorrowerEvents after query', { result, totalCount });
     const hasNext = result.rows.length > limit;
     const events = hasNext ? result.rows.slice(0, limit) : result.rows;
     const lastEvent = events.length > 0 ? events[events.length - 1] : undefined;
@@ -344,10 +302,10 @@ export const getBorrowerEvents = async (req: Request, res: Response) => {
     await cacheService.set(cacheKey, response, 300);
     res.json(response);
   } catch (error) {
-    logger.withContext().error("Failed to get borrower events", { error });
+    logger.withContext().error('Failed to get borrower events', { error });
     res.status(500).json({
       success: false,
-      message: "Failed to get borrower events",
+      message: 'Failed to get borrower events',
     });
   }
 };
@@ -364,11 +322,11 @@ export const getLoanEvents = async (req: Request, res: Response) => {
     if (!loanId) {
       return res.status(400).json({
         success: false,
-        message: "Loan ID is required",
+        message: 'Loan ID is required',
       });
     }
 
-    const cacheKey = buildEventsCacheKey("loan", loanId as string, req);
+    const cacheKey = buildEventsCacheKey('loan', loanId as string, req);
     const cachedData = await cacheService.get(cacheKey);
 
     if (cachedData) {
@@ -376,13 +334,9 @@ export const getLoanEvents = async (req: Request, res: Response) => {
       return;
     }
 
-    const { params, whereClause } = buildEventFilters(
-      req,
-      [loanId],
-      "WHERE loan_id = $1",
-    );
+    const { params, whereClause } = buildEventFilters(req, [loanId], 'WHERE loan_id = $1');
     const cursorValue = cursor ? Number.parseInt(cursor, 10) : null;
-    const cursorClause = `${whereClause.trim().length ? "AND" : "WHERE"} ($${params.length + 1}::int IS NULL OR id > $${params.length + 1})`;
+    const cursorClause = `${whereClause.trim().length ? 'AND' : 'WHERE'} ($${params.length + 1}::int IS NULL OR id > $${params.length + 1})`;
     const queryText = `
       SELECT event_id, event_type, loan_id, address, amount,
              ledger, ledger_closed_at, tx_hash, created_at, id
@@ -395,10 +349,7 @@ export const getLoanEvents = async (req: Request, res: Response) => {
 
     const [result, totalCount] = await Promise.all([
       query(queryText, [...params, cursorValue, limit + 1]),
-      query(
-        `SELECT COUNT(*) as count FROM contract_events ${whereClause}`,
-        params,
-      ),
+      query(`SELECT COUNT(*) as count FROM contract_events ${whereClause}`, params),
     ]);
 
     const hasNext = result.rows.length > limit;
@@ -421,10 +372,10 @@ export const getLoanEvents = async (req: Request, res: Response) => {
     await cacheService.set(cacheKey, response, 300);
     res.json(response);
   } catch (error) {
-    logger.withContext().error("Failed to get loan events", { error });
+    logger.withContext().error('Failed to get loan events', { error });
     res.status(500).json({
       success: false,
-      message: "Failed to get loan events",
+      message: 'Failed to get loan events',
     });
   }
 };
@@ -435,7 +386,7 @@ export const getLoanEvents = async (req: Request, res: Response) => {
 export const getRecentEvents = async (req: Request, res: Response) => {
   try {
     const { limit, cursor } = parseCursorQueryParams(req);
-    const cacheKey = buildEventsCacheKey("recent", "all", req);
+    const cacheKey = buildEventsCacheKey('recent', 'all', req);
     const cachedData = await cacheService.get(cacheKey);
 
     if (cachedData) {
@@ -443,9 +394,9 @@ export const getRecentEvents = async (req: Request, res: Response) => {
       return;
     }
 
-    const { params, whereClause } = buildEventFilters(req, [], "");
+    const { params, whereClause } = buildEventFilters(req, [], '');
     const cursorValue = cursor ? Number.parseInt(cursor, 10) : null;
-    const cursorClause = `${whereClause.trim().length ? "AND" : "WHERE"} ($${params.length + 1}::int IS NULL OR id > $${params.length + 1})`;
+    const cursorClause = `${whereClause.trim().length ? 'AND' : 'WHERE'} ($${params.length + 1}::int IS NULL OR id > $${params.length + 1})`;
     const queryText = `
       SELECT event_id, event_type, loan_id, address, amount,
              ledger, ledger_closed_at, tx_hash, created_at, id
@@ -458,13 +409,10 @@ export const getRecentEvents = async (req: Request, res: Response) => {
 
     const [result, totalCount] = await Promise.all([
       query(queryText, [...params, cursorValue, limit + 1]),
-      query(
-        `SELECT COUNT(*) as count FROM contract_events ${whereClause}`,
-        params,
-      ),
+      query(`SELECT COUNT(*) as count FROM contract_events ${whereClause}`, params),
     ]);
 
-    logger.debug("getRecentEvents", {
+    logger.debug('getRecentEvents', {
       queryResult: result.rows,
       countResult: totalCount.rows,
     });
@@ -487,18 +435,15 @@ export const getRecentEvents = async (req: Request, res: Response) => {
     await cacheService.set(cacheKey, response, 120);
     res.json(response);
   } catch (error) {
-    logger.withContext().error("Failed to get recent events", { error });
+    logger.withContext().error('Failed to get recent events', { error });
     res.status(500).json({
       success: false,
-      message: "Failed to get recent events",
+      message: 'Failed to get recent events',
     });
   }
 };
 
-export const listWebhookSubscriptions = async (
-  _req: Request,
-  res: Response,
-) => {
+export const listWebhookSubscriptions = async (_req: Request, res: Response) => {
   try {
     const subscriptions = await webhookService.listSubscriptions();
 
@@ -509,20 +454,15 @@ export const listWebhookSubscriptions = async (
       },
     });
   } catch (error) {
-    logger
-      .withContext()
-      .error("Failed to list webhook subscriptions", { error });
+    logger.withContext().error('Failed to list webhook subscriptions', { error });
     res.status(500).json({
       success: false,
-      message: "Failed to list webhook subscriptions",
+      message: 'Failed to list webhook subscriptions',
     });
   }
 };
 
-export const createWebhookSubscription = async (
-  req: Request,
-  res: Response,
-) => {
+export const createWebhookSubscription = async (req: Request, res: Response) => {
   try {
     const { callbackUrl, eventTypes, secret } = req.body as {
       callbackUrl?: string;
@@ -533,7 +473,7 @@ export const createWebhookSubscription = async (
     if (!callbackUrl) {
       return res.status(400).json({
         success: false,
-        message: "callbackUrl is required",
+        message: 'callbackUrl is required',
       });
     }
 
@@ -543,22 +483,21 @@ export const createWebhookSubscription = async (
     } catch {
       return res.status(400).json({
         success: false,
-        message: "callbackUrl must be a valid URL",
+        message: 'callbackUrl must be a valid URL',
       });
     }
 
-    if (!["http:", "https:"].includes(parsedUrl.protocol)) {
+    if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
       return res.status(400).json({
         success: false,
-        message: "callbackUrl must use http or https",
+        message: 'callbackUrl must use http or https',
       });
     }
 
     if (isPrivateHost(parsedUrl.hostname)) {
       return res.status(400).json({
         success: false,
-        message:
-          "callbackUrl must not target a private, loopback, or link-local address",
+        message: 'callbackUrl must not target a private, loopback, or link-local address',
       });
     }
 
@@ -571,7 +510,7 @@ export const createWebhookSubscription = async (
     if (normalizedEventTypes.length === 0) {
       return res.status(400).json({
         success: false,
-        message: `eventTypes must include at least one of: ${SUPPORTED_WEBHOOK_EVENT_TYPES.join(", ")}`,
+        message: `eventTypes must include at least one of: ${SUPPORTED_WEBHOOK_EVENT_TYPES.join(', ')}`,
       });
     }
 
@@ -595,27 +534,22 @@ export const createWebhookSubscription = async (
       },
     });
   } catch (error) {
-    logger
-      .withContext()
-      .error("Failed to create webhook subscription", { error });
+    logger.withContext().error('Failed to create webhook subscription', { error });
     res.status(500).json({
       success: false,
-      message: "Failed to create webhook subscription",
+      message: 'Failed to create webhook subscription',
     });
   }
 };
 
-export const deleteWebhookSubscription = async (
-  req: Request,
-  res: Response,
-) => {
+export const deleteWebhookSubscription = async (req: Request, res: Response) => {
   try {
     const subscriptionId = Number(req.params.id ?? req.params.subscriptionId);
 
     if (!Number.isInteger(subscriptionId) || subscriptionId <= 0) {
       return res.status(400).json({
         success: false,
-        message: "subscriptionId must be a positive integer",
+        message: 'subscriptionId must be a positive integer',
       });
     }
 
@@ -623,21 +557,19 @@ export const deleteWebhookSubscription = async (
     if (!deleted) {
       return res.status(404).json({
         success: false,
-        message: "Webhook subscription not found",
+        message: 'Webhook subscription not found',
       });
     }
 
     res.json({
       success: true,
-      message: "Webhook subscription deleted",
+      message: 'Webhook subscription deleted',
     });
   } catch (error) {
-    logger
-      .withContext()
-      .error("Failed to delete webhook subscription", { error });
+    logger.withContext().error('Failed to delete webhook subscription', { error });
     res.status(500).json({
       success: false,
-      message: "Failed to delete webhook subscription",
+      message: 'Failed to delete webhook subscription',
     });
   }
 };
@@ -650,14 +582,11 @@ export const getWebhookDeliveries = async (req: Request, res: Response) => {
     if (!Number.isInteger(subscriptionId) || subscriptionId <= 0) {
       return res.status(400).json({
         success: false,
-        message: "subscription id must be a positive integer",
+        message: 'subscription id must be a positive integer',
       });
     }
 
-    const deliveries = await webhookService.getSubscriptionDeliveries(
-      subscriptionId,
-      limit,
-    );
+    const deliveries = await webhookService.getSubscriptionDeliveries(subscriptionId, limit);
 
     res.json({
       success: true,
@@ -667,10 +596,10 @@ export const getWebhookDeliveries = async (req: Request, res: Response) => {
       },
     });
   } catch (error) {
-    logger.withContext().error("Failed to fetch webhook deliveries", { error });
+    logger.withContext().error('Failed to fetch webhook deliveries', { error });
     res.status(500).json({
       success: false,
-      message: "Failed to fetch webhook deliveries",
+      message: 'Failed to fetch webhook deliveries',
     });
   }
 };
@@ -683,14 +612,14 @@ export const reindexLedgerRange = async (req: Request, res: Response) => {
     if (!Number.isInteger(fromLedger) || !Number.isInteger(toLedger)) {
       return res.status(400).json({
         success: false,
-        message: "fromLedger and toLedger must be integers",
+        message: 'fromLedger and toLedger must be integers',
       });
     }
 
     if (fromLedger <= 0 || toLedger <= 0 || fromLedger > toLedger) {
       return res.status(400).json({
         success: false,
-        message: "Ledger range is invalid",
+        message: 'Ledger range is invalid',
       });
     }
 
@@ -707,12 +636,10 @@ export const reindexLedgerRange = async (req: Request, res: Response) => {
     try {
       indexer = buildIndexerFromConfig();
     } catch (error) {
-      logger
-        .withContext()
-        .error("Failed to initialize indexer for reindex", { error });
+      logger.withContext().error('Failed to initialize indexer for reindex', { error });
       return res.status(500).json({
         success: false,
-        message: "Indexer is not configured",
+        message: 'Indexer is not configured',
       });
     }
 
@@ -723,10 +650,10 @@ export const reindexLedgerRange = async (req: Request, res: Response) => {
       data: result,
     });
   } catch (error) {
-    logger.withContext().error("Failed to reindex ledger range", { error });
+    logger.withContext().error('Failed to reindex ledger range', { error });
     res.status(500).json({
       success: false,
-      message: "Failed to reindex ledger range",
+      message: 'Failed to reindex ledger range',
     });
   }
 };
@@ -739,7 +666,7 @@ export const listQuarantinedEvents = async (req: Request, res: Response) => {
     if (cursor && (!Number.isInteger(cursorValue) || (cursorValue ?? 0) <= 0)) {
       return res.status(400).json({
         success: false,
-        message: "cursor must be a positive integer",
+        message: 'cursor must be a positive integer',
       });
     }
 
@@ -752,7 +679,7 @@ export const listQuarantinedEvents = async (req: Request, res: Response) => {
          LIMIT $2`,
         [cursorValue, limit + 1],
       ),
-      query("SELECT COUNT(*)::int AS count FROM quarantine_events", []),
+      query('SELECT COUNT(*)::int AS count FROM quarantine_events', []),
     ]);
 
     const hasNext = result.rows.length > limit;
@@ -773,18 +700,15 @@ export const listQuarantinedEvents = async (req: Request, res: Response) => {
 
     res.json(response);
   } catch (error) {
-    logger.withContext().error("Failed to list quarantined events", { error });
+    logger.withContext().error('Failed to list quarantined events', { error });
     res.status(500).json({
       success: false,
-      message: "Failed to list quarantined events",
+      message: 'Failed to list quarantined events',
     });
   }
 };
 
-export const reprocessQuarantinedEvents = async (
-  req: Request,
-  res: Response,
-) => {
+export const reprocessQuarantinedEvents = async (req: Request, res: Response) => {
   try {
     const { ids, limit } = req.body as {
       ids?: unknown;
@@ -798,14 +722,12 @@ export const reprocessQuarantinedEvents = async (
     if (Array.isArray(ids) && (!parsedIds || parsedIds.length !== ids.length)) {
       return res.status(400).json({
         success: false,
-        message: "ids must be an array of positive integers",
+        message: 'ids must be an array of positive integers',
       });
     }
 
     const parsedLimit =
-      typeof limit === "number" && Number.isInteger(limit) && limit > 0
-        ? Math.min(limit, 500)
-        : 50;
+      typeof limit === 'number' && Number.isInteger(limit) && limit > 0 ? Math.min(limit, 500) : 50;
 
     const rowsResult =
       parsedIds && parsedIds.length > 0
@@ -830,14 +752,12 @@ export const reprocessQuarantinedEvents = async (
     try {
       indexer = buildIndexerFromConfig();
     } catch (error) {
-      logger
-        .withContext()
-        .error("Failed to initialize indexer for quarantine reprocess", {
-          error,
-        });
+      logger.withContext().error('Failed to initialize indexer for quarantine reprocess', {
+        error,
+      });
       return res.status(500).json({
         success: false,
-        message: "Indexer is not configured",
+        message: 'Indexer is not configured',
       });
     }
 
@@ -853,11 +773,11 @@ export const reprocessQuarantinedEvents = async (
         }
 
         await indexer.ingestRawEvents([rawEvent]);
-        await query("DELETE FROM quarantine_events WHERE id = $1", [row.id]);
+        await query('DELETE FROM quarantine_events WHERE id = $1', [row.id]);
         deleted += 1;
       } catch (error) {
         failed += 1;
-        logger.withContext().warn("Failed to reprocess quarantined event", {
+        logger.withContext().warn('Failed to reprocess quarantined event', {
           quarantineId: row.id,
           eventId: row.event_id,
           error,
@@ -865,10 +785,7 @@ export const reprocessQuarantinedEvents = async (
       }
     }
 
-    const remainingResult = await query(
-      "SELECT COUNT(*)::int AS count FROM quarantine_events",
-      [],
-    );
+    const remainingResult = await query('SELECT COUNT(*)::int AS count FROM quarantine_events', []);
 
     res.json({
       success: true,
@@ -880,12 +797,10 @@ export const reprocessQuarantinedEvents = async (
       },
     });
   } catch (error) {
-    logger
-      .withContext()
-      .error("Failed to reprocess quarantined events", { error });
+    logger.withContext().error('Failed to reprocess quarantined events', { error });
     res.status(500).json({
       success: false,
-      message: "Failed to reprocess quarantined events",
+      message: 'Failed to reprocess quarantined events',
     });
   }
 };

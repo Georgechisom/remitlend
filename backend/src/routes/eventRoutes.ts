@@ -1,10 +1,7 @@
-import { Router } from "express";
-import {
-  streamEvents,
-  getEventStreamStatus,
-} from "../controllers/eventStreamController.js";
-import { requireJwtAuth } from "../middleware/jwtAuth.js";
-import { requireApiKey } from "../middleware/auth.js";
+import { Router } from 'express';
+import { streamEvents, getEventStreamStatus } from '../controllers/eventStreamController.js';
+import { requireJwtAuth } from '../middleware/jwtAuth.js';
+import { requireApiKey } from '../middleware/auth.js';
 
 const router = Router();
 
@@ -52,7 +49,7 @@ const router = Router();
  *       401:
  *         description: Missing or invalid authentication
  */
-router.get("/stream", requireJwtAuth, streamEvents);
+router.get('/stream', requireJwtAuth, streamEvents);
 
 /**
  * @swagger
@@ -75,6 +72,6 @@ router.get("/stream", requireJwtAuth, streamEvents);
  *       401:
  *         description: Missing or invalid API key
  */
-router.get("/status", requireApiKey("admin:indexer"), getEventStreamStatus);
+router.get('/status', requireApiKey('admin:indexer'), getEventStreamStatus);
 
 export default router;

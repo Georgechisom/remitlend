@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router } from 'express';
 import {
   getIndexerStatus,
   getBorrowerEvents,
@@ -7,16 +7,12 @@ import {
   listWebhookSubscriptions,
   createWebhookSubscription,
   deleteWebhookSubscription,
-} from "../controllers/indexerController.js";
-import { requireApiKey } from "../middleware/auth.js";
-import {
-  requireJwtAuth,
-  requireScopes,
-  requireWalletOwnership,
-} from "../middleware/jwtAuth.js";
-import { requireLoanBorrowerAccess } from "../middleware/loanAccess.js";
-import { strictRateLimiter } from "../middleware/rateLimiter.js";
-import { auditLog } from "../middleware/auditLog.js";
+} from '../controllers/indexerController.js';
+import { requireApiKey } from '../middleware/auth.js';
+import { requireJwtAuth, requireScopes, requireWalletOwnership } from '../middleware/jwtAuth.js';
+import { requireLoanBorrowerAccess } from '../middleware/loanAccess.js';
+import { strictRateLimiter } from '../middleware/rateLimiter.js';
+import { auditLog } from '../middleware/auditLog.js';
 
 const router = Router();
 
@@ -35,7 +31,7 @@ const router = Router();
  *             schema:
  *               $ref: '#/components/schemas/IndexerStatusResponse'
  */
-router.get("/status", getIndexerStatus);
+router.get('/status', getIndexerStatus);
 
 /**
  * @swagger
@@ -78,9 +74,9 @@ router.get("/status", getIndexerStatus);
  *         description: borrower does not match authenticated wallet
  */
 router.get(
-  "/events/borrower/:borrower",
+  '/events/borrower/:borrower',
   requireJwtAuth,
-  requireScopes("read:loans"),
+  requireScopes('read:loans'),
   requireWalletOwnership,
   getBorrowerEvents,
 );
@@ -115,9 +111,9 @@ router.get(
  *         description: Loan not found or not accessible
  */
 router.get(
-  "/events/loan/:loanId",
+  '/events/loan/:loanId',
   requireJwtAuth,
-  requireScopes("read:loans"),
+  requireScopes('read:loans'),
   requireLoanBorrowerAccess,
   getLoanEvents,
 );
@@ -154,7 +150,7 @@ router.get(
  *       401:
  *         description: Missing or invalid API key
  */
-router.get("/events/recent", requireApiKey("admin:indexer"), getRecentEvents);
+router.get('/events/recent', requireApiKey('admin:indexer'), getRecentEvents);
 
 /**
  * @swagger
@@ -174,11 +170,7 @@ router.get("/events/recent", requireApiKey("admin:indexer"), getRecentEvents);
  *       401:
  *         description: Missing or invalid API key
  */
-router.get(
-  "/webhooks",
-  requireApiKey("admin:webhooks"),
-  listWebhookSubscriptions,
-);
+router.get('/webhooks', requireApiKey('admin:webhooks'), listWebhookSubscriptions);
 
 /**
  * @swagger
@@ -216,8 +208,8 @@ router.get(
  *         description: Missing or invalid API key
  */
 router.post(
-  "/webhooks",
-  requireApiKey("admin:webhooks"),
+  '/webhooks',
+  requireApiKey('admin:webhooks'),
   strictRateLimiter,
   auditLog,
   createWebhookSubscription,
@@ -248,8 +240,8 @@ router.post(
  *         description: Missing or invalid API key
  */
 router.delete(
-  "/webhooks/:subscriptionId",
-  requireApiKey("admin:webhooks"),
+  '/webhooks/:subscriptionId',
+  requireApiKey('admin:webhooks'),
   strictRateLimiter,
   auditLog,
   deleteWebhookSubscription,

@@ -8,11 +8,11 @@ export const shorthands = undefined;
  * @returns {Promise<void> | void}
  */
 export const up = (pgm) => {
-  pgm.addColumns("notifications", {
+  pgm.addColumns('notifications', {
     action_url: {
-      type: "varchar(500)",
+      type: 'varchar(500)',
       notNull: false,
-      comment: "Deep-link URL to the relevant entity (loan, remittance, etc.)",
+      comment: 'Deep-link URL to the relevant entity (loan, remittance, etc.)',
     },
   });
 };
@@ -22,5 +22,5 @@ export const up = (pgm) => {
  * @returns {Promise<void> | void}
  */
 export const down = (pgm) => {
-  pgm.dropColumns("notifications", ["action_url"]);
+  pgm.dropColumns('notifications', ['action_url']);
 };

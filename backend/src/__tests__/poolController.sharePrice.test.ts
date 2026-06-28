@@ -1,32 +1,31 @@
-import { jest, describe, it, expect, beforeEach } from "@jest/globals";
-import type { NextFunction, Request, Response } from "express";
+import { jest, describe, it, expect, beforeEach } from '@jest/globals';
+import type { NextFunction, Request, Response } from 'express';
 
 const mockGetSharePrice = jest.fn<(tokenAddress?: string) => Promise<number>>();
 const mockCacheGet = jest.fn<() => Promise<unknown>>();
 const mockCacheSet = jest.fn<() => Promise<void>>();
 
-jest.unstable_mockModule("../services/sorobanService.js", () => ({
+jest.unstable_mockModule('../services/sorobanService.js', () => ({
   sorobanService: {
     getSharePrice: mockGetSharePrice,
   },
 }));
 
-jest.unstable_mockModule("../services/cacheService.js", () => ({
+jest.unstable_mockModule('../services/cacheService.js', () => ({
   cacheService: {
     get: mockCacheGet,
     set: mockCacheSet,
   },
 }));
 
-jest.unstable_mockModule("../db/connection.js", () => ({
+jest.unstable_mockModule('../db/connection.js', () => ({
   query: jest.fn(),
   getClient: jest.fn(),
 }));
 
-const { getPoolSharePrice } = await import("../controllers/poolController.js");
+const { getPoolSharePrice } = await import('../controllers/poolController.js');
 
-const flushAsync = async (): Promise<void> =>
-  new Promise((resolve) => setImmediate(resolve));
+const flushAsync = async (): Promise<void> => new Promise((resolve) => setImmediate(resolve));
 
 const createMockResponse = (): Response =>
   ({
@@ -34,17 +33,17 @@ const createMockResponse = (): Response =>
     json: jest.fn().mockReturnThis(),
   }) as unknown as Response;
 
-describe("getPoolSharePrice", () => {
+describe('getPoolSharePrice', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  it("returns share price from on-chain contract", async () => {
+  it('returns share price from on-chain contract', async () => {
     mockCacheGet.mockResolvedValue(null);
     mockGetSharePrice.mockResolvedValue(1_050_000);
 
     const req = {
-      params: { token: "GTOKEN123" },
+      params: { token: 'GTOKEN123' },
     } as unknown as Request;
     const res = createMockResponse();
     const next = jest.fn<(err?: unknown) => void>();
@@ -52,9 +51,9 @@ describe("getPoolSharePrice", () => {
     getPoolSharePrice(req, res, next as unknown as NextFunction);
     await flushAsync();
 
-    expect(mockGetSharePrice).toHaveBeenCalledWith("GTOKEN123");
+    expect(mockGetSharePrice).toHaveBeenCalledWith('GTOKEN123');
     expect(mockCacheSet).toHaveBeenCalledWith(
-      expect.stringContaining("GTOKEN123"),
+      expect.stringContaining('GTOKEN123'),
       { sharePrice: 1_050_000, sharePriceRatio: 1.05 },
       30,
     );
@@ -65,14 +64,14 @@ describe("getPoolSharePrice", () => {
     });
   });
 
-  it("returns cached share price without calling contract", async () => {
+  it('returns cached share price without calling contract', async () => {
     mockCacheGet.mockResolvedValue({
       sharePrice: 1_050_000,
       sharePriceRatio: 1.05,
     });
 
     const req = {
-      params: { token: "GTOKEN123" },
+      params: { token: 'GTOKEN123' },
     } as unknown as Request;
     const res = createMockResponse();
     const next = jest.fn<(err?: unknown) => void>();
@@ -89,12 +88,12 @@ describe("getPoolSharePrice", () => {
     });
   });
 
-  it("returns share price ratio with correct human-readable value", async () => {
+  it('returns share price ratio with correct human-readable value', async () => {
     mockCacheGet.mockResolvedValue(null);
     mockGetSharePrice.mockResolvedValue(2_000_000);
 
     const req = {
-      params: { token: "GTOKEN123" },
+      params: { token: 'GTOKEN123' },
     } as unknown as Request;
     const res = createMockResponse();
     const next = jest.fn<(err?: unknown) => void>();
@@ -102,12 +101,7 @@ describe("getPoolSharePrice", () => {
     getPoolSharePrice(req, res, next as unknown as NextFunction);
     await flushAsync();
 
-    const jsonCall = (res.json as jest.Mock).mock.calls[0]?.[0] as Record<
-      string,
-      unknown
-    >;
-    expect((jsonCall.data as Record<string, unknown>).sharePriceRatio).toBe(
-      2.0,
-    );
+    const jsonCall = (res.json as jest.Mock).mock.calls[0]?.[0] as Record<string, unknown>;
+    expect((jsonCall.data as Record<string, unknown>).sharePriceRatio).toBe(2.0);
   });
 });

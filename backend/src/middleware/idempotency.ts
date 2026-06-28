@@ -1,6 +1,6 @@
-import type { Request, Response, NextFunction } from "express";
-import { cacheService } from "../services/cacheService.js";
-import logger from "../utils/logger.js";
+import type { Request, Response, NextFunction } from 'express';
+import { cacheService } from '../services/cacheService.js';
+import logger from '../utils/logger.js';
 
 const IDEMPOTENCY_TTL = 24 * 60 * 60; // 24 hours in seconds
 
@@ -19,7 +19,7 @@ export const idempotencyMiddleware = async (
   res: Response,
   next: NextFunction,
 ): Promise<void> => {
-  const key = req.header("Idempotency-Key");
+  const key = req.header('Idempotency-Key');
 
   if (!key) {
     return next();
@@ -40,8 +40,8 @@ export const idempotencyMiddleware = async (
       // Clients can use this to de-duplicate toasts and avoid double-counting.
       res
         .status(cached.status)
-        .set("X-Idempotency-Cache", "HIT")
-        .set("X-Idempotent-Replayed", "true")
+        .set('X-Idempotency-Cache', 'HIT')
+        .set('X-Idempotent-Replayed', 'true')
         .json(cached.body);
       return;
     }
@@ -61,7 +61,7 @@ export const idempotencyMiddleware = async (
     // Override res.send (as res.json eventually calls res.send)
     res.send = function (body: unknown) {
       if (!responseBody) {
-        if (typeof body === "string") {
+        if (typeof body === 'string') {
           try {
             responseBody = JSON.parse(body);
           } catch {
@@ -76,10 +76,10 @@ export const idempotencyMiddleware = async (
 
     // X-Idempotent-Replayed: false on the first (fresh) execution so the
     // client always receives the header and can branch on its value.
-    res.set("X-Idempotent-Replayed", "false");
+    res.set('X-Idempotent-Replayed', 'false');
 
     // Store the response in cache once the request is finished
-    res.on("finish", async () => {
+    res.on('finish', async () => {
       // Only cache 2xx and 4xx status codes.
       // 5xx errors should usually be retried without returning a cached failure.
       if (res.statusCode >= 200 && res.statusCode < 500 && responseBody) {
@@ -100,7 +100,7 @@ export const idempotencyMiddleware = async (
 
     next();
   } catch (error) {
-    logger.error("Error in idempotency middleware", { error, key });
+    logger.error('Error in idempotency middleware', { error, key });
     next();
   }
 };

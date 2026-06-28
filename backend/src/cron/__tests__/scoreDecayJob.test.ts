@@ -1,4 +1,4 @@
-import { jest } from "@jest/globals";
+import { jest } from '@jest/globals';
 
 // Explicitly type the mocks to match the real function signatures
 type Borrower = {
@@ -6,36 +6,33 @@ type Borrower = {
   score: number;
   last_repayment: string | null;
 };
-const mockGetInactiveBorrowers: jest.MockedFunction<() => Promise<Borrower[]>> =
-  jest.fn();
-const mockApplyScoreDecay: jest.MockedFunction<
-  (b: Borrower) => Promise<number>
-> = jest.fn();
+const mockGetInactiveBorrowers: jest.MockedFunction<() => Promise<Borrower[]>> = jest.fn();
+const mockApplyScoreDecay: jest.MockedFunction<(b: Borrower) => Promise<number>> = jest.fn();
 
-jest.unstable_mockModule("../../services/scoreDecayService.js", () => ({
+jest.unstable_mockModule('../../services/scoreDecayService.js', () => ({
   getInactiveBorrowers: mockGetInactiveBorrowers,
   applyScoreDecay: mockApplyScoreDecay,
 }));
 
-describe("scoreDecayJob", () => {
+describe('scoreDecayJob', () => {
   afterEach(() => {
     jest.clearAllMocks();
   });
 
-  it("should apply score decay to all inactive borrowers", async () => {
+  it('should apply score decay to all inactive borrowers', async () => {
     const borrowers = [
       {
-        borrower: "user1",
+        borrower: 'user1',
         score: 700,
-        last_repayment: "2024-01-01T00:00:00.000Z",
+        last_repayment: '2024-01-01T00:00:00.000Z',
       },
-      { borrower: "user2", score: 650, last_repayment: null },
+      { borrower: 'user2', score: 650, last_repayment: null },
     ];
     mockGetInactiveBorrowers.mockResolvedValue(borrowers);
     mockApplyScoreDecay.mockResolvedValue(0);
 
     // Import the job after mocks
-    const { default: runScoreDecayJob } = await import("../scoreDecayJob.js");
+    const { default: runScoreDecayJob } = await import('../scoreDecayJob.js');
     await runScoreDecayJob();
 
     expect(mockGetInactiveBorrowers).toHaveBeenCalled();
@@ -44,9 +41,9 @@ describe("scoreDecayJob", () => {
     expect(mockApplyScoreDecay).toHaveBeenCalledWith(borrowers[1]);
   });
 
-  it("should handle errors gracefully", async () => {
-    mockGetInactiveBorrowers.mockRejectedValue(new Error("DB error"));
-    const { default: runScoreDecayJob } = await import("../scoreDecayJob.js");
+  it('should handle errors gracefully', async () => {
+    mockGetInactiveBorrowers.mockRejectedValue(new Error('DB error'));
+    const { default: runScoreDecayJob } = await import('../scoreDecayJob.js');
     await expect(runScoreDecayJob()).resolves.not.toThrow();
   });
 });

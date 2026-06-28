@@ -1,12 +1,12 @@
-import { describe, it, expect, beforeAll, afterAll } from "@jest/globals";
-import { query } from "../db/connection.js";
-import { updateUserScoresBulk } from "../services/scoresService.js";
+import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
+import { query } from '../db/connection.js';
+import { updateUserScoresBulk } from '../services/scoresService.js';
 
 let __scoresService_dbAvailable = false;
 
 beforeAll(async () => {
   try {
-    await query("SELECT 1");
+    await query('SELECT 1');
     __scoresService_dbAvailable = true;
   } catch {
     __scoresService_dbAvailable = false;
@@ -19,14 +19,14 @@ const describeIf_scoresService = (name: string, fn: () => void) => {
   } else {
     // Ensure at least one skipped test exists so Jest considers the suite valid
     describe.skip(name, () => {
-      it.skip("skipped: no database", () => {});
+      it.skip('skipped: no database', () => {});
     });
   }
 };
 
-describeIf_scoresService("Scores Service - bulk updates", () => {
-  const userA = "G_TEST_USER_A";
-  const userB = "G_TEST_USER_B";
+describeIf_scoresService('Scores Service - bulk updates', () => {
+  const userA = 'G_TEST_USER_A';
+  const userB = 'G_TEST_USER_B';
 
   beforeAll(async () => {
     await query(`
@@ -40,12 +40,12 @@ describeIf_scoresService("Scores Service - bulk updates", () => {
   });
 
   afterAll(async () => {
-    await query("DELETE FROM scores WHERE user_id LIKE $1", ["G_TEST_%"]);
+    await query('DELETE FROM scores WHERE user_id LIKE $1', ['G_TEST_%']);
   });
 
-  it("applies multiple deltas in a single operation and initializes new rows", async () => {
+  it('applies multiple deltas in a single operation and initializes new rows', async () => {
     // ensure clean
-    await query("DELETE FROM scores WHERE user_id IN ($1, $2)", [userA, userB]);
+    await query('DELETE FROM scores WHERE user_id IN ($1, $2)', [userA, userB]);
 
     const updates = new Map<string, number>();
     updates.set(userA, 10);
@@ -54,7 +54,7 @@ describeIf_scoresService("Scores Service - bulk updates", () => {
     await updateUserScoresBulk(updates);
 
     const res = await query(
-      "SELECT user_id, current_score FROM scores WHERE user_id IN ($1, $2) ORDER BY user_id",
+      'SELECT user_id, current_score FROM scores WHERE user_id IN ($1, $2) ORDER BY user_id',
       [userA, userB],
     );
 
@@ -76,7 +76,7 @@ describeIf_scoresService("Scores Service - bulk updates", () => {
     await updateUserScoresBulk(more);
 
     const res2 = await query(
-      "SELECT user_id, current_score FROM scores WHERE user_id IN ($1, $2) ORDER BY user_id",
+      'SELECT user_id, current_score FROM scores WHERE user_id IN ($1, $2) ORDER BY user_id',
       [userA, userB],
     );
 

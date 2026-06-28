@@ -1,15 +1,15 @@
-import cron from "node-cron";
-import { query } from "../db/connection.js";
-import { notificationService } from "../services/notificationService.js";
-import logger from "../utils/logger.js";
+import cron from 'node-cron';
+import { query } from '../db/connection.js';
+import { notificationService } from '../services/notificationService.js';
+import logger from '../utils/logger.js';
 
 /**
  * Checks for loans that are due soon (e.g., within 24 hours) and notifies borrowers.
  * Runs every hour at the top of the hour.
  */
 export function startLoanDueCheckCron() {
-  cron.schedule("0 * * * *", async () => {
-    logger.info("Running loan due check cron...");
+  cron.schedule('0 * * * *', async () => {
+    logger.info('Running loan due check cron...');
 
     try {
       // Find loans where a repayment is due in the next 24 hours
@@ -28,18 +28,16 @@ export function startLoanDueCheckCron() {
       for (const loan of result.rows) {
         await notificationService.createNotification({
           userId: loan.address,
-          type: "repayment_due",
-          title: "Repayment Due Soon",
+          type: 'repayment_due',
+          title: 'Repayment Due Soon',
           message: `Your repayment for loan #${loan.loan_id} of ${loan.amount} is due.`,
           loanId: loan.loan_id,
         });
       }
 
-      logger.info(
-        `Loan due check completed. Notified ${result.rows.length} borrowers.`,
-      );
+      logger.info(`Loan due check completed. Notified ${result.rows.length} borrowers.`);
     } catch (error) {
-      logger.error("Error in loan due check cron", { error });
+      logger.error('Error in loan due check cron', { error });
     }
   });
 }

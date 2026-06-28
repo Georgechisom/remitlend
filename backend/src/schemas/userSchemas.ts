@@ -1,7 +1,6 @@
-import { z } from "zod";
+import { z } from 'zod';
 
-const nullableTrimmedString = (max: number) =>
-  z.string().trim().max(max).nullable().optional();
+const nullableTrimmedString = (max: number) => z.string().trim().max(max).nullable().optional();
 
 export const updateUserProfileSchema = z
   .object({
@@ -11,7 +10,7 @@ export const updateUserProfileSchema = z
     locale: z
       .string()
       .trim()
-      .regex(/^[a-z]{2}(-[A-Z]{2})?$/, "Locale must look like en or en-US")
+      .regex(/^[a-z]{2}(-[A-Z]{2})?$/, 'Locale must look like en or en-US')
       .nullable()
       .optional(),
     avatarUrl: z.string().trim().url().max(2048).nullable().optional(),

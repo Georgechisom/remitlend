@@ -1,8 +1,8 @@
-import { jest } from "@jest/globals";
-import jwt from "jsonwebtoken";
-import request from "supertest";
+import { jest } from '@jest/globals';
+import jwt from 'jsonwebtoken';
+import request from 'supertest';
 
-process.env.JWT_SECRET = "user-profile-test-secret";
+process.env.JWT_SECRET = 'user-profile-test-secret';
 
 const queryMock = jest.fn<
   () => Promise<{
@@ -14,7 +14,7 @@ const queryMock = jest.fn<
   }>
 >();
 
-jest.unstable_mockModule("../db/connection.js", () => ({
+jest.unstable_mockModule('../db/connection.js', () => ({
   default: {
     query: queryMock,
   },
@@ -23,15 +23,15 @@ jest.unstable_mockModule("../db/connection.js", () => ({
   withTransaction: jest.fn(),
 }));
 
-jest.unstable_mockModule("../services/cacheService.js", () => ({
+jest.unstable_mockModule('../services/cacheService.js', () => ({
   cacheService: {
-    ping: jest.fn<() => Promise<string>>().mockResolvedValue("ok"),
+    ping: jest.fn<() => Promise<string>>().mockResolvedValue('ok'),
   },
 }));
 
-jest.unstable_mockModule("../services/sorobanService.js", () => ({
+jest.unstable_mockModule('../services/sorobanService.js', () => ({
   sorobanService: {
-    ping: jest.fn<() => Promise<string>>().mockResolvedValue("ok"),
+    ping: jest.fn<() => Promise<string>>().mockResolvedValue('ok'),
     getScoreConfig: jest.fn(() => ({
       repaymentDelta: 20,
       defaultPenalty: 50,
@@ -39,19 +39,19 @@ jest.unstable_mockModule("../services/sorobanService.js", () => ({
   },
 }));
 
-const { default: app } = await import("../app.js");
+const { default: app } = await import('../app.js');
 
-const publicKey = "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF";
+const publicKey = 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF';
 
 function bearerToken() {
   return jwt.sign(
     {
       publicKey,
-      role: "borrower",
-      scopes: ["read:profile", "write:profile"],
+      role: 'borrower',
+      scopes: ['read:profile', 'write:profile'],
     },
     process.env.JWT_SECRET!,
-    { expiresIn: "1h", algorithm: "HS256" },
+    { expiresIn: '1h', algorithm: 'HS256' },
   );
 }
 
@@ -65,13 +65,13 @@ function profileRow(overrides: Record<string, unknown> = {}) {
     email_enabled: false,
     sms_enabled: false,
     metadata: {},
-    created_at: "2026-05-27T00:00:00.000Z",
-    updated_at: "2026-05-27T00:00:00.000Z",
+    created_at: '2026-05-27T00:00:00.000Z',
+    updated_at: '2026-05-27T00:00:00.000Z',
     ...overrides,
   };
 }
 
-describe("/user/profile", () => {
+describe('/user/profile', () => {
   beforeEach(() => {
     queryMock.mockReset();
   });
@@ -80,103 +80,97 @@ describe("/user/profile", () => {
     queryMock.mockResolvedValueOnce({
       rows: [profileRow()],
       rowCount: 1,
-      command: "SELECT",
+      command: 'SELECT',
       oid: 0,
       fields: [],
     });
 
     const response = await request(app)
-      .get("/user/profile")
-      .set("Authorization", `Bearer ${bearerToken()}`);
+      .get('/user/profile')
+      .set('Authorization', `Bearer ${bearerToken()}`);
 
     expect(response.status).toBe(200);
     expect(response.body).toMatchObject({
-      id: "12",
-      email: "",
+      id: '12',
+      email: '',
       walletAddress: publicKey,
       kycVerified: false,
-      displayName: "",
-      phone: "",
+      displayName: '',
+      phone: '',
     });
-    expect(queryMock).toHaveBeenCalledWith(
-      expect.stringContaining("INSERT INTO user_profiles"),
-      [publicKey],
-    );
+    expect(queryMock).toHaveBeenCalledWith(expect.stringContaining('INSERT INTO user_profiles'), [
+      publicKey,
+    ]);
   });
 
-  it("updates allowed profile fields after validation", async () => {
+  it('updates allowed profile fields after validation', async () => {
     queryMock
       .mockResolvedValueOnce({
         rows: [profileRow({ metadata: { kycVerified: true } })],
         rowCount: 1,
-        command: "SELECT",
+        command: 'SELECT',
         oid: 0,
         fields: [],
       })
       .mockResolvedValueOnce({
         rows: [
           profileRow({
-            display_name: "Ada Lovelace",
-            email: "ada@example.com",
-            phone: "+15551234567",
+            display_name: 'Ada Lovelace',
+            email: 'ada@example.com',
+            phone: '+15551234567',
             metadata: {
               kycVerified: true,
-              locale: "en-US",
-              avatarUrl: "https://example.com/avatar.png",
+              locale: 'en-US',
+              avatarUrl: 'https://example.com/avatar.png',
             },
           }),
         ],
         rowCount: 1,
-        command: "SELECT",
+        command: 'SELECT',
         oid: 0,
         fields: [],
       });
 
     const response = await request(app)
-      .patch("/user/profile")
-      .set("Authorization", `Bearer ${bearerToken()}`)
+      .patch('/user/profile')
+      .set('Authorization', `Bearer ${bearerToken()}`)
       .send({
-        displayName: "Ada Lovelace",
-        email: "ada@example.com",
-        phone: "+15551234567",
-        locale: "en-US",
-        avatarUrl: "https://example.com/avatar.png",
+        displayName: 'Ada Lovelace',
+        email: 'ada@example.com',
+        phone: '+15551234567',
+        locale: 'en-US',
+        avatarUrl: 'https://example.com/avatar.png',
       });
 
     expect(response.status).toBe(200);
     expect(response.body).toMatchObject({
-      email: "ada@example.com",
+      email: 'ada@example.com',
       walletAddress: publicKey,
       kycVerified: true,
-      displayName: "Ada Lovelace",
-      phone: "+15551234567",
-      locale: "en-US",
-      avatarUrl: "https://example.com/avatar.png",
+      displayName: 'Ada Lovelace',
+      phone: '+15551234567',
+      locale: 'en-US',
+      avatarUrl: 'https://example.com/avatar.png',
     });
     expect(queryMock).toHaveBeenLastCalledWith(
-      expect.stringContaining("UPDATE user_profiles"),
-      expect.arrayContaining([
-        "Ada Lovelace",
-        "ada@example.com",
-        "+15551234567",
-        publicKey,
-      ]),
+      expect.stringContaining('UPDATE user_profiles'),
+      expect.arrayContaining(['Ada Lovelace', 'ada@example.com', '+15551234567', publicKey]),
     );
   });
 
-  it("rejects invalid patch payloads", async () => {
+  it('rejects invalid patch payloads', async () => {
     const response = await request(app)
-      .patch("/user/profile")
-      .set("Authorization", `Bearer ${bearerToken()}`)
-      .send({ email: "not-an-email" });
+      .patch('/user/profile')
+      .set('Authorization', `Bearer ${bearerToken()}`)
+      .send({ email: 'not-an-email' });
 
     expect(response.status).toBe(400);
-    expect(response.body.message).toBe("Validation failed");
+    expect(response.body.message).toBe('Validation failed');
     expect(queryMock).not.toHaveBeenCalled();
   });
 
-  it("rejects unauthenticated requests", async () => {
-    const response = await request(app).get("/user/profile");
+  it('rejects unauthenticated requests', async () => {
+    const response = await request(app).get('/user/profile');
 
     expect(response.status).toBe(401);
     expect(queryMock).not.toHaveBeenCalled();

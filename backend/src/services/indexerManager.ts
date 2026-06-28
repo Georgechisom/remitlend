@@ -1,6 +1,6 @@
-import { EventIndexer } from "./eventIndexer.js";
-import logger from "../utils/logger.js";
-import { getStellarRpcUrl } from "../config/stellar.js";
+import { EventIndexer } from './eventIndexer.js';
+import logger from '../utils/logger.js';
+import { getStellarRpcUrl } from '../config/stellar.js';
 
 let indexerInstance: EventIndexer | null = null;
 
@@ -9,7 +9,7 @@ let indexerInstance: EventIndexer | null = null;
  */
 export const startIndexer = (): void => {
   if (indexerInstance) {
-    logger.withContext().warn("Indexer already running");
+    logger.withContext().warn('Indexer already running');
     return;
   }
 
@@ -17,31 +17,26 @@ export const startIndexer = (): void => {
     LOAN_MANAGER_CONTRACT_ID: process.env.LOAN_MANAGER_CONTRACT_ID,
     LENDING_POOL_CONTRACT_ID: process.env.LENDING_POOL_CONTRACT_ID,
     REMITTANCE_NFT_CONTRACT_ID: process.env.REMITTANCE_NFT_CONTRACT_ID,
-    MULTISIG_GOVERNANCE_CONTRACT_ID:
-      process.env.MULTISIG_GOVERNANCE_CONTRACT_ID,
+    MULTISIG_GOVERNANCE_CONTRACT_ID: process.env.MULTISIG_GOVERNANCE_CONTRACT_ID,
   };
 
   for (const [envVar, value] of Object.entries(contractEnvMap)) {
     if (!value || value.trim().length === 0) {
-      logger.warn(
-        `${envVar} is not set — events for that contract will not be indexed`,
-      );
+      logger.warn(`${envVar} is not set — events for that contract will not be indexed`);
     }
   }
 
   const contractIds = Object.values(contractEnvMap).filter((id): id is string =>
     Boolean(id && id.trim().length > 0),
   );
-  const pollIntervalMs = parseInt(
-    process.env.INDEXER_POLL_INTERVAL_MS || "30000",
-  );
-  const batchSize = parseInt(process.env.INDEXER_BATCH_SIZE || "100");
+  const pollIntervalMs = parseInt(process.env.INDEXER_POLL_INTERVAL_MS || '30000');
+  const batchSize = parseInt(process.env.INDEXER_BATCH_SIZE || '100');
 
   if (contractIds.length === 0) {
     logger
       .withContext()
       .warn(
-        "No contract IDs set for indexer. Set LOAN_MANAGER_CONTRACT_ID, LENDING_POOL_CONTRACT_ID, REMITTANCE_NFT_CONTRACT_ID, or MULTISIG_GOVERNANCE_CONTRACT_ID.",
+        'No contract IDs set for indexer. Set LOAN_MANAGER_CONTRACT_ID, LENDING_POOL_CONTRACT_ID, REMITTANCE_NFT_CONTRACT_ID, or MULTISIG_GOVERNANCE_CONTRACT_ID.',
       );
     return;
   }
@@ -56,10 +51,10 @@ export const startIndexer = (): void => {
   });
 
   indexerInstance.start().catch((error) => {
-    logger.withContext().error("Failed to start indexer", { error });
+    logger.withContext().error('Failed to start indexer', { error });
   });
 
-  logger.withContext().info("Event indexer initialized", {
+  logger.withContext().info('Event indexer initialized', {
     rpcUrl,
     contractIds,
     pollIntervalMs,
@@ -74,7 +69,7 @@ export const stopIndexer = async (): Promise<void> => {
   if (indexerInstance) {
     await indexerInstance.stop();
     indexerInstance = null;
-    logger.withContext().info("Event indexer stopped");
+    logger.withContext().info('Event indexer stopped');
   }
 };
 

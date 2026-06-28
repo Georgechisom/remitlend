@@ -1,12 +1,12 @@
-import { Router } from "express";
-import { z } from "zod";
-import { requireApiKey } from "../middleware/auth.js";
-import { requireJwtAuth, requireRoles } from "../middleware/jwtAuth.js";
-import { strictRateLimiter } from "../middleware/rateLimiter.js";
-import { validateBody } from "../middleware/validation.js";
-import { asyncHandler } from "../utils/asyncHandler.js";
-import { auditLog } from "../middleware/auditLog.js";
-import { defaultChecker } from "../services/defaultChecker.js";
+import { Router } from 'express';
+import { z } from 'zod';
+import { requireApiKey } from '../middleware/auth.js';
+import { requireJwtAuth, requireRoles } from '../middleware/jwtAuth.js';
+import { strictRateLimiter } from '../middleware/rateLimiter.js';
+import { validateBody } from '../middleware/validation.js';
+import { asyncHandler } from '../utils/asyncHandler.js';
+import { auditLog } from '../middleware/auditLog.js';
+import { defaultChecker } from '../services/defaultChecker.js';
 import {
   createWebhookSubscription,
   deleteWebhookSubscription,
@@ -15,27 +15,27 @@ import {
   listWebhookSubscriptions,
   reprocessQuarantinedEvents,
   reindexLedgerRange,
-} from "../controllers/indexerController.js";
+} from '../controllers/indexerController.js';
 import {
   listLoanDisputes,
   resolveLoanDispute,
   getLoanDispute,
   rejectLoanDispute,
-} from "../controllers/adminDisputeController.js";
-import { getPendingGovernance } from "../controllers/adminGovernanceController.js";
-import { query } from "../db/connection.js";
+} from '../controllers/adminDisputeController.js';
+import { getPendingGovernance } from '../controllers/adminGovernanceController.js';
+import { query } from '../db/connection.js';
 
-import { buildRejectLoanTx } from "../controllers/loanController.js";
-import { listAuditLogs } from "../controllers/authController.js";
+import { buildRejectLoanTx } from '../controllers/loanController.js';
+import { listAuditLogs } from '../controllers/authController.js';
 
 const router = Router();
 
-router.get("/audit-logs", requireJwtAuth, requireRoles("admin"), listAuditLogs);
+router.get('/audit-logs', requireJwtAuth, requireRoles('admin'), listAuditLogs);
 
 router.post(
-  "/loans/:loanId/build-reject",
+  '/loans/:loanId/build-reject',
   requireJwtAuth,
-  requireRoles("admin"),
+  requireRoles('admin'),
   auditLog,
   buildRejectLoanTx,
 );
@@ -89,49 +89,34 @@ router.post(
  *       400:
  *         description: Validation error
  */
-router.get("/loan-disputes", requireApiKey("admin:disputes"), listLoanDisputes);
+router.get('/loan-disputes', requireApiKey('admin:disputes'), listLoanDisputes);
 router.post(
-  "/loan-disputes/:disputeId/resolve",
-  requireApiKey("admin:disputes"),
+  '/loan-disputes/:disputeId/resolve',
+  requireApiKey('admin:disputes'),
   resolveLoanDispute,
 );
 // New admin JWT-protected endpoints
-router.get(
-  "/disputes",
-  requireJwtAuth,
-  requireRoles("admin"),
-  listLoanDisputes,
-);
-router.get(
-  "/disputes/:disputeId",
-  requireJwtAuth,
-  requireRoles("admin"),
-  getLoanDispute,
-);
+router.get('/disputes', requireJwtAuth, requireRoles('admin'), listLoanDisputes);
+router.get('/disputes/:disputeId', requireJwtAuth, requireRoles('admin'), getLoanDispute);
 router.post(
-  "/disputes/:disputeId/resolve",
+  '/disputes/:disputeId/resolve',
   requireJwtAuth,
-  requireRoles("admin"),
+  requireRoles('admin'),
   resolveLoanDispute,
 );
 router.post(
-  "/disputes/:disputeId/reject",
+  '/disputes/:disputeId/reject',
   requireJwtAuth,
-  requireRoles("admin"),
+  requireRoles('admin'),
   rejectLoanDispute,
 );
 
-router.get(
-  "/governance/pending",
-  requireJwtAuth,
-  requireRoles("admin"),
-  getPendingGovernance,
-);
+router.get('/governance/pending', requireJwtAuth, requireRoles('admin'), getPendingGovernance);
 
 const checkDefaultsBodySchema = z.object({
   loanIds: z
     .array(z.number().int().positive())
-    .max(1000, "max 1000 loan IDs per request")
+    .max(1000, 'max 1000 loan IDs per request')
     .optional(),
 });
 
@@ -171,8 +156,8 @@ const checkDefaultsBodySchema = z.object({
  *         description: Validation error or too many IDs
  */
 router.post(
-  "/check-defaults",
-  requireApiKey("admin:loans"),
+  '/check-defaults',
+  requireApiKey('admin:loans'),
   strictRateLimiter,
   auditLog,
   validateBody(checkDefaultsBodySchema),
@@ -210,8 +195,8 @@ router.post(
  *               $ref: '#/components/schemas/ReindexResponse'
  */
 router.post(
-  "/reindex",
-  requireApiKey("admin:indexer"),
+  '/reindex',
+  requireApiKey('admin:indexer'),
   strictRateLimiter,
   auditLog,
   reindexLedgerRange,
@@ -241,11 +226,7 @@ router.post(
  *       200:
  *         description: Quarantined events retrieved
  */
-router.get(
-  "/quarantine-events",
-  requireApiKey("admin:indexer"),
-  listQuarantinedEvents,
-);
+router.get('/quarantine-events', requireApiKey('admin:indexer'), listQuarantinedEvents);
 
 /**
  * @swagger
@@ -274,8 +255,8 @@ router.get(
  *         description: Reprocess attempt completed
  */
 router.post(
-  "/quarantine-events/reprocess",
-  requireApiKey("admin:indexer"),
+  '/quarantine-events/reprocess',
+  requireApiKey('admin:indexer'),
   strictRateLimiter,
   auditLog,
   reprocessQuarantinedEvents,
@@ -314,8 +295,8 @@ router.post(
  *               $ref: '#/components/schemas/WebhookSubscriptionResponse'
  */
 router.post(
-  "/webhooks",
-  requireApiKey("admin:webhooks"),
+  '/webhooks',
+  requireApiKey('admin:webhooks'),
   strictRateLimiter,
   auditLog,
   createWebhookSubscription,
@@ -337,11 +318,7 @@ router.post(
  *             schema:
  *               $ref: '#/components/schemas/WebhookSubscriptionListResponse'
  */
-router.get(
-  "/webhooks",
-  requireApiKey("admin:webhooks"),
-  listWebhookSubscriptions,
-);
+router.get('/webhooks', requireApiKey('admin:webhooks'), listWebhookSubscriptions);
 
 /**
  * @swagger
@@ -366,8 +343,8 @@ router.get(
  *               $ref: '#/components/schemas/SuccessMessageResponse'
  */
 router.delete(
-  "/webhooks/:id",
-  requireApiKey("admin:webhooks"),
+  '/webhooks/:id',
+  requireApiKey('admin:webhooks'),
   strictRateLimiter,
   auditLog,
   deleteWebhookSubscription,
@@ -401,11 +378,7 @@ router.delete(
  *             schema:
  *               $ref: '#/components/schemas/WebhookDeliveriesResponse'
  */
-router.get(
-  "/webhooks/:id/deliveries",
-  requireApiKey("admin:webhooks"),
-  getWebhookDeliveries,
-);
+router.get('/webhooks/:id/deliveries', requireApiKey('admin:webhooks'), getWebhookDeliveries);
 
 /**
  * @swagger
@@ -420,8 +393,8 @@ router.get(
  *         description: Retry status information
  */
 router.get(
-  "/webhooks/retry-status",
-  requireApiKey("admin:webhooks"),
+  '/webhooks/retry-status',
+  requireApiKey('admin:webhooks'),
   asyncHandler(async (req, res) => {
     const result = await query(`
       SELECT 

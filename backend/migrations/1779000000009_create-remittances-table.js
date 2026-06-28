@@ -9,71 +9,71 @@ export const shorthands = undefined;
  * @returns {Promise<void> | void}
  */
 export const up = (pgm) => {
-  pgm.createTable("remittances", {
+  pgm.createTable('remittances', {
     id: {
-      type: "uuid",
+      type: 'uuid',
       primaryKey: true,
-      default: pgm.func("gen_random_uuid()"),
+      default: pgm.func('gen_random_uuid()'),
     },
     sender_id: {
-      type: "varchar(56)",
+      type: 'varchar(56)',
       notNull: true,
     },
     recipient_address: {
-      type: "varchar(56)",
+      type: 'varchar(56)',
       notNull: true,
     },
     amount: {
-      type: "numeric(20,7)",
+      type: 'numeric(20,7)',
       notNull: true,
     },
     from_currency: {
-      type: "varchar(10)",
+      type: 'varchar(10)',
       notNull: true,
     },
     to_currency: {
-      type: "varchar(10)",
+      type: 'varchar(10)',
       notNull: true,
     },
     memo: {
-      type: "varchar(28)",
+      type: 'varchar(28)',
       allowNull: true,
     },
     status: {
-      type: "varchar(20)",
+      type: 'varchar(20)',
       notNull: true,
-      default: "pending",
+      default: 'pending',
       check: "status IN ('pending', 'processing', 'completed', 'failed')",
     },
     transaction_hash: {
-      type: "varchar(64)",
+      type: 'varchar(64)',
       allowNull: true,
     },
     xdr: {
-      type: "text",
+      type: 'text',
       notNull: true,
     },
     error_message: {
-      type: "text",
+      type: 'text',
       allowNull: true,
     },
     created_at: {
-      type: "timestamp",
+      type: 'timestamp',
       notNull: true,
-      default: pgm.func("current_timestamp"),
+      default: pgm.func('current_timestamp'),
     },
     updated_at: {
-      type: "timestamp",
+      type: 'timestamp',
       notNull: true,
-      default: pgm.func("current_timestamp"),
+      default: pgm.func('current_timestamp'),
     },
   });
 
   // Indexes for common queries
-  pgm.createIndex("remittances", "sender_id");
-  pgm.createIndex("remittances", ["sender_id", "status"]);
-  pgm.createIndex("remittances", "created_at");
-  pgm.createIndex("remittances", "transaction_hash");
+  pgm.createIndex('remittances', 'sender_id');
+  pgm.createIndex('remittances', ['sender_id', 'status']);
+  pgm.createIndex('remittances', 'created_at');
+  pgm.createIndex('remittances', 'transaction_hash');
 };
 
 /**
@@ -82,5 +82,5 @@ export const up = (pgm) => {
  * @returns {Promise<void> | void}
  */
 export const down = (pgm) => {
-  pgm.dropTable("remittances");
+  pgm.dropTable('remittances');
 };

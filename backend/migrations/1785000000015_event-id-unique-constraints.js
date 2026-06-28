@@ -5,16 +5,16 @@ export const shorthands = undefined;
 
 const eventIdTables = [
   {
-    table: "loan_events",
-    indexName: "loan_events_event_id_unique_idx",
+    table: 'loan_events',
+    indexName: 'loan_events_event_id_unique_idx',
   },
   {
-    table: "indexed_events",
-    indexName: "indexed_events_event_id_unique_idx",
+    table: 'indexed_events',
+    indexName: 'indexed_events_event_id_unique_idx',
   },
   {
-    table: "quarantine_events",
-    indexName: "quarantine_events_event_id_unique_idx",
+    table: 'quarantine_events',
+    indexName: 'quarantine_events_event_id_unique_idx',
   },
 ];
 

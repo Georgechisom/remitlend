@@ -1,4 +1,4 @@
-import type { Request } from "express";
+import type { Request } from 'express';
 
 const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 100;
@@ -23,18 +23,18 @@ export interface CursorPaginationParams {
 
 export interface SortConfig {
   field: string;
-  direction: "ASC" | "DESC";
+  direction: 'ASC' | 'DESC';
 }
 
 export function parseQueryParams(req: Request): PaginationParams {
   const limit = parsePositiveInteger(req.query.limit, DEFAULT_LIMIT, MAX_LIMIT);
   const offset = parsePositiveInteger(req.query.offset, 0);
   const sort =
-    typeof req.query.sort === "string" && req.query.sort.trim().length > 0
+    typeof req.query.sort === 'string' && req.query.sort.trim().length > 0
       ? req.query.sort.trim()
       : null;
   const status =
-    typeof req.query.status === "string" && req.query.status.trim().length > 0
+    typeof req.query.status === 'string' && req.query.status.trim().length > 0
       ? req.query.status.trim()
       : null;
 
@@ -51,15 +51,15 @@ export function parseQueryParams(req: Request): PaginationParams {
 export function parseCursorQueryParams(req: Request): CursorPaginationParams {
   const limit = parsePositiveInteger(req.query.limit, DEFAULT_LIMIT, MAX_LIMIT);
   const cursor =
-    typeof req.query.cursor === "string" && req.query.cursor.trim().length > 0
+    typeof req.query.cursor === 'string' && req.query.cursor.trim().length > 0
       ? req.query.cursor.trim()
       : null;
   const sort =
-    typeof req.query.sort === "string" && req.query.sort.trim().length > 0
+    typeof req.query.sort === 'string' && req.query.sort.trim().length > 0
       ? req.query.sort.trim()
       : null;
   const status =
-    typeof req.query.status === "string" && req.query.status.trim().length > 0
+    typeof req.query.status === 'string' && req.query.status.trim().length > 0
       ? req.query.status.trim()
       : null;
 
@@ -77,20 +77,20 @@ export function getSortConfig(
   sort: string | null,
   allowedFields: readonly string[],
   defaultField: string,
-  defaultDirection: "ASC" | "DESC",
+  defaultDirection: 'ASC' | 'DESC',
 ): SortConfig {
   if (!sort) {
     return { field: defaultField, direction: defaultDirection };
   }
 
-  const requestedField = sort.replace(/^-/, "");
+  const requestedField = sort.replace(/^-/, '');
   if (!allowedFields.includes(requestedField)) {
     return { field: defaultField, direction: defaultDirection };
   }
 
   return {
     field: requestedField,
-    direction: sort.startsWith("-") ? "DESC" : "ASC",
+    direction: sort.startsWith('-') ? 'DESC' : 'ASC',
   };
 }
 
@@ -137,12 +137,8 @@ export function createCursorPaginatedResponse<T>(
   };
 }
 
-function parsePositiveInteger(
-  value: unknown,
-  fallback: number,
-  max?: number,
-): number {
-  if (typeof value !== "string") {
+function parsePositiveInteger(value: unknown, fallback: number, max?: number): number {
+  if (typeof value !== 'string') {
     return fallback;
   }
 
@@ -159,11 +155,11 @@ function parsePositiveInteger(
 }
 
 function parseDateRange(value: unknown): { start: Date; end: Date } | null {
-  if (typeof value !== "string") {
+  if (typeof value !== 'string') {
     return null;
   }
 
-  const [startRaw, endRaw] = value.split(",").map((part) => part?.trim());
+  const [startRaw, endRaw] = value.split(',').map((part) => part?.trim());
   if (!startRaw || !endRaw) {
     return null;
   }
@@ -179,11 +175,11 @@ function parseDateRange(value: unknown): { start: Date; end: Date } | null {
 }
 
 function parseAmountRange(value: unknown): { min: number; max: number } | null {
-  if (typeof value !== "string") {
+  if (typeof value !== 'string') {
     return null;
   }
 
-  const [minRaw, maxRaw] = value.split(",").map((part) => part?.trim());
+  const [minRaw, maxRaw] = value.split(',').map((part) => part?.trim());
   if (!minRaw || !maxRaw) {
     return null;
   }

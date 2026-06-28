@@ -1,4 +1,6 @@
-# Event Indexer Service
+# Services
+
+## Event Indexer Service
 
 ## Overview
 
@@ -355,13 +357,13 @@ For high-volume contracts:
 ### Integration Testing
 
 ```typescript
-import { EventIndexer } from "./eventIndexer";
+import { EventIndexer } from './eventIndexer';
 
-describe("EventIndexer", () => {
-  it("should index loan events", async () => {
+describe('EventIndexer', () => {
+  it('should index loan events', async () => {
     const indexer = new EventIndexer({
-      rpcUrl: "https://soroban-testnet.stellar.org",
-      contractId: "CTEST...",
+      rpcUrl: 'https://soroban-testnet.stellar.org',
+      contractId: 'CTEST...',
       pollIntervalMs: 5000,
       batchSize: 10,
     });
@@ -392,3 +394,41 @@ describe("EventIndexer", () => {
 - [Stellar RPC getEvents Documentation](https://developers.stellar.org/docs/data/rpc/api-reference/methods/getEvents)
 - [Soroban Events Guide](https://developers.stellar.org/docs/smart-contracts/guides/events/ingest)
 - [Stellar SDK Documentation](https://stellar.github.io/js-stellar-sdk/)
+
+---
+
+## Background Jobs
+
+The backend runs several scheduled background jobs to maintain system integrity and sync with on-chain state. All jobs start automatically when the API process launches.
+
+### Active Jobs
+
+| Job                         | Schedule         | Env Var                                                           | Default           | Description                                                                         | Source                                   |
+| --------------------------- | ---------------- | ----------------------------------------------------------------- | ----------------- | ----------------------------------------------------------------------------------- | ---------------------------------------- |
+| **Event Indexer**           | Continuous poll  | `INDEXER_POLL_INTERVAL_MS`                                        | 30000ms (30s)     | Syncs on-chain events to PostgreSQL for fast queries                                | `services/eventIndexer.ts`               |
+| **Default Checker**         | Interval         | `DEFAULT_CHECK_INTERVAL_MS`                                       | 1800000ms (30m)   | Calls on-chain `check_defaults` batch for overdue loans                             | `services/defaultChecker.ts`             |
+| **Webhook Retry Scheduler** | Fixed 60s        | —                                                                 | 60s               | Retries failed webhook deliveries using exponential backoff                         | `services/webhookRetryScheduler.ts`      |
+| **Score Reconciliation**    | Interval         | `SCORE_RECONCILIATION_INTERVAL_MS`                                | 3600000ms (1h)    | Compares database scores vs on-chain scores and optionally auto-corrects divergence | `services/scoreReconciliationService.ts` |
+| **Notification Cleanup**    | Fixed 24h        | `NOTIFICATION_RETENTION_DAYS`, `READ_NOTIFICATION_RETENTION_DAYS` | 24h               | Deletes old read/unread notifications per retention policy                          | `services/notificationService.ts`        |
+| **Loan Due Check**          | Cron `0 * * * *` | —                                                                 | Top of every hour | Notifies borrowers about upcoming loan repayments                                   | `cron/loanCheckCron.ts`                  |
+
+### Jobs Defined But Not Wired
+
+These services exist in the codebase but are **not currently started** in `index.ts`:
+
+- **`scoreDecayJob`** (`cron/scoreDecayJob.ts`) — Periodic credit score decay logic (not scheduled)
+- **`webhookRetryProcessor`** (`services/webhookRetryProcessor.ts`) — Alternative webhook retry implementation (superseded by `webhookRetryScheduler`)
+
+### Related Documentation
+
+- [Indexer Recovery Runbook](../../docs/runbooks/indexer-recovery.md) — Troubleshooting indexer lag and manual re-sync
+- [Webhooks Guide](../../docs/webhooks.md) — Webhook retry behavior and signature verification
+
+### Monitoring
+
+Key metrics to track for job health:
+
+- **Indexer lag**: `current_ledger - last_indexed_ledger` (surfaced in `/health/deep`)
+- **Default check success rate**: Logged in `jobMetricsService`
+- **Webhook retry queue depth**: Query `webhook_deliveries` where `delivered_at IS NULL`
+- **Score divergence count**: Logged after each reconciliation run

@@ -1,6 +1,6 @@
-import { Networks, rpc } from "@stellar/stellar-sdk";
+import { Networks, rpc } from '@stellar/stellar-sdk';
 
-export type StellarNetwork = "testnet" | "mainnet";
+export type StellarNetwork = 'testnet' | 'mainnet';
 
 interface StellarNetworkDefaults {
   rpcUrl: string;
@@ -9,11 +9,11 @@ interface StellarNetworkDefaults {
 
 const STELLAR_DEFAULTS: Record<StellarNetwork, StellarNetworkDefaults> = {
   testnet: {
-    rpcUrl: "https://soroban-testnet.stellar.org",
+    rpcUrl: 'https://soroban-testnet.stellar.org',
     passphrase: Networks.TESTNET,
   },
   mainnet: {
-    rpcUrl: "https://soroban-mainnet.stellar.org",
+    rpcUrl: 'https://soroban-mainnet.stellar.org',
     passphrase: Networks.PUBLIC,
   },
 };
@@ -25,14 +25,12 @@ export interface StellarConfig {
 }
 
 function parseNetwork(value: string | undefined): StellarNetwork {
-  const normalized = (value ?? "testnet").trim().toLowerCase();
-  if (normalized === "testnet" || normalized === "mainnet") {
+  const normalized = (value ?? 'testnet').trim().toLowerCase();
+  if (normalized === 'testnet' || normalized === 'mainnet') {
     return normalized;
   }
 
-  throw new Error(
-    `Invalid STELLAR_NETWORK "${value}". Expected "testnet" or "mainnet".`,
-  );
+  throw new Error(`Invalid STELLAR_NETWORK "${value}". Expected "testnet" or "mainnet".`);
 }
 
 function ensureValidRpcUrl(value: string): void {
@@ -40,24 +38,17 @@ function ensureValidRpcUrl(value: string): void {
   try {
     parsed = new URL(value);
   } catch {
-    throw new Error(
-      `Invalid STELLAR_RPC_URL "${value}". Expected a valid http(s) URL.`,
-    );
+    throw new Error(`Invalid STELLAR_RPC_URL "${value}". Expected a valid http(s) URL.`);
   }
 
-  if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
-    throw new Error(
-      `Invalid STELLAR_RPC_URL "${value}". Only http:// or https:// is supported.`,
-    );
+  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+    throw new Error(`Invalid STELLAR_RPC_URL "${value}". Only http:// or https:// is supported.`);
   }
 }
 
-function ensureRpcUrlMatchesNetwork(
-  network: StellarNetwork,
-  rpcUrl: string,
-): void {
+function ensureRpcUrlMatchesNetwork(network: StellarNetwork, rpcUrl: string): void {
   const lower = rpcUrl.toLowerCase();
-  const oppositeMarker = network === "testnet" ? "mainnet" : "testnet";
+  const oppositeMarker = network === 'testnet' ? 'mainnet' : 'testnet';
 
   if (lower.includes(oppositeMarker)) {
     throw new Error(
@@ -66,10 +57,7 @@ function ensureRpcUrlMatchesNetwork(
   }
 }
 
-function ensurePassphraseMatchesNetwork(
-  network: StellarNetwork,
-  passphrase: string,
-): void {
+function ensurePassphraseMatchesNetwork(network: StellarNetwork, passphrase: string): void {
   const expected = STELLAR_DEFAULTS[network].passphrase;
   if (passphrase !== expected) {
     throw new Error(
@@ -84,16 +72,14 @@ export function getStellarConfig(): StellarConfig {
 
   const rpcUrl = (process.env.STELLAR_RPC_URL ?? defaults.rpcUrl).trim();
   if (!rpcUrl) {
-    throw new Error("STELLAR_RPC_URL cannot be empty.");
+    throw new Error('STELLAR_RPC_URL cannot be empty.');
   }
   ensureValidRpcUrl(rpcUrl);
   ensureRpcUrlMatchesNetwork(network, rpcUrl);
 
-  const networkPassphrase = (
-    process.env.STELLAR_NETWORK_PASSPHRASE ?? defaults.passphrase
-  ).trim();
+  const networkPassphrase = (process.env.STELLAR_NETWORK_PASSPHRASE ?? defaults.passphrase).trim();
   if (!networkPassphrase) {
-    throw new Error("STELLAR_NETWORK_PASSPHRASE cannot be empty.");
+    throw new Error('STELLAR_NETWORK_PASSPHRASE cannot be empty.');
   }
   ensurePassphraseMatchesNetwork(network, networkPassphrase);
 
@@ -114,6 +100,6 @@ export function getStellarNetworkPassphrase(): string {
 
 export function createSorobanRpcServer(): rpc.Server {
   const rpcUrl = getStellarRpcUrl();
-  const allowHttp = rpcUrl.startsWith("http://");
+  const allowHttp = rpcUrl.startsWith('http://');
   return new rpc.Server(rpcUrl, { allowHttp });
 }

@@ -1,7 +1,7 @@
-import { createClient, type RedisClientType } from "redis";
-import logger from "../utils/logger.js";
+import { createClient, type RedisClientType } from 'redis';
+import logger from '../utils/logger.js';
 
-const REDIS_URL = process.env.REDIS_URL || "redis://localhost:6379";
+const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 
 interface RateLimitConfig {
   maxRequests: number;
@@ -30,13 +30,13 @@ class RateLimitService {
 
   constructor() {
     this.client = createClient({ url: REDIS_URL });
-    this.client.on("error", (error) => {
+    this.client.on('error', (error) => {
       this.isConnected = false;
-      if (process.env.NODE_ENV !== "test") {
-        logger.withContext().error("Rate limit Redis client error", { error });
+      if (process.env.NODE_ENV !== 'test') {
+        logger.withContext().error('Rate limit Redis client error', { error });
       }
     });
-    this.client.on("connect", () => {
+    this.client.on('connect', () => {
       this.isConnected = true;
     });
   }
@@ -85,9 +85,7 @@ class RateLimitService {
         currentCount,
       };
     } catch (error) {
-      logger
-        .withContext()
-        .error("Rate limit check failed", { identifier, error });
+      logger.withContext().error('Rate limit check failed', { identifier, error });
 
       // Fail open: allow the request if Redis is unavailable
       // This prevents the entire service from failing due to rate limiting issues
@@ -111,11 +109,9 @@ class RateLimitService {
     try {
       await this.ensureConnected();
       await this.client.del(key);
-      logger.withContext().info("Rate limit reset", { identifier });
+      logger.withContext().info('Rate limit reset', { identifier });
     } catch (error) {
-      logger
-        .withContext()
-        .error("Failed to reset rate limit", { identifier, error });
+      logger.withContext().error('Failed to reset rate limit', { identifier, error });
     }
   }
 
@@ -129,7 +125,7 @@ class RateLimitService {
   async getRateLimitStatus(
     identifier: string,
     config: RateLimitConfig = RateLimitService.DEFAULT_CONFIG,
-  ): Promise<Omit<RateLimitResult, "currentCount">> {
+  ): Promise<Omit<RateLimitResult, 'currentCount'>> {
     const key = `rate_limit:${identifier}`;
 
     try {
@@ -168,9 +164,7 @@ class RateLimitService {
         resetTime,
       };
     } catch (error) {
-      logger
-        .withContext()
-        .error("Failed to get rate limit status", { identifier, error });
+      logger.withContext().error('Failed to get rate limit status', { identifier, error });
 
       // Return conservative values on error
       return {

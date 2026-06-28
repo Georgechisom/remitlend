@@ -1,5 +1,5 @@
-import { query, getClient } from "../db/connection.js";
-import type { PoolClient } from "pg";
+import { query, getClient } from '../db/connection.js';
+import type { PoolClient } from 'pg';
 
 export interface UserProfile {
   id: number;
@@ -36,17 +36,12 @@ export class UserProfileService {
   }
 
   static async findByPublicKey(publicKey: string): Promise<UserProfile | null> {
-    const result = await query(
-      `SELECT * FROM user_profiles WHERE public_key = $1`,
-      [publicKey],
-    );
+    const result = await query(`SELECT * FROM user_profiles WHERE public_key = $1`, [publicKey]);
     return (result.rows[0] as UserProfile) || null;
   }
 
   static async findById(id: number): Promise<UserProfile | null> {
-    const result = await query(`SELECT * FROM user_profiles WHERE id = $1`, [
-      id,
-    ]);
+    const result = await query(`SELECT * FROM user_profiles WHERE id = $1`, [id]);
     return (result.rows[0] as UserProfile) || null;
   }
 
@@ -79,17 +74,14 @@ export class UserProfileService {
     values.push(publicKey);
 
     const result = await query(
-      `UPDATE user_profiles SET ${updates.join(", ")} WHERE public_key = $${paramIndex} RETURNING *`,
+      `UPDATE user_profiles SET ${updates.join(', ')} WHERE public_key = $${paramIndex} RETURNING *`,
       values,
     );
     return (result.rows[0] as UserProfile) || null;
   }
 
   static async delete(publicKey: string): Promise<boolean> {
-    const result = await query(
-      `DELETE FROM user_profiles WHERE public_key = $1`,
-      [publicKey],
-    );
+    const result = await query(`DELETE FROM user_profiles WHERE public_key = $1`, [publicKey]);
     return (result.rowCount ?? 0) > 0;
   }
 
@@ -178,18 +170,11 @@ export class LoanHistoryService {
   }
 
   static async findByLoanId(loanId: number): Promise<LoanHistory | null> {
-    const result = await query(
-      `SELECT * FROM loan_history WHERE loan_id = $1`,
-      [loanId],
-    );
+    const result = await query(`SELECT * FROM loan_history WHERE loan_id = $1`, [loanId]);
     return (result.rows[0] as LoanHistory) || null;
   }
 
-  static async findByBorrower(
-    publicKey: string,
-    limit = 50,
-    offset = 0,
-  ): Promise<LoanHistory[]> {
+  static async findByBorrower(publicKey: string, limit = 50, offset = 0): Promise<LoanHistory[]> {
     const result = await query(
       `SELECT * FROM loan_history 
        WHERE borrower_public_key = $1 
@@ -200,11 +185,7 @@ export class LoanHistoryService {
     return result.rows as LoanHistory[];
   }
 
-  static async findByLender(
-    publicKey: string,
-    limit = 50,
-    offset = 0,
-  ): Promise<LoanHistory[]> {
+  static async findByLender(publicKey: string, limit = 50, offset = 0): Promise<LoanHistory[]> {
     const result = await query(
       `SELECT * FROM loan_history 
        WHERE lender_public_key = $1 
@@ -215,10 +196,7 @@ export class LoanHistoryService {
     return result.rows as LoanHistory[];
   }
 
-  static async update(
-    loanId: number,
-    input: UpdateLoanHistoryInput,
-  ): Promise<LoanHistory | null> {
+  static async update(loanId: number, input: UpdateLoanHistoryInput): Promise<LoanHistory | null> {
     const updates: string[] = [];
     const values: unknown[] = [];
     let paramIndex = 1;
@@ -264,17 +242,13 @@ export class LoanHistoryService {
     values.push(loanId);
 
     const result = await query(
-      `UPDATE loan_history SET ${updates.join(", ")} WHERE loan_id = $${paramIndex} RETURNING *`,
+      `UPDATE loan_history SET ${updates.join(', ')} WHERE loan_id = $${paramIndex} RETURNING *`,
       values,
     );
     return (result.rows[0] as LoanHistory) || null;
   }
 
-  static async findByStatus(
-    status: string,
-    limit = 50,
-    offset = 0,
-  ): Promise<LoanHistory[]> {
+  static async findByStatus(status: string, limit = 50, offset = 0): Promise<LoanHistory[]> {
     const result = await query(
       `SELECT * FROM loan_history 
        WHERE status = $1 
@@ -335,17 +309,12 @@ export class IndexedEventsService {
   }
 
   static async findById(id: number): Promise<IndexedEvent | null> {
-    const result = await query(`SELECT * FROM indexed_events WHERE id = $1`, [
-      id,
-    ]);
+    const result = await query(`SELECT * FROM indexed_events WHERE id = $1`, [id]);
     return (result.rows[0] as IndexedEvent) || null;
   }
 
   static async findByEventId(eventId: string): Promise<IndexedEvent | null> {
-    const result = await query(
-      `SELECT * FROM indexed_events WHERE event_id = $1`,
-      [eventId],
-    );
+    const result = await query(`SELECT * FROM indexed_events WHERE event_id = $1`, [eventId]);
     return (result.rows[0] as IndexedEvent) || null;
   }
 
@@ -378,11 +347,7 @@ export class IndexedEventsService {
     return result.rows as IndexedEvent[];
   }
 
-  static async findByContract(
-    contractId: string,
-    limit = 50,
-    offset = 0,
-  ): Promise<IndexedEvent[]> {
+  static async findByContract(contractId: string, limit = 50, offset = 0): Promise<IndexedEvent[]> {
     const result = await query(
       `SELECT * FROM indexed_events 
        WHERE contract_id = $1 
@@ -393,30 +358,25 @@ export class IndexedEventsService {
     return result.rows as IndexedEvent[];
   }
 
-  static async deleteByLedgerRange(
-    startLedger: number,
-    endLedger: number,
-  ): Promise<number> {
-    const result = await query(
-      `DELETE FROM indexed_events WHERE ledger >= $1 AND ledger <= $2`,
-      [startLedger, endLedger],
-    );
+  static async deleteByLedgerRange(startLedger: number, endLedger: number): Promise<number> {
+    const result = await query(`DELETE FROM indexed_events WHERE ledger >= $1 AND ledger <= $2`, [
+      startLedger,
+      endLedger,
+    ]);
     return result.rowCount ?? 0;
   }
 }
 
 export class DatabaseService {
-  static async withTransaction<T>(
-    callback: (client: PoolClient) => Promise<T>,
-  ): Promise<T> {
+  static async withTransaction<T>(callback: (client: PoolClient) => Promise<T>): Promise<T> {
     const client = await getClient();
     try {
-      await client.query("BEGIN");
+      await client.query('BEGIN');
       const result = await callback(client);
-      await client.query("COMMIT");
+      await client.query('COMMIT');
       return result;
     } catch (error) {
-      await client.query("ROLLBACK");
+      await client.query('ROLLBACK');
       throw error;
     } finally {
       client.release();
@@ -425,7 +385,7 @@ export class DatabaseService {
 
   static async healthCheck(): Promise<boolean> {
     try {
-      const result = await query("SELECT 1");
+      const result = await query('SELECT 1');
       return result.rowCount === 1;
     } catch {
       return false;

@@ -1,14 +1,7 @@
-import {
-  jest,
-  describe,
-  it,
-  expect,
-  beforeEach,
-  afterAll,
-} from "@jest/globals";
-import request from "supertest";
-import { Keypair } from "@stellar/stellar-sdk";
-import { generateJwtToken } from "../services/authService.js";
+import { jest, describe, it, expect, beforeEach, afterAll } from '@jest/globals';
+import request from 'supertest';
+import { Keypair } from '@stellar/stellar-sdk';
+import { generateJwtToken } from '../services/authService.js';
 
 /**
  * Tests for status + date-range filters on GET /api/loans/borrower/:borrower
@@ -21,8 +14,8 @@ import { generateJwtToken } from "../services/authService.js";
  */
 
 const TEST_BORROWER = Keypair.random().publicKey();
-process.env.JWT_SECRET = "test-jwt-secret-min-32-chars-long!!";
-process.env.INTERNAL_API_KEY = "test-key";
+process.env.JWT_SECRET = 'test-jwt-secret-min-32-chars-long!!';
+process.env.INTERNAL_API_KEY = 'test-key';
 
 type MockQueryResult = { rows: unknown[]; rowCount?: number };
 const mockQuery: jest.MockedFunction<
@@ -32,31 +25,27 @@ const mockQuery: jest.MockedFunction<
 const mockRelease = jest.fn();
 const mockClient = { query: mockQuery, release: mockRelease };
 
-jest.unstable_mockModule("../db/connection.js", () => ({
+jest.unstable_mockModule('../db/connection.js', () => ({
   default: { query: mockQuery },
   query: mockQuery,
-  getClient: jest
-    .fn<() => Promise<typeof mockClient>>()
-    .mockResolvedValue(mockClient),
+  getClient: jest.fn<() => Promise<typeof mockClient>>().mockResolvedValue(mockClient),
   closePool: jest.fn(),
   withTransaction: jest.fn(),
 }));
 
-jest.unstable_mockModule("../services/cacheService.js", () => ({
+jest.unstable_mockModule('../services/cacheService.js', () => ({
   cacheService: {
     get: jest.fn<() => Promise<null>>().mockResolvedValue(null),
     set: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
     delete: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
-    ping: jest.fn<() => Promise<string>>().mockResolvedValue("ok"),
-    invalidatePattern: jest
-      .fn<() => Promise<void>>()
-      .mockResolvedValue(undefined),
+    ping: jest.fn<() => Promise<string>>().mockResolvedValue('ok'),
+    invalidatePattern: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
   },
 }));
 
-jest.unstable_mockModule("../services/sorobanService.js", () => ({
+jest.unstable_mockModule('../services/sorobanService.js', () => ({
   sorobanService: {
-    ping: jest.fn<() => Promise<string>>().mockResolvedValue("ok"),
+    ping: jest.fn<() => Promise<string>>().mockResolvedValue('ok'),
     healthCheck: jest
       .fn<() => Promise<{ connected: boolean; latestLedger: number }>>()
       .mockResolvedValue({
@@ -66,7 +55,7 @@ jest.unstable_mockModule("../services/sorobanService.js", () => ({
   },
 }));
 
-const { default: app } = await import("../app.js");
+const { default: app } = await import('../app.js');
 
 const bearer = (publicKey: string) => ({
   Authorization: `Bearer ${generateJwtToken(publicKey)}`,
@@ -77,22 +66,22 @@ function makeLoanRow(overrides: Record<string, unknown> = {}) {
   return {
     loan_id: 1,
     address: TEST_BORROWER,
-    principal: "1000",
-    approved_at: "2024-01-15T00:00:00.000Z",
-    approved_ledger: "500",
-    rate_bps: "1200",
-    term_ledgers: "17280",
-    total_repaid: "0",
+    principal: '1000',
+    approved_at: '2024-01-15T00:00:00.000Z',
+    approved_ledger: '500',
+    rate_bps: '1200',
+    term_ledgers: '17280',
+    total_repaid: '0',
     is_defaulted: 0,
-    effective_rate_bps: "1200",
-    effective_term_ledgers: "17280",
-    effective_approved_ledger: "500",
-    accrued_interest: "5",
-    total_owed: "1005",
-    next_payment_deadline: "2024-02-15T00:00:00.000Z",
-    status: "active",
+    effective_rate_bps: '1200',
+    effective_term_ledgers: '17280',
+    effective_approved_ledger: '500',
+    accrued_interest: '5',
+    total_owed: '1005',
+    next_payment_deadline: '2024-02-15T00:00:00.000Z',
+    status: 'active',
     borrower: TEST_BORROWER,
-    full_count: "1",
+    full_count: '1',
     ...overrides,
   };
 }
@@ -101,7 +90,7 @@ beforeEach(() => {
   mockQuery.mockReset();
   // Default: indexer_state query returns ledger 1000
   mockQuery.mockImplementation(async (sql: unknown) => {
-    if (typeof sql === "string" && sql.includes("indexer_state")) {
+    if (typeof sql === 'string' && sql.includes('indexer_state')) {
       return { rows: [{ last_indexed_ledger: 1000 }], rowCount: 1 };
     }
     return { rows: [], rowCount: 0 };
@@ -113,13 +102,13 @@ afterAll(() => {
   delete process.env.INTERNAL_API_KEY;
 });
 
-describe("GET /api/loans/borrower/:borrower – filters", () => {
-  describe("status filter", () => {
-    it("returns active loans when status=active", async () => {
-      const activeRow = makeLoanRow({ status: "active" });
+describe('GET /api/loans/borrower/:borrower – filters', () => {
+  describe('status filter', () => {
+    it('returns active loans when status=active', async () => {
+      const activeRow = makeLoanRow({ status: 'active' });
 
       mockQuery.mockImplementation(async (sql: unknown) => {
-        if (typeof sql === "string" && sql.includes("indexer_state")) {
+        if (typeof sql === 'string' && sql.includes('indexer_state')) {
           return { rows: [{ last_indexed_ledger: 1000 }], rowCount: 1 };
         }
         return { rows: [activeRow], rowCount: 1 };
@@ -132,10 +121,10 @@ describe("GET /api/loans/borrower/:borrower – filters", () => {
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
       expect(res.body.data.loans).toHaveLength(1);
-      expect(res.body.data.loans[0].status).toBe("active");
+      expect(res.body.data.loans[0].status).toBe('active');
     });
 
-    it("returns 400 for an invalid status value", async () => {
+    it('returns 400 for an invalid status value', async () => {
       const res = await request(app)
         .get(`/api/loans/borrower/${TEST_BORROWER}?status=invalid_status`)
         .set(bearer(TEST_BORROWER));
@@ -143,9 +132,9 @@ describe("GET /api/loans/borrower/:borrower – filters", () => {
       expect(res.status).toBe(400);
     });
 
-    it("returns empty array when status=repaid and no repaid loans exist", async () => {
+    it('returns empty array when status=repaid and no repaid loans exist', async () => {
       mockQuery.mockImplementation(async (sql: unknown) => {
-        if (typeof sql === "string" && sql.includes("indexer_state")) {
+        if (typeof sql === 'string' && sql.includes('indexer_state')) {
           return { rows: [{ last_indexed_ledger: 1000 }], rowCount: 1 };
         }
         return { rows: [], rowCount: 0 };
@@ -160,28 +149,26 @@ describe("GET /api/loans/borrower/:borrower – filters", () => {
     });
   });
 
-  describe("date-range filter (from/to)", () => {
-    it("forwards from/to params and returns matching loans", async () => {
-      const row = makeLoanRow({ approved_at: "2024-03-01T00:00:00.000Z" });
+  describe('date-range filter (from/to)', () => {
+    it('forwards from/to params and returns matching loans', async () => {
+      const row = makeLoanRow({ approved_at: '2024-03-01T00:00:00.000Z' });
 
       mockQuery.mockImplementation(async (sql: unknown) => {
-        if (typeof sql === "string" && sql.includes("indexer_state")) {
+        if (typeof sql === 'string' && sql.includes('indexer_state')) {
           return { rows: [{ last_indexed_ledger: 1000 }], rowCount: 1 };
         }
         return { rows: [row], rowCount: 1 };
       });
 
       const res = await request(app)
-        .get(
-          `/api/loans/borrower/${TEST_BORROWER}?from=2024-01-01&to=2024-12-31`,
-        )
+        .get(`/api/loans/borrower/${TEST_BORROWER}?from=2024-01-01&to=2024-12-31`)
         .set(bearer(TEST_BORROWER));
 
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
     });
 
-    it("returns 400 for an invalid date in from param", async () => {
+    it('returns 400 for an invalid date in from param', async () => {
       const res = await request(app)
         .get(`/api/loans/borrower/${TEST_BORROWER}?from=not-a-date`)
         .set(bearer(TEST_BORROWER));
@@ -189,18 +176,16 @@ describe("GET /api/loans/borrower/:borrower – filters", () => {
       expect(res.status).toBe(400);
     });
 
-    it("returns empty array when date range matches no loans", async () => {
+    it('returns empty array when date range matches no loans', async () => {
       mockQuery.mockImplementation(async (sql: unknown) => {
-        if (typeof sql === "string" && sql.includes("indexer_state")) {
+        if (typeof sql === 'string' && sql.includes('indexer_state')) {
           return { rows: [{ last_indexed_ledger: 1000 }], rowCount: 1 };
         }
         return { rows: [], rowCount: 0 };
       });
 
       const res = await request(app)
-        .get(
-          `/api/loans/borrower/${TEST_BORROWER}?from=2020-01-01&to=2020-12-31`,
-        )
+        .get(`/api/loans/borrower/${TEST_BORROWER}?from=2020-01-01&to=2020-12-31`)
         .set(bearer(TEST_BORROWER));
 
       expect(res.status).toBe(200);
@@ -208,24 +193,22 @@ describe("GET /api/loans/borrower/:borrower – filters", () => {
     });
   });
 
-  describe("combined status + date-range filter", () => {
-    it("returns loans matching both status and date range", async () => {
+  describe('combined status + date-range filter', () => {
+    it('returns loans matching both status and date range', async () => {
       const row = makeLoanRow({
-        status: "repaid",
-        approved_at: "2024-06-01T00:00:00.000Z",
+        status: 'repaid',
+        approved_at: '2024-06-01T00:00:00.000Z',
       });
 
       mockQuery.mockImplementation(async (sql: unknown) => {
-        if (typeof sql === "string" && sql.includes("indexer_state")) {
+        if (typeof sql === 'string' && sql.includes('indexer_state')) {
           return { rows: [{ last_indexed_ledger: 1000 }], rowCount: 1 };
         }
         return { rows: [row], rowCount: 1 };
       });
 
       const res = await request(app)
-        .get(
-          `/api/loans/borrower/${TEST_BORROWER}?status=repaid&from=2024-01-01&to=2024-12-31`,
-        )
+        .get(`/api/loans/borrower/${TEST_BORROWER}?status=repaid&from=2024-01-01&to=2024-12-31`)
         .set(bearer(TEST_BORROWER));
 
       expect(res.status).toBe(200);
@@ -233,14 +216,14 @@ describe("GET /api/loans/borrower/:borrower – filters", () => {
     });
   });
 
-  describe("pagination with filters", () => {
-    it("accepts valid limit parameter", async () => {
+  describe('pagination with filters', () => {
+    it('accepts valid limit parameter', async () => {
       const rows = Array.from({ length: 5 }, (_, i) =>
-        makeLoanRow({ loan_id: i + 1, full_count: "5" }),
+        makeLoanRow({ loan_id: i + 1, full_count: '5' }),
       );
 
       mockQuery.mockImplementation(async (sql: unknown) => {
-        if (typeof sql === "string" && sql.includes("indexer_state")) {
+        if (typeof sql === 'string' && sql.includes('indexer_state')) {
           return { rows: [{ last_indexed_ledger: 1000 }], rowCount: 1 };
         }
         return { rows: rows.slice(0, 3), rowCount: 3 };
@@ -253,7 +236,7 @@ describe("GET /api/loans/borrower/:borrower – filters", () => {
       expect(res.status).toBe(200);
     });
 
-    it("returns 400 when limit exceeds maximum", async () => {
+    it('returns 400 when limit exceeds maximum', async () => {
       const res = await request(app)
         .get(`/api/loans/borrower/${TEST_BORROWER}?limit=999`)
         .set(bearer(TEST_BORROWER));

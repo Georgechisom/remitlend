@@ -5,7 +5,7 @@
  */
 
 const STELLAR_EXPLORER_URL =
-  process.env.STELLAR_EXPLORER_URL ?? "https://stellar.expert/explorer/testnet";
+  process.env.STELLAR_EXPLORER_URL ?? 'https://stellar.expert/explorer/testnet';
 
 /**
  * Get Stellar Explorer URL for a transaction hash
@@ -29,9 +29,9 @@ export function getAccountUrl(address: string): string {
  * @returns True if valid, false otherwise
  */
 export function isValidStellarAddress(address: unknown): address is string {
-  if (!address || typeof address !== "string") return false;
+  if (!address || typeof address !== 'string') return false;
   // Stellar public keys are exactly 56 characters, start with 'G'
-  if (address.length !== 56 || !address.startsWith("G")) return false;
+  if (address.length !== 56 || !address.startsWith('G')) return false;
   // Check if it's valid base32 (only contains A-Z and 2-7)
   return /^G[A-Z2-7]{55}$/.test(address);
 }
@@ -41,7 +41,7 @@ export function isValidStellarAddress(address: unknown): address is string {
  */
 export function assertValidStellarAddress(
   address: unknown,
-  message: string = "Invalid Stellar address",
+  message: string = 'Invalid Stellar address',
 ): asserts address is string {
   if (!isValidStellarAddress(address)) {
     throw new Error(message);

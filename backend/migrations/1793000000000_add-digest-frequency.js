@@ -8,13 +8,13 @@ export const shorthands = undefined;
  * @returns {Promise<void> | void}
  */
 export const up = (pgm) => {
-  pgm.addColumns("user_notification_preferences", {
+  pgm.addColumns('user_notification_preferences', {
     digest_frequency: {
-      type: "varchar(20)",
+      type: 'varchar(20)',
       notNull: true,
-      default: "off",
+      default: 'off',
       check: "digest_frequency IN ('off', 'daily', 'weekly')",
-      comment: "Digest mode for repayment reminders: off, daily, or weekly",
+      comment: 'Digest mode for repayment reminders: off, daily, or weekly',
     },
   });
 };
@@ -24,5 +24,5 @@ export const up = (pgm) => {
  * @returns {Promise<void> | void}
  */
 export const down = (pgm) => {
-  pgm.dropColumns("user_notification_preferences", ["digest_frequency"]);
+  pgm.dropColumns('user_notification_preferences', ['digest_frequency']);
 };

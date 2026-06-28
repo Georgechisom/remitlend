@@ -9,10 +9,10 @@ The `validate` middleware function accepts a Zod schema and validates the reques
 ### Example
 
 ```typescript
-import { validate } from "../middleware/validation.js";
-import { mySchema } from "../schemas/mySchemas.js";
+import { validate } from '../middleware/validation.js';
+import { mySchema } from '../schemas/mySchemas.js';
 
-router.post("/endpoint", validate(mySchema), myController);
+router.post('/endpoint', validate(mySchema), myController);
 ```
 
 ## Schema Structure
@@ -26,7 +26,7 @@ Schemas should validate the following request properties:
 ### Example Schema
 
 ```typescript
-import { z } from "zod";
+import { z } from 'zod';
 
 export const mySchema = z.object({
   body: z.object({

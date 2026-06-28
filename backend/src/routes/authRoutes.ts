@@ -1,34 +1,30 @@
-import { registerTestUser } from "../controllers/authController.js";
-import { Router } from "express";
-import { z } from "zod";
-import {
-  requestChallenge,
-  login,
-  verify,
-} from "../controllers/authController.js";
+import { registerTestUser } from '../controllers/authController.js';
+import { Router } from 'express';
+import { z } from 'zod';
+import { requestChallenge, login, verify } from '../controllers/authController.js';
 import {
   challengeRateLimiter,
   loginRateLimiter,
   ipLoginRateLimiter,
-} from "../middleware/rateLimiter.js";
-import { requireJwtAuth } from "../middleware/jwtAuth.js";
-import { validateBody } from "../middleware/validation.js";
+} from '../middleware/rateLimiter.js';
+import { requireJwtAuth } from '../middleware/jwtAuth.js';
+import { validateBody } from '../middleware/validation.js';
 
 const router = Router();
 
 // TEST/DEV ONLY: Register a test user
-if (process.env.NODE_ENV === "test" || process.env.NODE_ENV === "development") {
-  router.post("/register", registerTestUser);
+if (process.env.NODE_ENV === 'test' || process.env.NODE_ENV === 'development') {
+  router.post('/register', registerTestUser);
 }
 
 const challengeSchema = z.object({
-  publicKey: z.string().min(1, "Public key is required"),
+  publicKey: z.string().min(1, 'Public key is required'),
 });
 
 const loginSchema = z.object({
-  publicKey: z.string().min(1, "Public key is required"),
-  message: z.string().min(1, "Message is required"),
-  signature: z.string().min(1, "Signature is required"),
+  publicKey: z.string().min(1, 'Public key is required'),
+  message: z.string().min(1, 'Message is required'),
+  signature: z.string().min(1, 'Signature is required'),
 });
 
 /**
@@ -57,12 +53,7 @@ const loginSchema = z.object({
  *             schema:
  *               $ref: '#/components/schemas/AuthChallengeResponse'
  */
-router.post(
-  "/challenge",
-  challengeRateLimiter,
-  validateBody(challengeSchema),
-  requestChallenge,
-);
+router.post('/challenge', challengeRateLimiter, validateBody(challengeSchema), requestChallenge);
 
 /**
  * @swagger
@@ -94,13 +85,7 @@ router.post(
  *             schema:
  *               $ref: '#/components/schemas/AuthLoginResponse'
  */
-router.post(
-  "/login",
-  ipLoginRateLimiter,
-  loginRateLimiter,
-  validateBody(loginSchema),
-  login,
-);
+router.post('/login', ipLoginRateLimiter, loginRateLimiter, validateBody(loginSchema), login);
 
 /**
  * @swagger
@@ -120,6 +105,6 @@ router.post(
  *       401:
  *         description: Missing or invalid Bearer token
  */
-router.get("/verify", requireJwtAuth, verify);
+router.get('/verify', requireJwtAuth, verify);
 
 export default router;

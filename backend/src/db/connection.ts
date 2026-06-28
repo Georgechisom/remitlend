@@ -1,17 +1,13 @@
-import pg, { type PoolClient } from "pg";
-import logger from "../utils/logger.js";
+import pg, { type PoolClient } from 'pg';
+import logger from '../utils/logger.js';
 
 export type { PoolClient };
 
 const { Pool } = pg;
 
 // Parse pool configuration from environment
-const maxPoolSize = process.env.DB_POOL_MAX
-  ? parseInt(process.env.DB_POOL_MAX, 10)
-  : 10;
-const minPoolSize = process.env.DB_POOL_MIN
-  ? parseInt(process.env.DB_POOL_MIN, 10)
-  : 2;
+const maxPoolSize = process.env.DB_POOL_MAX ? parseInt(process.env.DB_POOL_MAX, 10) : 10;
+const minPoolSize = process.env.DB_POOL_MIN ? parseInt(process.env.DB_POOL_MIN, 10) : 2;
 const idleTimeoutMillis = process.env.DB_IDLE_TIMEOUT_MS
   ? parseInt(process.env.DB_IDLE_TIMEOUT_MS, 10)
   : 30000;
@@ -27,7 +23,7 @@ let isShuttingDown = false;
 
 // Periodic pool health metrics logging
 const metricsInterval = setInterval(() => {
-  logger.info("DB Pool Metrics", {
+  logger.info('DB Pool Metrics', {
     total: pool.totalCount,
     idle: pool.idleCount,
     active: pool.totalCount - pool.idleCount,
@@ -39,21 +35,21 @@ const metricsInterval = setInterval(() => {
 metricsInterval.unref();
 
 // Log idle client errors
-pool.on("error", (err: Error) => {
-  logger.error("Unexpected error on idle client", err);
+pool.on('error', (err: Error) => {
+  logger.error('Unexpected error on idle client', err);
 });
 
 // Helper for transient failures
 export const TRANSIENT_ERROR_CODES = new Set([
-  "ECONNREFUSED",
-  "08000",
-  "08003",
-  "08006",
-  "57P01", // admin_shutdown
-  "57P02", // crash_shutdown
-  "57P03", // cannot_connect_now
-  "40001", // serialization_failure
-  "40P01", // deadlock_detected
+  'ECONNREFUSED',
+  '08000',
+  '08003',
+  '08006',
+  '57P01', // admin_shutdown
+  '57P02', // crash_shutdown
+  '57P03', // cannot_connect_now
+  '40001', // serialization_failure
+  '40P01', // deadlock_detected
 ]);
 const MAX_RETRIES = 3;
 
@@ -100,20 +96,18 @@ export async function withTransaction<T>(
   while (true) {
     const client = await getClient();
     try {
-      await client.query("BEGIN");
+      await client.query('BEGIN');
       const result = await fn(client);
-      await client.query("COMMIT");
+      await client.query('COMMIT');
       return result;
     } catch (error) {
       try {
-        await client.query("ROLLBACK");
+        await client.query('ROLLBACK');
       } catch (rollbackError) {
-        logger.error("Failed to rollback transaction", { rollbackError });
+        logger.error('Failed to rollback transaction', { rollbackError });
       }
 
-      const isTransient = TRANSIENT_ERROR_CODES.has(
-        (error as { code: string }).code,
-      );
+      const isTransient = TRANSIENT_ERROR_CODES.has((error as { code: string }).code);
       if (isTransient && attempt < maxRetries) {
         const delay = baseDelayMs * 2 ** attempt;
         attempt++;
@@ -134,26 +128,23 @@ export async function withTransaction<T>(
 
 const checkExhaustion = () => {
   if (pool.totalCount >= maxPoolSize && pool.idleCount === 0) {
-    logger.warn(
-      "DB Pool Exhaustion Warning: All connections are currently in use.",
-      {
-        waiting: pool.waitingCount,
-        active: pool.totalCount,
-      },
-    );
+    logger.warn('DB Pool Exhaustion Warning: All connections are currently in use.', {
+      waiting: pool.waitingCount,
+      active: pool.totalCount,
+    });
   }
 };
 
 export const query = async (text: string, params?: unknown[]) => {
   if (isShuttingDown) {
-    throw new Error("Database pool is shutting down");
+    throw new Error('Database pool is shutting down');
   }
   checkExhaustion();
   return withRetry(async () => {
     const start = Date.now();
     const result = await pool.query(text, params);
     const duration = Date.now() - start;
-    logger.debug("Executed query", {
+    logger.debug('Executed query', {
       text: text.substring(0, 50),
       duration,
       rows: result.rowCount,
@@ -164,7 +155,7 @@ export const query = async (text: string, params?: unknown[]) => {
 
 export const getClient = async () => {
   if (isShuttingDown) {
-    throw new Error("Database pool is shutting down");
+    throw new Error('Database pool is shutting down');
   }
   checkExhaustion();
   return withRetry(async () => {
@@ -178,9 +169,7 @@ const waitForPoolToDrain = async (timeoutMs: number): Promise<void> => {
 
   while (pool.totalCount > 0 && pool.totalCount !== pool.idleCount) {
     if (Date.now() - startedAt >= timeoutMs) {
-      throw new Error(
-        `Timed out waiting for pool to drain active clients after ${timeoutMs}ms`,
-      );
+      throw new Error(`Timed out waiting for pool to drain active clients after ${timeoutMs}ms`);
     }
 
     await new Promise((resolve) => setTimeout(resolve, 100));

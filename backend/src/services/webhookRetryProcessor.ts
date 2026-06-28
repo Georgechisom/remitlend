@@ -1,7 +1,7 @@
-import logger from "../utils/logger.js";
-import { refreshWebhookRetryQueueDepth } from "../middleware/metrics.js";
-import { WebhookService } from "./webhookService.js";
-import { jobMetricsService } from "./jobMetricsService.js";
+import logger from '../utils/logger.js';
+import { refreshWebhookRetryQueueDepth } from '../middleware/metrics.js';
+import { WebhookService } from './webhookService.js';
+import { jobMetricsService } from './jobMetricsService.js';
 
 let retryProcessorInterval: NodeJS.Timeout | null = null;
 
@@ -13,16 +13,16 @@ let retryProcessorInterval: NodeJS.Timeout | null = null;
  */
 export function startWebhookRetryProcessor(): void {
   if (retryProcessorInterval) {
-    logger.withContext().warn("Webhook retry processor already running");
+    logger.withContext().warn('Webhook retry processor already running');
     return;
   }
 
-  logger.withContext().info("Starting webhook retry processor");
+  logger.withContext().info('Starting webhook retry processor');
 
   // Run retry processor every 10 seconds
   retryProcessorInterval = setInterval(async () => {
     const startTime = Date.now();
-    const jobName = "webhookRetryProcessor";
+    const jobName = 'webhookRetryProcessor';
 
     try {
       await refreshWebhookRetryQueueDepth();
@@ -33,14 +33,8 @@ export function startWebhookRetryProcessor(): void {
       jobMetricsService.recordSuccess(jobName, durationMs);
     } catch (error) {
       const durationMs = Date.now() - startTime;
-      jobMetricsService.recordFailure(
-        jobName,
-        error as Error | string,
-        durationMs,
-      );
-      logger
-        .withContext()
-        .error("Error in webhook retry processor interval", { error });
+      jobMetricsService.recordFailure(jobName, error as Error | string, durationMs);
+      logger.withContext().error('Error in webhook retry processor interval', { error });
     }
   }, 10 * 1000);
 }
@@ -50,7 +44,7 @@ export function startWebhookRetryProcessor(): void {
  */
 export function stopWebhookRetryProcessor(): void {
   if (retryProcessorInterval) {
-    logger.withContext().info("Stopping webhook retry processor");
+    logger.withContext().info('Stopping webhook retry processor');
     clearInterval(retryProcessorInterval);
     retryProcessorInterval = null;
   }

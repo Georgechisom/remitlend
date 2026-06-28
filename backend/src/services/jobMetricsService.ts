@@ -51,11 +51,7 @@ class JobMetricsService {
   /**
    * Record a failed job run
    */
-  recordFailure(
-    jobName: string,
-    error: Error | string,
-    durationMs: number,
-  ): void {
+  recordFailure(jobName: string, error: Error | string, durationMs: number): void {
     this.initializeJob(jobName);
     const metrics = this.metrics.get(jobName)!;
     metrics.lastRunAt = new Date();

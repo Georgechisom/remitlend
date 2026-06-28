@@ -1,23 +1,17 @@
-import type { Request, Response, NextFunction } from "express";
-import { query } from "../db/connection.js";
-import { withStellarAndDbTransaction } from "../db/transaction.js";
-import { AppError } from "../errors/AppError.js";
-import { asyncHandler } from "../utils/asyncHandler.js";
-import { getLoanConfig } from "../config/loanConfig.js";
-import { ErrorCode } from "../errors/errorCodes.js";
-import { sorobanService } from "../services/sorobanService.js";
-import { rejectLoanSchema } from "../schemas/loanSchemas.js";
-import {
-  createCursorPaginatedResponse,
-  parseCursorQueryParams,
-} from "../utils/pagination.js";
-import logger from "../utils/logger.js";
-import { cacheService } from "../services/cacheService.js";
-import { notificationService } from "../services/notificationService.js";
-import {
-  invalidateOnRepay,
-  invalidateOnLoanRequest,
-} from "../utils/cacheKeys.js";
+import type { Request, Response, NextFunction } from 'express';
+import { query } from '../db/connection.js';
+import { withStellarAndDbTransaction } from '../db/transaction.js';
+import { AppError } from '../errors/AppError.js';
+import { asyncHandler } from '../utils/asyncHandler.js';
+import { getLoanConfig } from '../config/loanConfig.js';
+import { ErrorCode } from '../errors/errorCodes.js';
+import { sorobanService } from '../services/sorobanService.js';
+import { rejectLoanSchema } from '../schemas/loanSchemas.js';
+import { createCursorPaginatedResponse, parseCursorQueryParams } from '../utils/pagination.js';
+import logger from '../utils/logger.js';
+import { cacheService } from '../services/cacheService.js';
+import { notificationService } from '../services/notificationService.js';
+import { invalidateOnRepay, invalidateOnLoanRequest } from '../utils/cacheKeys.js';
 
 // ─── Test/Dev Only ────────────────────────────────────────────────────────────
 
@@ -28,12 +22,10 @@ import {
 export const createTestLoan = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction) => {
     const { amount, term } = req.body;
-    const borrower = req.user?.publicKey || "test-borrower";
+    const borrower = req.user?.publicKey || 'test-borrower';
 
     if (!amount || !term) {
-      res
-        .status(400)
-        .json({ success: false, message: "amount and term required" });
+      res.status(400).json({ success: false, message: 'amount and term required' });
       return;
     }
 
@@ -56,35 +48,28 @@ export const createTestLoan = asyncHandler(
   },
 );
 
-export const buildCancelLoanTx = async (
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) => {
+export const buildCancelLoanTx = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { loanId } = req.params;
 
     const borrower = (req as any).user?.publicKey as string;
 
-    const result = await query("SELECT * FROM loans WHERE id = $1", [loanId]);
+    const result = await query('SELECT * FROM loans WHERE id = $1', [loanId]);
     const loan = result.rows[0] as Record<string, unknown> | undefined;
 
     if (!loan) {
       return res.status(404).json({
-        message: "Loan not found",
+        message: 'Loan not found',
       });
     }
 
-    if (!["PENDING", "OPEN"].includes(loan.status as string)) {
+    if (!['PENDING', 'OPEN'].includes(loan.status as string)) {
       return res.status(400).json({
-        message: "Loan cannot be cancelled",
+        message: 'Loan cannot be cancelled',
       });
     }
 
-    const transaction = await sorobanService.buildCancelLoanTx(
-      borrower,
-      loanId as string,
-    );
+    const transaction = await sorobanService.buildCancelLoanTx(borrower, loanId as string);
 
     return res.json({
       success: true,
@@ -95,28 +80,24 @@ export const buildCancelLoanTx = async (
   }
 };
 
-export const buildRejectLoanTx = async (
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) => {
+export const buildRejectLoanTx = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { loanId } = req.params;
 
     const { reason } = rejectLoanSchema.parse(req.body);
 
-    const result = await query("SELECT * FROM loans WHERE id = $1", [loanId]);
+    const result = await query('SELECT * FROM loans WHERE id = $1', [loanId]);
     const loan = result.rows[0] as Record<string, unknown> | undefined;
 
     if (!loan) {
       return res.status(404).json({
-        message: "Loan not found",
+        message: 'Loan not found',
       });
     }
 
-    if (loan.status !== "PENDING") {
+    if (loan.status !== 'PENDING') {
       return res.status(400).json({
-        message: "Loan cannot be rejected",
+        message: 'Loan cannot be rejected',
       });
     }
 
@@ -138,30 +119,27 @@ export const buildRejectLoanTx = async (
  * POST /api/loans/:loanId/mark-defaulted (TEST/DEV ONLY)
  * Helper endpoint to mark a loan as defaulted for test setup.
  */
-export const markLoanDefaulted = asyncHandler(
-  async (req: Request, res: Response) => {
-    const loanId = req.params.loanId as string;
-    const borrower = req.body.borrower || req.user?.publicKey || null;
+export const markLoanDefaulted = asyncHandler(async (req: Request, res: Response) => {
+  const loanId = req.params.loanId as string;
+  const borrower = req.body.borrower || req.user?.publicKey || null;
 
-    const loanResult = await query(
-      `SELECT loan_id FROM contract_events WHERE loan_id = $1 LIMIT 1`,
-      [loanId],
-    );
-    if (loanResult.rows.length === 0) {
-      throw AppError.badRequest("Loan does not exist");
-    }
+  const loanResult = await query(`SELECT loan_id FROM contract_events WHERE loan_id = $1 LIMIT 1`, [
+    loanId,
+  ]);
+  if (loanResult.rows.length === 0) {
+    throw AppError.badRequest('Loan does not exist');
+  }
 
-    await query(
-      `INSERT INTO contract_events (loan_id, address, event_type, amount, ledger, ledger_closed_at) VALUES ($1, $2, 'LoanDefaulted', NULL, NULL, NOW())`,
-      [loanId, borrower],
-    );
+  await query(
+    `INSERT INTO contract_events (loan_id, address, event_type, amount, ledger, ledger_closed_at) VALUES ($1, $2, 'LoanDefaulted', NULL, NULL, NOW())`,
+    [loanId, borrower],
+  );
 
-    res.json({
-      success: true,
-      message: "Loan marked as defaulted for test setup.",
-    });
-  },
-);
+  res.json({
+    success: true,
+    message: 'Loan marked as defaulted for test setup.',
+  });
+});
 
 /**
  * POST /api/loans/:loanId/contest-default
@@ -174,10 +152,10 @@ export const contestDefault = asyncHandler(
     const borrower = req.user?.publicKey;
 
     if (!reason || reason.trim().length < 5) {
-      throw AppError.badRequest("A valid reason for contesting is required.");
+      throw AppError.badRequest('A valid reason for contesting is required.');
     }
     if (!borrower) {
-      throw AppError.unauthorized("Authentication required");
+      throw AppError.unauthorized('Authentication required');
     }
 
     // Check loan exists and is defaulted
@@ -186,7 +164,7 @@ export const contestDefault = asyncHandler(
       [loanId],
     );
     if (loanResult.rows.length === 0) {
-      throw AppError.badRequest("Loan is not defaulted or does not exist");
+      throw AppError.badRequest('Loan is not defaulted or does not exist');
     }
 
     // Insert dispute record and return disputeId
@@ -202,13 +180,11 @@ export const contestDefault = asyncHandler(
       [loanId, borrower],
     );
 
-    logger
-      .withContext()
-      .info("Loan default contested", { loanId, borrower, reason });
+    logger.withContext().info('Loan default contested', { loanId, borrower, reason });
 
     // Notify admins via email, SSE, and optional webhook
     await notificationService.notifyAdmins({
-      title: "Loan Default Contested",
+      title: 'Loan Default Contested',
       message: `Borrower ${borrower} has contested the default on loan #${loanId}. Reason: ${reason}`,
       loanId: Number(loanId),
     });
@@ -216,7 +192,7 @@ export const contestDefault = asyncHandler(
     res.json({
       success: true,
       disputeId: disputeResult.rows[0].id,
-      message: "Loan default contested. Admins will review your dispute.",
+      message: 'Loan default contested. Admins will review your dispute.',
     });
   },
 );
@@ -232,7 +208,7 @@ type BorrowerLoan = {
   totalRepaid: number;
   totalOwed: number | null;
   nextPaymentDeadline: string;
-  status: "active" | "repaid" | "defaulted" | "pending_indexing";
+  status: 'active' | 'repaid' | 'defaulted' | 'pending_indexing';
   borrower: string;
   approvedAt: string | null;
   latestEventType?: string;
@@ -240,15 +216,14 @@ type BorrowerLoan = {
 
 const getLatestLedger = async (): Promise<number> => {
   const result = await query(
-    "SELECT last_indexed_ledger FROM indexer_state ORDER BY id DESC LIMIT 1",
+    'SELECT last_indexed_ledger FROM indexer_state ORDER BY id DESC LIMIT 1',
     [],
   );
 
   return result.rows[0]?.last_indexed_ledger ?? 0;
 };
 
-const roundToCents = (value: number): number =>
-  Math.round((value + Number.EPSILON) * 100) / 100;
+const roundToCents = (value: number): number => Math.round((value + Number.EPSILON) * 100) / 100;
 
 const addDays = (date: Date, days: number): Date => {
   const result = new Date(date);
@@ -320,58 +295,47 @@ const buildAmortizationSchedule = (
   };
 };
 
-export const previewLoanAmortizationSchedule = asyncHandler(
-  async (req: Request, res: Response) => {
-    const { amount, termDays } = req.body as {
-      amount: number;
-      termDays: 30 | 60 | 90;
-    };
+export const previewLoanAmortizationSchedule = asyncHandler(async (req: Request, res: Response) => {
+  const { amount, termDays } = req.body as {
+    amount: number;
+    termDays: 30 | 60 | 90;
+  };
 
-    const loanConfig = getLoanConfig();
-    const interestRateBps = Math.round(loanConfig.interestRatePercent * 100);
-    const termLedgers = termDays * DEFAULT_TERM_LEDGERS;
+  const loanConfig = getLoanConfig();
+  const interestRateBps = Math.round(loanConfig.interestRatePercent * 100);
+  const termLedgers = termDays * DEFAULT_TERM_LEDGERS;
 
-    const amortization = buildAmortizationSchedule(
-      amount,
-      interestRateBps,
-      termLedgers,
-      new Date(),
-    );
+  const amortization = buildAmortizationSchedule(amount, interestRateBps, termLedgers, new Date());
 
-    res.json({
-      success: true,
-      amortization,
-    });
-  },
-);
+  res.json({
+    success: true,
+    amortization,
+  });
+});
 
 /**
  * Get active loans for a borrower
  *
  * GET /api/loans/borrower/:borrower
  */
-export const getBorrowerLoans = asyncHandler(
-  async (req: Request, res: Response) => {
-    const { borrower } = req.params;
-    const { limit, cursor, status, dateRange, amountRange } =
-      parseCursorQueryParams(req);
+export const getBorrowerLoans = asyncHandler(async (req: Request, res: Response) => {
+  const { borrower } = req.params;
+  const { limit, cursor, status, dateRange, amountRange } = parseCursorQueryParams(req);
 
-    // `from` and `to` are validated by the Zod middleware; merge into dateRange
-    const fromParam =
-      typeof req.query.from === "string" ? new Date(req.query.from) : null;
-    const toParam =
-      typeof req.query.to === "string" ? new Date(req.query.to) : null;
-    const effectiveDateRange =
-      fromParam !== null || toParam !== null
-        ? {
-            start: fromParam ?? new Date(0),
-            end: toParam ?? new Date(),
-          }
-        : dateRange;
+  // `from` and `to` are validated by the Zod middleware; merge into dateRange
+  const fromParam = typeof req.query.from === 'string' ? new Date(req.query.from) : null;
+  const toParam = typeof req.query.to === 'string' ? new Date(req.query.to) : null;
+  const effectiveDateRange =
+    fromParam !== null || toParam !== null
+      ? {
+          start: fromParam ?? new Date(0),
+          end: toParam ?? new Date(),
+        }
+      : dateRange;
 
-    const currentLedger = await getLatestLedger();
+  const currentLedger = await getLatestLedger();
 
-    const loansQuery = `
+  const loansQuery = `
       WITH loan_summaries AS (
         SELECT
           loan_id,
@@ -435,296 +399,254 @@ export const getBorrowerLoans = asyncHandler(
       LIMIT $9
     `;
 
-    const cursorValue = cursor ? Number.parseInt(cursor, 10) : null;
-    const queryParams = [
-      borrower,
-      currentLedger,
-      status && status !== "all" ? status : null,
-      amountRange?.min ?? null,
-      amountRange?.max ?? null,
-      effectiveDateRange?.start ?? null,
-      effectiveDateRange?.end ?? null,
-      cursorValue,
-      limit + 1,
-    ];
+  const cursorValue = cursor ? Number.parseInt(cursor, 10) : null;
+  const queryParams = [
+    borrower,
+    currentLedger,
+    status && status !== 'all' ? status : null,
+    amountRange?.min ?? null,
+    amountRange?.max ?? null,
+    effectiveDateRange?.start ?? null,
+    effectiveDateRange?.end ?? null,
+    cursorValue,
+    limit + 1,
+  ];
 
-    const result = await query(loansQuery, queryParams);
+  const result = await query(loansQuery, queryParams);
 
-    const totalCount =
-      result.rows.length > 0
-        ? Number.parseInt(result.rows[0].full_count, 10)
-        : 0;
+  const totalCount = result.rows.length > 0 ? Number.parseInt(result.rows[0].full_count, 10) : 0;
 
-    const hasNext = result.rows.length > limit;
-    const trimmedRows = hasNext ? result.rows.slice(0, limit) : result.rows;
+  const hasNext = result.rows.length > limit;
+  const trimmedRows = hasNext ? result.rows.slice(0, limit) : result.rows;
 
-    const loans: BorrowerLoan[] = trimmedRows.map(
-      (row: Record<string, unknown>) => {
-        const isPending = row.status === "pending_indexing";
-        return {
-          loanId: Number(row.loan_id),
-          principal: Number.parseFloat((row.principal as string) || "0"),
-          accruedInterest: isPending
-            ? null
-            : Number.parseFloat((row.accrued_interest as string) || "0"),
-          totalRepaid: Number.parseFloat((row.total_repaid as string) || "0"),
-          totalOwed: isPending
-            ? null
-            : Number.parseFloat((row.total_owed as string) || "0"),
-          nextPaymentDeadline: new Date(
-            row.next_payment_deadline as string,
-          ).toISOString(),
-          status: row.status as
-            | "active"
-            | "repaid"
-            | "defaulted"
-            | "pending_indexing",
-          borrower: row.address as string,
-          approvedAt: row.approved_at
-            ? new Date(row.approved_at as string).toISOString()
-            : null,
-          ...(typeof row.latest_event_type === "string"
-            ? { latestEventType: row.latest_event_type as string }
-            : {}),
-        };
+  const loans: BorrowerLoan[] = trimmedRows.map((row: Record<string, unknown>) => {
+    const isPending = row.status === 'pending_indexing';
+    return {
+      loanId: Number(row.loan_id),
+      principal: Number.parseFloat((row.principal as string) || '0'),
+      accruedInterest: isPending
+        ? null
+        : Number.parseFloat((row.accrued_interest as string) || '0'),
+      totalRepaid: Number.parseFloat((row.total_repaid as string) || '0'),
+      totalOwed: isPending ? null : Number.parseFloat((row.total_owed as string) || '0'),
+      nextPaymentDeadline: new Date(row.next_payment_deadline as string).toISOString(),
+      status: row.status as 'active' | 'repaid' | 'defaulted' | 'pending_indexing',
+      borrower: row.address as string,
+      approvedAt: row.approved_at ? new Date(row.approved_at as string).toISOString() : null,
+      ...(typeof row.latest_event_type === 'string'
+        ? { latestEventType: row.latest_event_type as string }
+        : {}),
+    };
+  });
+
+  const lastLoan = loans.length > 0 ? loans[loans.length - 1] : undefined;
+  const nextCursor = hasNext && lastLoan ? String(lastLoan.loanId) : null;
+
+  res.json(
+    createCursorPaginatedResponse(
+      {
+        borrower,
+        loans,
       },
-    );
-
-    const lastLoan = loans.length > 0 ? loans[loans.length - 1] : undefined;
-    const nextCursor = hasNext && lastLoan ? String(lastLoan.loanId) : null;
-
-    res.json(
-      createCursorPaginatedResponse(
-        {
-          borrower,
-          loans,
-        },
-        totalCount,
-        limit,
-        loans.length,
-        nextCursor,
-        Boolean(cursor),
-      ),
-    );
-  },
-);
+      totalCount,
+      limit,
+      loans.length,
+      nextCursor,
+      Boolean(cursor),
+    ),
+  );
+});
 
 /**
  * GET /api/loans/config
  */
-export const getLoanConfigEndpoint = asyncHandler(
-  async (_req: Request, res: Response) => {
-    const loanConfig = getLoanConfig();
+export const getLoanConfigEndpoint = asyncHandler(async (_req: Request, res: Response) => {
+  const loanConfig = getLoanConfig();
 
-    res.json({
-      success: true,
-      data: {
-        minScore: loanConfig.minScore,
-        maxAmount: loanConfig.maxAmount,
-        interestRatePercent: loanConfig.interestRatePercent,
-        creditScoreThreshold: loanConfig.creditScoreThreshold,
-      },
-    });
-  },
-);
+  res.json({
+    success: true,
+    data: {
+      minScore: loanConfig.minScore,
+      maxAmount: loanConfig.maxAmount,
+      interestRatePercent: loanConfig.interestRatePercent,
+      creditScoreThreshold: loanConfig.creditScoreThreshold,
+    },
+  });
+});
 
 /**
  * Get detailed loan history and current stats
  *
  * GET /api/loans/:loanId
  */
-export const getLoanDetails = asyncHandler(
-  async (req: Request, res: Response) => {
-    const { loanId } = req.params;
+export const getLoanDetails = asyncHandler(async (req: Request, res: Response) => {
+  const { loanId } = req.params;
 
-    const eventsResult = await query(
-      `SELECT id, event_type, amount, ledger, ledger_closed_at, tx_hash, interest_rate_bps, term_ledgers
+  const eventsResult = await query(
+    `SELECT id, event_type, amount, ledger, ledger_closed_at, tx_hash, interest_rate_bps, term_ledgers
        FROM contract_events
        WHERE loan_id = $1
        ORDER BY ledger_closed_at ASC, ledger ASC, id ASC`,
-      [loanId],
-    );
+    [loanId],
+  );
 
-    if (eventsResult.rows.length === 0) {
-      throw AppError.notFound(
-        "Loan not found",
-        ErrorCode.LOAN_NOT_FOUND,
-        "loanId",
-      );
-    }
+  if (eventsResult.rows.length === 0) {
+    throw AppError.notFound('Loan not found', ErrorCode.LOAN_NOT_FOUND, 'loanId');
+  }
 
-    const events = eventsResult.rows;
-    const currentLedger = await getLatestLedger();
-    const requestEvent = events.find(
-      (event: Record<string, unknown>) => event.event_type === "LoanRequested",
-    );
-    const approvalEvents = events.filter(
-      (event: Record<string, unknown>) => event.event_type === "LoanApproved",
-    );
-    if (approvalEvents.length > 1) {
-      logger
-        .withContext()
-        .warn("Duplicate LoanApproved events detected for loan", {
-          loanId,
-          duplicateCount: approvalEvents.length,
-        });
-    }
-    const approvalEvent =
-      approvalEvents.length > 0
-        ? approvalEvents[approvalEvents.length - 1]
-        : undefined;
-    const repaymentEvents = events.filter(
-      (event: Record<string, unknown>) => event.event_type === "LoanRepaid",
-    );
-
-    const principal = Number.parseFloat(requestEvent?.amount || "0");
-    const totalRepaid = repaymentEvents.reduce(
-      (sum: number, event: Record<string, unknown>) =>
-        sum + Number.parseFloat((event.amount as string) || "0"),
-      0,
-    );
-
-    const rateBps =
-      approvalEvent?.interest_rate_bps || DEFAULT_INTEREST_RATE_BPS;
-    const termLedgers = approvalEvent?.term_ledgers || DEFAULT_TERM_LEDGERS;
-    const approvedLedger = approvalEvent?.ledger || 0;
-
-    // Check for open dispute
-    const disputeResult = await query(
-      `SELECT created_at FROM loan_disputes WHERE loan_id = $1 AND status = 'open' ORDER BY created_at ASC LIMIT 1`,
-      [loanId],
-    );
-    let freezeLedger: number | null = null;
-    if (disputeResult.rows.length > 0) {
-      // Find the ledger closest to dispute creation
-      const disputeCreatedAt = new Date(disputeResult.rows[0].created_at);
-      // Find the ledger that closed just before or at disputeCreatedAt
-      const ledgerResult = await query(
-        `SELECT ledger, ledger_closed_at FROM contract_events WHERE loan_id = $1 AND ledger_closed_at <= $2 ORDER BY ledger_closed_at DESC LIMIT 1`,
-        [loanId, disputeCreatedAt],
-      );
-      freezeLedger =
-        ledgerResult.rows.length > 0 ? ledgerResult.rows[0].ledger : null;
-    }
-
-    let elapsedLedgers: number;
-    if (freezeLedger !== null) {
-      elapsedLedgers = Math.max(0, freezeLedger - approvedLedger);
-    } else {
-      elapsedLedgers = Math.max(0, currentLedger - approvedLedger);
-    }
-
-    const isDefaulted = events.some(
-      (event: Record<string, unknown>) => event.event_type === "LoanDefaulted",
-    );
-
-    const isPending = approvedLedger <= 0 || currentLedger < approvedLedger;
-
-    const accruedInterest = isPending
-      ? 0
-      : (principal * rateBps * elapsedLedgers) / (10000 * termLedgers);
-    const totalOwed = principal + accruedInterest - totalRepaid;
-
-    res.json({
-      success: true,
+  const events = eventsResult.rows;
+  const currentLedger = await getLatestLedger();
+  const requestEvent = events.find(
+    (event: Record<string, unknown>) => event.event_type === 'LoanRequested',
+  );
+  const approvalEvents = events.filter(
+    (event: Record<string, unknown>) => event.event_type === 'LoanApproved',
+  );
+  if (approvalEvents.length > 1) {
+    logger.withContext().warn('Duplicate LoanApproved events detected for loan', {
       loanId,
-      summary: {
-        principal,
-        accruedInterest: isPending ? null : accruedInterest,
-        totalRepaid,
-        totalOwed: isPending ? null : totalOwed,
-        interestRate: rateBps / 10000,
-        termLedgers,
-        elapsedLedgers,
-        status: isPending
-          ? "pending_indexing"
-          : isDefaulted
-            ? "defaulted"
-            : totalOwed > 0.01
-              ? "active"
-              : "repaid",
-        requestedAt: requestEvent?.ledger_closed_at,
-        approvedAt: approvalEvent?.ledger_closed_at,
-        events: events.map((event: Record<string, unknown>) => ({
-          type: event.event_type,
-          amount: event.amount,
-          timestamp: event.ledger_closed_at,
-          tx: event.tx_hash,
-        })),
-        disputeFrozen: freezeLedger !== null,
-      },
+      duplicateCount: approvalEvents.length,
     });
-  },
-);
+  }
+  const approvalEvent =
+    approvalEvents.length > 0 ? approvalEvents[approvalEvents.length - 1] : undefined;
+  const repaymentEvents = events.filter(
+    (event: Record<string, unknown>) => event.event_type === 'LoanRepaid',
+  );
 
-export const getLoanAmortizationSchedule = asyncHandler(
-  async (req: Request, res: Response) => {
-    const { loanId } = req.params;
+  const principal = Number.parseFloat(requestEvent?.amount || '0');
+  const totalRepaid = repaymentEvents.reduce(
+    (sum: number, event: Record<string, unknown>) =>
+      sum + Number.parseFloat((event.amount as string) || '0'),
+    0,
+  );
 
-    const eventsResult = await query(
-      `SELECT id, event_type, amount, ledger, ledger_closed_at, interest_rate_bps, term_ledgers
-       FROM contract_events
-       WHERE loan_id = $1
-       ORDER BY ledger_closed_at ASC, ledger ASC, id ASC`,
-      [loanId],
+  const rateBps = approvalEvent?.interest_rate_bps || DEFAULT_INTEREST_RATE_BPS;
+  const termLedgers = approvalEvent?.term_ledgers || DEFAULT_TERM_LEDGERS;
+  const approvedLedger = approvalEvent?.ledger || 0;
+
+  // Check for open dispute
+  const disputeResult = await query(
+    `SELECT created_at FROM loan_disputes WHERE loan_id = $1 AND status = 'open' ORDER BY created_at ASC LIMIT 1`,
+    [loanId],
+  );
+  let freezeLedger: number | null = null;
+  if (disputeResult.rows.length > 0) {
+    // Find the ledger closest to dispute creation
+    const disputeCreatedAt = new Date(disputeResult.rows[0].created_at);
+    // Find the ledger that closed just before or at disputeCreatedAt
+    const ledgerResult = await query(
+      `SELECT ledger, ledger_closed_at FROM contract_events WHERE loan_id = $1 AND ledger_closed_at <= $2 ORDER BY ledger_closed_at DESC LIMIT 1`,
+      [loanId, disputeCreatedAt],
     );
+    freezeLedger = ledgerResult.rows.length > 0 ? ledgerResult.rows[0].ledger : null;
+  }
 
-    if (eventsResult.rows.length === 0) {
-      throw AppError.notFound(
-        "Loan not found",
-        ErrorCode.LOAN_NOT_FOUND,
-        "loanId",
-      );
-    }
+  let elapsedLedgers: number;
+  if (freezeLedger !== null) {
+    elapsedLedgers = Math.max(0, freezeLedger - approvedLedger);
+  } else {
+    elapsedLedgers = Math.max(0, currentLedger - approvedLedger);
+  }
 
-    const events = eventsResult.rows;
-    const requestEvent = events.find(
-      (event: Record<string, unknown>) => event.event_type === "LoanRequested",
-    );
-    const approvalEvents = events.filter(
-      (event: Record<string, unknown>) => event.event_type === "LoanApproved",
-    );
-    const approvalEvent =
-      approvalEvents.length > 0
-        ? approvalEvents[approvalEvents.length - 1]
-        : undefined;
+  const isDefaulted = events.some(
+    (event: Record<string, unknown>) => event.event_type === 'LoanDefaulted',
+  );
 
-    if (!requestEvent || !approvalEvent || !requestEvent.amount) {
-      throw AppError.notFound(
-        "Loan not fully approved",
-        ErrorCode.LOAN_NOT_FOUND,
-        "loanId",
-      );
-    }
+  const isPending = approvedLedger <= 0 || currentLedger < approvedLedger;
 
-    const principal = Number.parseFloat(String(requestEvent.amount));
-    const interestRateBps = Number.parseInt(
-      String(approvalEvent.interest_rate_bps ?? DEFAULT_INTEREST_RATE_BPS),
-      10,
-    );
-    const termLedgers = Number.parseInt(
-      String(approvalEvent.term_ledgers ?? DEFAULT_TERM_LEDGERS),
-      10,
-    );
+  const accruedInterest = isPending
+    ? 0
+    : (principal * rateBps * elapsedLedgers) / (10000 * termLedgers);
+  const totalOwed = principal + accruedInterest - totalRepaid;
 
-    const approvedAt = approvalEvent.ledger_closed_at
-      ? new Date(approvalEvent.ledger_closed_at)
-      : new Date();
-
-    const amortization = buildAmortizationSchedule(
+  res.json({
+    success: true,
+    loanId,
+    summary: {
       principal,
-      interestRateBps,
+      accruedInterest: isPending ? null : accruedInterest,
+      totalRepaid,
+      totalOwed: isPending ? null : totalOwed,
+      interestRate: rateBps / 10000,
       termLedgers,
-      approvedAt,
-    );
+      elapsedLedgers,
+      status: isPending
+        ? 'pending_indexing'
+        : isDefaulted
+          ? 'defaulted'
+          : totalOwed > 0.01
+            ? 'active'
+            : 'repaid',
+      requestedAt: requestEvent?.ledger_closed_at,
+      approvedAt: approvalEvent?.ledger_closed_at,
+      events: events.map((event: Record<string, unknown>) => ({
+        type: event.event_type,
+        amount: event.amount,
+        timestamp: event.ledger_closed_at,
+        tx: event.tx_hash,
+      })),
+      disputeFrozen: freezeLedger !== null,
+    },
+  });
+});
 
-    res.json({
-      success: true,
-      loanId,
-      amortization,
-    });
-  },
-);
+export const getLoanAmortizationSchedule = asyncHandler(async (req: Request, res: Response) => {
+  const { loanId } = req.params;
+
+  const eventsResult = await query(
+    `SELECT id, event_type, amount, ledger, ledger_closed_at, interest_rate_bps, term_ledgers
+       FROM contract_events
+       WHERE loan_id = $1
+       ORDER BY ledger_closed_at ASC, ledger ASC, id ASC`,
+    [loanId],
+  );
+
+  if (eventsResult.rows.length === 0) {
+    throw AppError.notFound('Loan not found', ErrorCode.LOAN_NOT_FOUND, 'loanId');
+  }
+
+  const events = eventsResult.rows;
+  const requestEvent = events.find(
+    (event: Record<string, unknown>) => event.event_type === 'LoanRequested',
+  );
+  const approvalEvents = events.filter(
+    (event: Record<string, unknown>) => event.event_type === 'LoanApproved',
+  );
+  const approvalEvent =
+    approvalEvents.length > 0 ? approvalEvents[approvalEvents.length - 1] : undefined;
+
+  if (!requestEvent || !approvalEvent || !requestEvent.amount) {
+    throw AppError.notFound('Loan not fully approved', ErrorCode.LOAN_NOT_FOUND, 'loanId');
+  }
+
+  const principal = Number.parseFloat(String(requestEvent.amount));
+  const interestRateBps = Number.parseInt(
+    String(approvalEvent.interest_rate_bps ?? DEFAULT_INTEREST_RATE_BPS),
+    10,
+  );
+  const termLedgers = Number.parseInt(
+    String(approvalEvent.term_ledgers ?? DEFAULT_TERM_LEDGERS),
+    10,
+  );
+
+  const approvedAt = approvalEvent.ledger_closed_at
+    ? new Date(approvalEvent.ledger_closed_at)
+    : new Date();
+
+  const amortization = buildAmortizationSchedule(
+    principal,
+    interestRateBps,
+    termLedgers,
+    approvedAt,
+  );
+
+  res.json({
+    success: true,
+    loanId,
+    amortization,
+  });
+});
 
 /**
  * POST /api/loans/request
@@ -737,24 +659,23 @@ export const requestLoan = asyncHandler(async (req: Request, res: Response) => {
 
   if (borrowerPublicKey !== req.user?.publicKey) {
     throw AppError.forbidden(
-      "borrowerPublicKey must match your authenticated wallet",
+      'borrowerPublicKey must match your authenticated wallet',
       ErrorCode.BORROWER_MISMATCH,
     );
   }
 
   if (
-    process.env.NODE_ENV !== "test" &&
-    "getPoolBalance" in sorobanService &&
-    typeof (
-      sorobanService as unknown as { getPoolBalance?: () => Promise<number> }
-    ).getPoolBalance === "function"
+    process.env.NODE_ENV !== 'test' &&
+    'getPoolBalance' in sorobanService &&
+    typeof (sorobanService as unknown as { getPoolBalance?: () => Promise<number> })
+      .getPoolBalance === 'function'
   ) {
     const poolBalance = await (
       sorobanService as unknown as { getPoolBalance: () => Promise<number> }
     ).getPoolBalance();
     if (amount > poolBalance) {
       throw AppError.badRequest(
-        "Insufficient pool liquidity to cover this loan",
+        'Insufficient pool liquidity to cover this loan',
         ErrorCode.INSUFFICIENT_BALANCE,
       );
     }
@@ -768,7 +689,7 @@ export const requestLoan = asyncHandler(async (req: Request, res: Response) => {
   }>(cacheKey);
 
   if (cachedTx) {
-    logger.withContext().info("Returning cached unsigned loan request tx", {
+    logger.withContext().info('Returning cached unsigned loan request tx', {
       borrower: borrowerPublicKey,
       amount,
     });
@@ -780,10 +701,7 @@ export const requestLoan = asyncHandler(async (req: Request, res: Response) => {
     return;
   }
 
-  const result = await sorobanService.buildRequestLoanTx(
-    borrowerPublicKey,
-    amount,
-  );
+  const result = await sorobanService.buildRequestLoanTx(borrowerPublicKey, amount);
 
   // Cache for 60 seconds to prevent sequence number collisions from rapid requests
   await cacheService.set(cacheKey, result, 60);
@@ -791,7 +709,7 @@ export const requestLoan = asyncHandler(async (req: Request, res: Response) => {
   // Invalidate stale read-cache keys now that a loan request has been built
   await invalidateOnLoanRequest(borrowerPublicKey);
 
-  logger.withContext().info("Loan request transaction built", {
+  logger.withContext().info('Loan request transaction built', {
     borrower: borrowerPublicKey,
     amount,
   });
@@ -816,18 +734,14 @@ export const repayLoan = asyncHandler(async (req: Request, res: Response) => {
 
   if (borrowerPublicKey !== req.user?.publicKey) {
     throw AppError.forbidden(
-      "borrowerPublicKey must match your authenticated wallet",
+      'borrowerPublicKey must match your authenticated wallet',
       ErrorCode.BORROWER_MISMATCH,
     );
   }
 
   const loanIdNum = Number.parseInt(loanId, 10);
   if (!Number.isFinite(loanIdNum) || loanIdNum <= 0) {
-    throw AppError.badRequest(
-      "Invalid loan ID",
-      ErrorCode.INVALID_LOAN_ID,
-      "loanId",
-    );
+    throw AppError.badRequest('Invalid loan ID', ErrorCode.INVALID_LOAN_ID, 'loanId');
   }
 
   // Idempotency: return existing unsigned tx if recently built for this borrower/loan/amount
@@ -838,7 +752,7 @@ export const repayLoan = asyncHandler(async (req: Request, res: Response) => {
   }>(cacheKey);
 
   if (cachedTx) {
-    logger.withContext().info("Returning cached unsigned repay tx", {
+    logger.withContext().info('Returning cached unsigned repay tx', {
       borrower: borrowerPublicKey,
       loanId: loanIdNum,
       amount,
@@ -852,11 +766,7 @@ export const repayLoan = asyncHandler(async (req: Request, res: Response) => {
     return;
   }
 
-  const result = await sorobanService.buildRepayTx(
-    borrowerPublicKey,
-    loanIdNum,
-    amount,
-  );
+  const result = await sorobanService.buildRepayTx(borrowerPublicKey, loanIdNum, amount);
 
   // Cache for 60 seconds
   await cacheService.set(cacheKey, result, 60);
@@ -864,7 +774,7 @@ export const repayLoan = asyncHandler(async (req: Request, res: Response) => {
   // Invalidate stale read-cache keys now that a repayment has been initiated
   await invalidateOnRepay(borrowerPublicKey, loanIdNum);
 
-  logger.withContext().info("Repay transaction built", {
+  logger.withContext().info('Repay transaction built', {
     borrower: borrowerPublicKey,
     loanId: loanIdNum,
     amount,
@@ -882,219 +792,194 @@ export const repayLoan = asyncHandler(async (req: Request, res: Response) => {
 /**
  * POST /api/loans/:loanId/build-deposit-collateral
  */
-export const depositCollateral = asyncHandler(
-  async (req: Request, res: Response) => {
-    const loanId = req.params.loanId as string;
-    const { amount, borrowerPublicKey } = req.body as {
-      amount: number;
-      borrowerPublicKey: string;
-    };
+export const depositCollateral = asyncHandler(async (req: Request, res: Response) => {
+  const loanId = req.params.loanId as string;
+  const { amount, borrowerPublicKey } = req.body as {
+    amount: number;
+    borrowerPublicKey: string;
+  };
 
-    if (borrowerPublicKey !== req.user?.publicKey) {
-      throw AppError.forbidden(
-        "borrowerPublicKey must match your authenticated wallet",
-        ErrorCode.BORROWER_MISMATCH,
-      );
-    }
-
-    const loanIdNum = Number.parseInt(loanId, 10);
-    if (!Number.isFinite(loanIdNum) || loanIdNum <= 0) {
-      throw AppError.badRequest(
-        "Invalid loan ID",
-        ErrorCode.INVALID_LOAN_ID,
-        "loanId",
-      );
-    }
-
-    const cacheKey = `pending_deposit_collateral_tx:${borrowerPublicKey}:${loanIdNum}:${amount}`;
-    const cachedTx = await cacheService.get<{
-      unsignedTxXdr: string;
-      networkPassphrase: string;
-    }>(cacheKey);
-
-    if (cachedTx) {
-      logger
-        .withContext()
-        .info("Returning cached unsigned deposit_collateral tx", {
-          borrower: borrowerPublicKey,
-          loanId: loanIdNum,
-          amount,
-        });
-      res.json({
-        success: true,
-        loanId: loanIdNum,
-        unsignedTxXdr: cachedTx.unsignedTxXdr,
-        networkPassphrase: cachedTx.networkPassphrase,
-      });
-      return;
-    }
-
-    const result = await sorobanService.buildDepositCollateralTx(
-      borrowerPublicKey,
-      loanIdNum,
-      amount,
+  if (borrowerPublicKey !== req.user?.publicKey) {
+    throw AppError.forbidden(
+      'borrowerPublicKey must match your authenticated wallet',
+      ErrorCode.BORROWER_MISMATCH,
     );
+  }
 
-    await cacheService.set(cacheKey, result, 60);
+  const loanIdNum = Number.parseInt(loanId, 10);
+  if (!Number.isFinite(loanIdNum) || loanIdNum <= 0) {
+    throw AppError.badRequest('Invalid loan ID', ErrorCode.INVALID_LOAN_ID, 'loanId');
+  }
 
-    logger.withContext().info("Deposit collateral transaction built", {
+  const cacheKey = `pending_deposit_collateral_tx:${borrowerPublicKey}:${loanIdNum}:${amount}`;
+  const cachedTx = await cacheService.get<{
+    unsignedTxXdr: string;
+    networkPassphrase: string;
+  }>(cacheKey);
+
+  if (cachedTx) {
+    logger.withContext().info('Returning cached unsigned deposit_collateral tx', {
       borrower: borrowerPublicKey,
       loanId: loanIdNum,
       amount,
     });
-
     res.json({
       success: true,
       loanId: loanIdNum,
-      unsignedTxXdr: result.unsignedTxXdr,
-      networkPassphrase: result.networkPassphrase,
+      unsignedTxXdr: cachedTx.unsignedTxXdr,
+      networkPassphrase: cachedTx.networkPassphrase,
     });
-  },
-);
+    return;
+  }
+
+  const result = await sorobanService.buildDepositCollateralTx(
+    borrowerPublicKey,
+    loanIdNum,
+    amount,
+  );
+
+  await cacheService.set(cacheKey, result, 60);
+
+  logger.withContext().info('Deposit collateral transaction built', {
+    borrower: borrowerPublicKey,
+    loanId: loanIdNum,
+    amount,
+  });
+
+  res.json({
+    success: true,
+    loanId: loanIdNum,
+    unsignedTxXdr: result.unsignedTxXdr,
+    networkPassphrase: result.networkPassphrase,
+  });
+});
 
 /**
  * POST /api/loans/:loanId/build-release-collateral
  */
-export const releaseCollateral = asyncHandler(
-  async (req: Request, res: Response) => {
-    const loanId = req.params.loanId as string;
-    const { borrowerPublicKey } = req.body as {
-      borrowerPublicKey: string;
-    };
+export const releaseCollateral = asyncHandler(async (req: Request, res: Response) => {
+  const loanId = req.params.loanId as string;
+  const { borrowerPublicKey } = req.body as {
+    borrowerPublicKey: string;
+  };
 
-    if (borrowerPublicKey !== req.user?.publicKey) {
-      throw AppError.forbidden(
-        "borrowerPublicKey must match your authenticated wallet",
-        ErrorCode.BORROWER_MISMATCH,
-      );
-    }
-
-    const loanIdNum = Number.parseInt(loanId, 10);
-    if (!Number.isFinite(loanIdNum) || loanIdNum <= 0) {
-      throw AppError.badRequest(
-        "Invalid loan ID",
-        ErrorCode.INVALID_LOAN_ID,
-        "loanId",
-      );
-    }
-
-    const cacheKey = `pending_release_collateral_tx:${borrowerPublicKey}:${loanIdNum}`;
-    const cachedTx = await cacheService.get<{
-      unsignedTxXdr: string;
-      networkPassphrase: string;
-    }>(cacheKey);
-
-    if (cachedTx) {
-      logger
-        .withContext()
-        .info("Returning cached unsigned release_collateral tx", {
-          borrower: borrowerPublicKey,
-          loanId: loanIdNum,
-        });
-      res.json({
-        success: true,
-        loanId: loanIdNum,
-        unsignedTxXdr: cachedTx.unsignedTxXdr,
-        networkPassphrase: cachedTx.networkPassphrase,
-      });
-      return;
-    }
-
-    const result = await sorobanService.buildReleaseCollateralTx(
-      borrowerPublicKey,
-      loanIdNum,
+  if (borrowerPublicKey !== req.user?.publicKey) {
+    throw AppError.forbidden(
+      'borrowerPublicKey must match your authenticated wallet',
+      ErrorCode.BORROWER_MISMATCH,
     );
+  }
 
-    await cacheService.set(cacheKey, result, 60);
+  const loanIdNum = Number.parseInt(loanId, 10);
+  if (!Number.isFinite(loanIdNum) || loanIdNum <= 0) {
+    throw AppError.badRequest('Invalid loan ID', ErrorCode.INVALID_LOAN_ID, 'loanId');
+  }
 
-    logger.withContext().info("Release collateral transaction built", {
+  const cacheKey = `pending_release_collateral_tx:${borrowerPublicKey}:${loanIdNum}`;
+  const cachedTx = await cacheService.get<{
+    unsignedTxXdr: string;
+    networkPassphrase: string;
+  }>(cacheKey);
+
+  if (cachedTx) {
+    logger.withContext().info('Returning cached unsigned release_collateral tx', {
       borrower: borrowerPublicKey,
       loanId: loanIdNum,
     });
-
     res.json({
       success: true,
       loanId: loanIdNum,
-      unsignedTxXdr: result.unsignedTxXdr,
-      networkPassphrase: result.networkPassphrase,
+      unsignedTxXdr: cachedTx.unsignedTxXdr,
+      networkPassphrase: cachedTx.networkPassphrase,
     });
-  },
-);
+    return;
+  }
+
+  const result = await sorobanService.buildReleaseCollateralTx(borrowerPublicKey, loanIdNum);
+
+  await cacheService.set(cacheKey, result, 60);
+
+  logger.withContext().info('Release collateral transaction built', {
+    borrower: borrowerPublicKey,
+    loanId: loanIdNum,
+  });
+
+  res.json({
+    success: true,
+    loanId: loanIdNum,
+    unsignedTxXdr: result.unsignedTxXdr,
+    networkPassphrase: result.networkPassphrase,
+  });
+});
 
 /**
  * POST /api/loans/:loanId/build-refinance
  */
-export const refinanceLoan = asyncHandler(
-  async (req: Request, res: Response) => {
-    const loanId = req.params.loanId as string;
-    const { newAmount, newTerm, borrowerPublicKey } = req.body as {
-      newAmount: number;
-      newTerm: number;
-      borrowerPublicKey: string;
-    };
+export const refinanceLoan = asyncHandler(async (req: Request, res: Response) => {
+  const loanId = req.params.loanId as string;
+  const { newAmount, newTerm, borrowerPublicKey } = req.body as {
+    newAmount: number;
+    newTerm: number;
+    borrowerPublicKey: string;
+  };
 
-    if (borrowerPublicKey !== req.user?.publicKey) {
-      throw AppError.forbidden(
-        "borrowerPublicKey must match your authenticated wallet",
-        ErrorCode.BORROWER_MISMATCH,
-      );
-    }
-
-    const loanIdNum = Number.parseInt(loanId, 10);
-    if (!Number.isFinite(loanIdNum) || loanIdNum <= 0) {
-      throw AppError.badRequest(
-        "Invalid loan ID",
-        ErrorCode.INVALID_LOAN_ID,
-        "loanId",
-      );
-    }
-
-    const cacheKey = `pending_refinance_tx:${borrowerPublicKey}:${loanIdNum}:${newAmount}:${newTerm}`;
-    const cachedTx = await cacheService.get<{
-      unsignedTxXdr: string;
-      networkPassphrase: string;
-    }>(cacheKey);
-
-    if (cachedTx) {
-      logger.withContext().info("Returning cached unsigned refinance tx", {
-        borrower: borrowerPublicKey,
-        loanId: loanIdNum,
-        newAmount,
-        newTerm,
-      });
-      res.json({
-        success: true,
-        loanId: loanIdNum,
-        unsignedTxXdr: cachedTx.unsignedTxXdr,
-        networkPassphrase: cachedTx.networkPassphrase,
-      });
-      return;
-    }
-
-    const result = await sorobanService.buildRefinanceLoanTx(
-      borrowerPublicKey,
-      loanIdNum,
-      newAmount,
-      newTerm,
+  if (borrowerPublicKey !== req.user?.publicKey) {
+    throw AppError.forbidden(
+      'borrowerPublicKey must match your authenticated wallet',
+      ErrorCode.BORROWER_MISMATCH,
     );
+  }
 
-    await cacheService.set(cacheKey, result, 60);
+  const loanIdNum = Number.parseInt(loanId, 10);
+  if (!Number.isFinite(loanIdNum) || loanIdNum <= 0) {
+    throw AppError.badRequest('Invalid loan ID', ErrorCode.INVALID_LOAN_ID, 'loanId');
+  }
 
-    logger.withContext().info("Refinance loan transaction built", {
+  const cacheKey = `pending_refinance_tx:${borrowerPublicKey}:${loanIdNum}:${newAmount}:${newTerm}`;
+  const cachedTx = await cacheService.get<{
+    unsignedTxXdr: string;
+    networkPassphrase: string;
+  }>(cacheKey);
+
+  if (cachedTx) {
+    logger.withContext().info('Returning cached unsigned refinance tx', {
       borrower: borrowerPublicKey,
       loanId: loanIdNum,
       newAmount,
       newTerm,
     });
-
     res.json({
       success: true,
       loanId: loanIdNum,
-      unsignedTxXdr: result.unsignedTxXdr,
-      networkPassphrase: result.networkPassphrase,
+      unsignedTxXdr: cachedTx.unsignedTxXdr,
+      networkPassphrase: cachedTx.networkPassphrase,
     });
-  },
-);
+    return;
+  }
+
+  const result = await sorobanService.buildRefinanceLoanTx(
+    borrowerPublicKey,
+    loanIdNum,
+    newAmount,
+    newTerm,
+  );
+
+  await cacheService.set(cacheKey, result, 60);
+
+  logger.withContext().info('Refinance loan transaction built', {
+    borrower: borrowerPublicKey,
+    loanId: loanIdNum,
+    newAmount,
+    newTerm,
+  });
+
+  res.json({
+    success: true,
+    loanId: loanIdNum,
+    unsignedTxXdr: result.unsignedTxXdr,
+    networkPassphrase: result.networkPassphrase,
+  });
+});
 
 /**
  * POST /api/loans/:loanId/build-extend
@@ -1108,18 +993,14 @@ export const extendLoan = asyncHandler(async (req: Request, res: Response) => {
 
   if (borrowerPublicKey !== req.user?.publicKey) {
     throw AppError.forbidden(
-      "borrowerPublicKey must match your authenticated wallet",
+      'borrowerPublicKey must match your authenticated wallet',
       ErrorCode.BORROWER_MISMATCH,
     );
   }
 
   const loanIdNum = Number.parseInt(loanId, 10);
   if (!Number.isFinite(loanIdNum) || loanIdNum <= 0) {
-    throw AppError.badRequest(
-      "Invalid loan ID",
-      ErrorCode.INVALID_LOAN_ID,
-      "loanId",
-    );
+    throw AppError.badRequest('Invalid loan ID', ErrorCode.INVALID_LOAN_ID, 'loanId');
   }
 
   const cacheKey = `pending_extend_tx:${borrowerPublicKey}:${loanIdNum}:${extraLedgers}`;
@@ -1129,7 +1010,7 @@ export const extendLoan = asyncHandler(async (req: Request, res: Response) => {
   }>(cacheKey);
 
   if (cachedTx) {
-    logger.withContext().info("Returning cached unsigned extend tx", {
+    logger.withContext().info('Returning cached unsigned extend tx', {
       borrower: borrowerPublicKey,
       loanId: loanIdNum,
       extraLedgers,
@@ -1143,15 +1024,11 @@ export const extendLoan = asyncHandler(async (req: Request, res: Response) => {
     return;
   }
 
-  const result = await sorobanService.buildExtendLoanTx(
-    borrowerPublicKey,
-    loanIdNum,
-    extraLedgers,
-  );
+  const result = await sorobanService.buildExtendLoanTx(borrowerPublicKey, loanIdNum, extraLedgers);
 
   await cacheService.set(cacheKey, result, 60);
 
-  logger.withContext().info("Extend loan transaction built", {
+  logger.withContext().info('Extend loan transaction built', {
     borrower: borrowerPublicKey,
     loanId: loanIdNum,
     extraLedgers,
@@ -1168,130 +1045,115 @@ export const extendLoan = asyncHandler(async (req: Request, res: Response) => {
 /**
  * POST /api/loans/:loanId/liquidate/build
  */
-export const buildLiquidateLoan = asyncHandler(
-  async (req: Request, res: Response) => {
-    const loanId = req.params.loanId as string;
-    const { liquidatorPublicKey } = req.body as {
-      liquidatorPublicKey: string;
-    };
+export const buildLiquidateLoan = asyncHandler(async (req: Request, res: Response) => {
+  const loanId = req.params.loanId as string;
+  const { liquidatorPublicKey } = req.body as {
+    liquidatorPublicKey: string;
+  };
 
-    if (liquidatorPublicKey !== req.user?.publicKey) {
-      throw AppError.forbidden(
-        "liquidatorPublicKey must match your authenticated wallet",
-        ErrorCode.ACCESS_DENIED,
-      );
-    }
-
-    const loanIdNum = Number.parseInt(loanId, 10);
-    if (!Number.isFinite(loanIdNum) || loanIdNum <= 0) {
-      throw AppError.badRequest(
-        "Invalid loan ID",
-        ErrorCode.INVALID_LOAN_ID,
-        "loanId",
-      );
-    }
-
-    const cacheKey = `pending_liquidate_tx:${liquidatorPublicKey}:${loanIdNum}`;
-    const cachedTx = await cacheService.get<{
-      unsignedTxXdr: string;
-      networkPassphrase: string;
-    }>(cacheKey);
-
-    if (cachedTx) {
-      logger.withContext().info("Returning cached unsigned liquidate tx", {
-        liquidator: liquidatorPublicKey,
-        loanId: loanIdNum,
-      });
-      res.json({
-        success: true,
-        loanId: loanIdNum,
-        unsignedTxXdr: cachedTx.unsignedTxXdr,
-        networkPassphrase: cachedTx.networkPassphrase,
-      });
-      return;
-    }
-
-    const result = await sorobanService.buildLiquidateTx(
-      liquidatorPublicKey,
-      loanIdNum,
+  if (liquidatorPublicKey !== req.user?.publicKey) {
+    throw AppError.forbidden(
+      'liquidatorPublicKey must match your authenticated wallet',
+      ErrorCode.ACCESS_DENIED,
     );
+  }
 
-    await cacheService.set(cacheKey, result, 60);
+  const loanIdNum = Number.parseInt(loanId, 10);
+  if (!Number.isFinite(loanIdNum) || loanIdNum <= 0) {
+    throw AppError.badRequest('Invalid loan ID', ErrorCode.INVALID_LOAN_ID, 'loanId');
+  }
 
-    logger.withContext().info("Liquidate loan transaction built", {
+  const cacheKey = `pending_liquidate_tx:${liquidatorPublicKey}:${loanIdNum}`;
+  const cachedTx = await cacheService.get<{
+    unsignedTxXdr: string;
+    networkPassphrase: string;
+  }>(cacheKey);
+
+  if (cachedTx) {
+    logger.withContext().info('Returning cached unsigned liquidate tx', {
       liquidator: liquidatorPublicKey,
       loanId: loanIdNum,
     });
-
     res.json({
       success: true,
       loanId: loanIdNum,
-      unsignedTxXdr: result.unsignedTxXdr,
-      networkPassphrase: result.networkPassphrase,
+      unsignedTxXdr: cachedTx.unsignedTxXdr,
+      networkPassphrase: cachedTx.networkPassphrase,
     });
-  },
-);
+    return;
+  }
+
+  const result = await sorobanService.buildLiquidateTx(liquidatorPublicKey, loanIdNum);
+
+  await cacheService.set(cacheKey, result, 60);
+
+  logger.withContext().info('Liquidate loan transaction built', {
+    liquidator: liquidatorPublicKey,
+    loanId: loanIdNum,
+  });
+
+  res.json({
+    success: true,
+    loanId: loanIdNum,
+    unsignedTxXdr: result.unsignedTxXdr,
+    networkPassphrase: result.networkPassphrase,
+  });
+});
 
 /**
  * POST /api/loans/submit
  * POST /api/loans/:loanId/submit
  */
-export const submitTransaction = asyncHandler(
-  async (req: Request, res: Response) => {
-    const { signedTxXdr } = req.body as { signedTxXdr: string };
+export const submitTransaction = asyncHandler(async (req: Request, res: Response) => {
+  const { signedTxXdr } = req.body as { signedTxXdr: string };
 
-    if (!signedTxXdr) {
-      throw AppError.badRequest(
-        "signedTxXdr is required",
-        ErrorCode.MISSING_FIELD,
-        "signedTxXdr",
-      );
-    }
+  if (!signedTxXdr) {
+    throw AppError.badRequest('signedTxXdr is required', ErrorCode.MISSING_FIELD, 'signedTxXdr');
+  }
 
-    // Use transaction wrapper for consistency with multi-step operations
-    const result = await withStellarAndDbTransaction(
-      // Stellar operation
-      async () => {
-        return await sorobanService.submitSignedTx(signedTxXdr);
-      },
-      // Database operations (currently none, but structured for future use)
-      async (stellarResult: unknown, client) => {
-        const sr = stellarResult as { txHash: string; status: string };
-        await client.query(
-          `INSERT INTO transaction_submissions (tx_hash, status, submitted_at, submitted_by)
+  // Use transaction wrapper for consistency with multi-step operations
+  const result = await withStellarAndDbTransaction(
+    // Stellar operation
+    async () => {
+      return await sorobanService.submitSignedTx(signedTxXdr);
+    },
+    // Database operations (currently none, but structured for future use)
+    async (stellarResult: unknown, client) => {
+      const sr = stellarResult as { txHash: string; status: string };
+      await client.query(
+        `INSERT INTO transaction_submissions (tx_hash, status, submitted_at, submitted_by)
            VALUES ($1, $2, NOW(), $3)
            ON CONFLICT (tx_hash) DO UPDATE SET
              status = EXCLUDED.status,
              submitted_at = EXCLUDED.submitted_at`,
-          [sr.txHash, sr.status, req.user?.publicKey || null],
-        );
+        [sr.txHash, sr.status, req.user?.publicKey || null],
+      );
 
-        logger.withContext().info("Transaction submission recorded", {
-          txHash: sr.txHash,
-          status: sr.status,
-          submittedBy: req.user?.publicKey,
-        });
+      logger.withContext().info('Transaction submission recorded', {
+        txHash: sr.txHash,
+        status: sr.status,
+        submittedBy: req.user?.publicKey,
+      });
 
-        return { recorded: true };
-      },
-    );
+      return { recorded: true };
+    },
+  );
 
-    const sr = result.stellarResult as {
-      txHash: string;
-      status: string;
-      resultXdr?: string;
-    };
+  const sr = result.stellarResult as {
+    txHash: string;
+    status: string;
+    resultXdr?: string;
+  };
 
-    logger.withContext().info("Transaction submitted successfully", {
-      txHash: sr.txHash,
-      status: sr.status,
-    });
+  logger.withContext().info('Transaction submitted successfully', {
+    txHash: sr.txHash,
+    status: sr.status,
+  });
 
-    res.json({
-      success: true,
-      txHash: sr.txHash,
-      status: sr.status,
-      ...(sr.resultXdr ? { resultXdr: sr.resultXdr } : {}),
-    });
-  },
-);
+  res.json({
+    success: true,
+    txHash: sr.txHash,
+    status: sr.status,
+    ...(sr.resultXdr ? { resultXdr: sr.resultXdr } : {}),
+  });
+});

@@ -1,4 +1,4 @@
-import { cacheService } from "../services/cacheService.js";
+import { cacheService } from '../services/cacheService.js';
 
 /**
  * Canonical cache key generators.
@@ -7,7 +7,7 @@ import { cacheService } from "../services/cacheService.js";
  */
 export const CacheKeys = {
   // Pool stats aggregate (getPoolStats)
-  poolStats: () => "pool:stats",
+  poolStats: () => 'pool:stats',
 
   // Per-borrower loans aggregate (getBorrowerLoans)
   borrowerLoans: (borrower: string) => `borrower:loans:${borrower}`,
@@ -16,8 +16,7 @@ export const CacheKeys = {
   scoreBreakdown: (publicKey: string) => `score:breakdown:${publicKey}`,
 
   // Idempotency / unsigned-tx keys – loan
-  pendingLoanTx: (borrower: string, amount: number) =>
-    `pending_loan_tx:${borrower}:${amount}`,
+  pendingLoanTx: (borrower: string, amount: number) => `pending_loan_tx:${borrower}:${amount}`,
 
   pendingRepayTx: (borrower: string, loanId: number, amount: number) =>
     `pending_repay_tx:${borrower}:${loanId}:${amount}`,
@@ -34,10 +33,7 @@ export const CacheKeys = {
  * Invalidate all cache keys that become stale after a repayment.
  * Call this after the DB transaction commits inside repayLoan.
  */
-export async function invalidateOnRepay(
-  borrower: string,
-  _loanId: number,
-): Promise<void> {
+export async function invalidateOnRepay(borrower: string, _loanId: number): Promise<void> {
   await Promise.all([
     cacheService.delete(CacheKeys.poolStats()),
     cacheService.delete(CacheKeys.borrowerLoans(borrower)),

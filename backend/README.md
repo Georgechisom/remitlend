@@ -295,7 +295,7 @@ backend/
 Centralized error handling middleware that catches and formats errors.
 
 ```typescript
-import { errorHandler } from "./middleware/errorHandler";
+import { errorHandler } from './middleware/errorHandler';
 app.use(errorHandler);
 ```
 
@@ -304,10 +304,10 @@ app.use(errorHandler);
 Request validation using Zod schemas.
 
 ```typescript
-import { validate } from "./middleware/validation";
-import { mySchema } from "./schemas/mySchemas";
+import { validate } from './middleware/validation';
+import { mySchema } from './schemas/mySchemas';
 
-router.post("/endpoint", validate(mySchema), controller);
+router.post('/endpoint', validate(mySchema), controller);
 ```
 
 ### Rate Limiter
@@ -315,8 +315,8 @@ router.post("/endpoint", validate(mySchema), controller);
 Protects endpoints from abuse with configurable rate limits.
 
 ```typescript
-import { rateLimiter } from "./middleware/rateLimiter";
-app.use("/api/", rateLimiter);
+import { rateLimiter } from './middleware/rateLimiter';
+app.use('/api/', rateLimiter);
 ```
 
 ### Async Handler
@@ -324,10 +324,10 @@ app.use("/api/", rateLimiter);
 Wraps async route handlers to catch errors automatically.
 
 ```typescript
-import { asyncHandler } from "./middleware/asyncHandler";
+import { asyncHandler } from './middleware/asyncHandler';
 
 router.get(
-  "/endpoint",
+  '/endpoint',
   asyncHandler(async (req, res) => {
     // Async code here
   }),
@@ -355,14 +355,14 @@ npm test -- --watch
 ### Test Structure
 
 ```typescript
-import request from "supertest";
-import app from "../app";
+import request from 'supertest';
+import app from '../app';
 
-describe("GET /api/health", () => {
-  it("should return 200 OK", async () => {
-    const response = await request(app).get("/api/health").expect(200);
+describe('GET /api/health', () => {
+  it('should return 200 OK', async () => {
+    const response = await request(app).get('/api/health').expect(200);
 
-    expect(response.body).toHaveProperty("status", "ok");
+    expect(response.body).toHaveProperty('status', 'ok');
   });
 });
 ```
@@ -381,9 +381,9 @@ Aim for >80% code coverage on new code. Current coverage:
 ### Custom Error Class
 
 ```typescript
-import { AppError } from "./errors/AppError";
+import { AppError } from './errors/AppError';
 
-throw new AppError("User not found", 404);
+throw new AppError('User not found', 404);
 ```
 
 ### Error Response Format
@@ -404,11 +404,11 @@ Validation schemas are defined using Zod in the `schemas/` directory.
 ### Example Schema
 
 ```typescript
-import { z } from "zod";
+import { z } from 'zod';
 
 export const getUserScoreSchema = z.object({
   params: z.object({
-    userId: z.string().min(1, "User ID is required"),
+    userId: z.string().min(1, 'User ID is required'),
   }),
 });
 

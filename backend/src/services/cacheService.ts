@@ -1,7 +1,7 @@
-import { createClient, type RedisClientType } from "redis";
-import logger from "../utils/logger.js";
+import { createClient, type RedisClientType } from 'redis';
+import logger from '../utils/logger.js';
 
-const REDIS_URL = process.env.REDIS_URL || "redis://localhost:6379";
+const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 
 class CacheService {
   private client: RedisClientType | undefined;
@@ -12,23 +12,23 @@ class CacheService {
       url: REDIS_URL,
     });
 
-    this.client.on("error", (err) => {
+    this.client.on('error', (err) => {
       // In tests, we don't want to spam the console with ECONNREFUSED if Redis isn't running
-      if (process.env.NODE_ENV !== "test" || err.code !== "ECONNREFUSED") {
-        logger.withContext().error("Redis Client Error", err);
+      if (process.env.NODE_ENV !== 'test' || err.code !== 'ECONNREFUSED') {
+        logger.withContext().error('Redis Client Error', err);
       }
       this.isConnected = false;
     });
 
-    this.client.on("connect", () => {
-      logger.withContext().info("Redis Client Connected");
+    this.client.on('connect', () => {
+      logger.withContext().info('Redis Client Connected');
       this.isConnected = true;
     });
 
-    this.client.on("reconnecting", () => {
+    this.client.on('reconnecting', () => {
       // Only log reconnecting in non-test environments to keep test output clean
-      if (process.env.NODE_ENV !== "test") {
-        logger.withContext().info("Redis Client Reconnecting");
+      if (process.env.NODE_ENV !== 'test') {
+        logger.withContext().info('Redis Client Reconnecting');
       }
     });
 
@@ -42,8 +42,8 @@ class CacheService {
         this.isConnected = true;
       } catch (err) {
         // Silently fail in tests if connection fails, but log in production
-        if (process.env.NODE_ENV !== "test") {
-          logger.withContext().error("Failed to connect to Redis", err);
+        if (process.env.NODE_ENV !== 'test') {
+          logger.withContext().error('Failed to connect to Redis', err);
         }
         throw err;
       }
@@ -56,20 +56,14 @@ class CacheService {
    * @param value The value to cache (will be stringified)
    * @param ttlSeconds The TTL in seconds (default: 300 = 5 minutes)
    */
-  async set(
-    key: string,
-    value: unknown,
-    ttlSeconds: number = 300,
-  ): Promise<void> {
+  async set(key: string, value: unknown, ttlSeconds: number = 300): Promise<void> {
     try {
       await this.ensureConnected();
       const stringValue = JSON.stringify(value);
       await this.client!.setEx(key, ttlSeconds, stringValue);
     } catch (error) {
-      if (process.env.NODE_ENV !== "test") {
-        logger
-          .withContext()
-          .error(`Error setting cache for key ${key}`, { error });
+      if (process.env.NODE_ENV !== 'test') {
+        logger.withContext().error(`Error setting cache for key ${key}`, { error });
       }
     }
   }
@@ -87,10 +81,8 @@ class CacheService {
 
       return JSON.parse(value) as T;
     } catch (error) {
-      if (process.env.NODE_ENV !== "test") {
-        logger
-          .withContext()
-          .error(`Error getting cache for key ${key}`, { error });
+      if (process.env.NODE_ENV !== 'test') {
+        logger.withContext().error(`Error getting cache for key ${key}`, { error });
       }
       return null;
     }
@@ -104,11 +96,7 @@ class CacheService {
    * @param ttlSeconds The TTL in seconds
    * @returns true if the key was set, false if the key already existed
    */
-  async setNotExists(
-    key: string,
-    value: unknown,
-    ttlSeconds: number,
-  ): Promise<boolean> {
+  async setNotExists(key: string, value: unknown, ttlSeconds: number): Promise<boolean> {
     try {
       await this.ensureConnected();
       if (!this.isConnected) return false;
@@ -119,11 +107,9 @@ class CacheService {
         NX: true,
         EX: ttlSeconds,
       });
-      return result === "OK";
+      return result === 'OK';
     } catch (error) {
-      logger
-        .withContext()
-        .error(`Error setting NX cache for key ${key}`, { error });
+      logger.withContext().error(`Error setting NX cache for key ${key}`, { error });
       return false;
     }
   }
@@ -137,10 +123,8 @@ class CacheService {
       await this.ensureConnected();
       await this.client!.del(key);
     } catch (error) {
-      if (process.env.NODE_ENV !== "test") {
-        logger
-          .withContext()
-          .error(`Error deleting cache for key ${key}`, { error });
+      if (process.env.NODE_ENV !== 'test') {
+        logger.withContext().error(`Error deleting cache for key ${key}`, { error });
       }
     }
   }
@@ -157,10 +141,8 @@ class CacheService {
         await this.client!.del(keys);
       }
     } catch (error) {
-      if (process.env.NODE_ENV !== "test") {
-        logger
-          .withContext()
-          .error(`Error invalidating pattern ${pattern}`, { error });
+      if (process.env.NODE_ENV !== 'test') {
+        logger.withContext().error(`Error invalidating pattern ${pattern}`, { error });
       }
     }
   }
@@ -169,13 +151,13 @@ class CacheService {
    * Ping the Redis server to verify connectivity.
    * Returns "ok" on success or "error" if unreachable.
    */
-  async ping(): Promise<"ok" | "error"> {
+  async ping(): Promise<'ok' | 'error'> {
     try {
       await this.ensureConnected();
       const reply = await this.client!.ping();
-      return reply === "PONG" ? "ok" : "error";
+      return reply === 'PONG' ? 'ok' : 'error';
     } catch {
-      return "error";
+      return 'error';
     }
   }
 

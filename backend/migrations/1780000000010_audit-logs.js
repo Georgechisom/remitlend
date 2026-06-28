@@ -8,23 +8,23 @@ export const shorthands = undefined;
  * @returns {Promise<void> | void}
  */
 export const up = (pgm) => {
-  pgm.createTable("audit_logs", {
-    id: "id",
-    actor: { type: "varchar(255)", notNull: true },
-    action: { type: "varchar(255)", notNull: true },
-    target: { type: "varchar(255)", notNull: false },
-    payload: { type: "jsonb", notNull: false },
-    ip_address: { type: "varchar(50)", notNull: false },
+  pgm.createTable('audit_logs', {
+    id: 'id',
+    actor: { type: 'varchar(255)', notNull: true },
+    action: { type: 'varchar(255)', notNull: true },
+    target: { type: 'varchar(255)', notNull: false },
+    payload: { type: 'jsonb', notNull: false },
+    ip_address: { type: 'varchar(50)', notNull: false },
     created_at: {
-      type: "timestamp",
+      type: 'timestamp',
       notNull: true,
-      default: pgm.func("current_timestamp"),
+      default: pgm.func('current_timestamp'),
     },
   });
 
-  pgm.createIndex("audit_logs", "actor");
-  pgm.createIndex("audit_logs", "action");
-  pgm.createIndex("audit_logs", "created_at");
+  pgm.createIndex('audit_logs', 'actor');
+  pgm.createIndex('audit_logs', 'action');
+  pgm.createIndex('audit_logs', 'created_at');
 };
 
 /**
@@ -32,5 +32,5 @@ export const up = (pgm) => {
  * @returns {Promise<void> | void}
  */
 export const down = (pgm) => {
-  pgm.dropTable("audit_logs");
+  pgm.dropTable('audit_logs');
 };

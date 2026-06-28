@@ -1,5 +1,5 @@
-import { getClient } from "./connection.js";
-import logger from "../utils/logger.js";
+import { getClient } from './connection.js';
+import logger from '../utils/logger.js';
 
 /**
  * Execute a database transaction with automatic rollback on error
@@ -7,35 +7,35 @@ import logger from "../utils/logger.js";
  * @returns Promise with the result of the operations
  */
 export async function withTransaction<T>(
-  operations: (client: import("pg").PoolClient) => Promise<T>,
+  operations: (client: import('pg').PoolClient) => Promise<T>,
 ): Promise<T> {
   let client;
   try {
     client = await getClient();
   } catch (error) {
-    logger.error("Failed to acquire database client for transaction", {
+    logger.error('Failed to acquire database client for transaction', {
       error,
     });
-    throw new Error("Database connection failed");
+    throw new Error('Database connection failed');
   }
 
   if (!client) {
-    throw new Error("Database client is undefined");
+    throw new Error('Database client is undefined');
   }
 
   try {
-    await client.query("BEGIN");
-    logger.debug("Database transaction started");
+    await client.query('BEGIN');
+    logger.debug('Database transaction started');
 
     const result = await operations(client);
 
-    await client.query("COMMIT");
-    logger.debug("Database transaction committed");
+    await client.query('COMMIT');
+    logger.debug('Database transaction committed');
 
     return result;
   } catch (error) {
-    await client.query("ROLLBACK");
-    logger.error("Database transaction rolled back due to error:", error);
+    await client.query('ROLLBACK');
+    logger.error('Database transaction rolled back due to error:', error);
     throw error;
   } finally {
     client.release();
@@ -70,10 +70,7 @@ export async function executeTransactionQueries(
  */
 export async function withStellarAndDbTransaction<T>(
   stellarOperation: () => Promise<unknown>,
-  dbOperations: (
-    stellarResult: unknown,
-    client: import("pg").PoolClient,
-  ) => Promise<T>,
+  dbOperations: (stellarResult: unknown, client: import('pg').PoolClient) => Promise<T>,
 ): Promise<{ stellarResult: unknown; dbResult: T }> {
   return withTransaction(async (client) => {
     try {
@@ -85,14 +82,14 @@ export async function withStellarAndDbTransaction<T>(
 
       return { stellarResult, dbResult };
     } catch (error) {
-      logger.error("Operation failed in Stellar+DB transaction:", {
-        error: error instanceof Error ? error.message : "Unknown error",
+      logger.error('Operation failed in Stellar+DB transaction:', {
+        error: error instanceof Error ? error.message : 'Unknown error',
         // Don't log sensitive Stellar data
       });
 
       // Log for reconciliation since Stellar transaction might have succeeded
       // but DB write failed
-      logger.warn("Stellar transaction might need manual reconciliation", {
+      logger.warn('Stellar transaction might need manual reconciliation', {
         timestamp: new Date().toISOString(),
       });
 

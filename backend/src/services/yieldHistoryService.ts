@@ -1,5 +1,5 @@
-import { scValToNative, xdr } from "@stellar/stellar-sdk";
-import { query } from "../db/connection.js";
+import { scValToNative, xdr } from '@stellar/stellar-sdk';
+import { query } from '../db/connection.js';
 
 export const SHARE_PRICE_SCALE = 1_000_000;
 export const YIELD_HISTORY_ALLOWED_DAYS = [7, 30, 90] as const;
@@ -39,16 +39,16 @@ function parseDepositWithdrawAmounts(
   }
 
   try {
-    const scVal = xdr.ScVal.fromXDR(valueXdr, "base64");
+    const scVal = xdr.ScVal.fromXDR(valueXdr, 'base64');
     const native = scValToNative(scVal);
     if (!Array.isArray(native) || native.length < 2) {
       return { assetAmount, shares: assetAmount };
     }
     const sharesRaw = native[1];
     const shares =
-      typeof sharesRaw === "bigint"
+      typeof sharesRaw === 'bigint'
         ? Number(sharesRaw)
-        : typeof sharesRaw === "number"
+        : typeof sharesRaw === 'number'
           ? sharesRaw
           : assetAmount;
     return { assetAmount, shares };
@@ -57,11 +57,7 @@ function parseDepositWithdrawAmounts(
   }
 }
 
-function assetValueFromShares(
-  shares: number,
-  poolBalance: number,
-  totalShares: number,
-): number {
+function assetValueFromShares(shares: number, poolBalance: number, totalShares: number): number {
   if (shares <= 0 || totalShares <= 0) {
     return 0;
   }
@@ -79,16 +75,16 @@ function applyPoolEvent(
   );
 
   switch (event.event_type) {
-    case "Deposit":
+    case 'Deposit':
       state.poolBalance += assetAmount;
       state.totalShares += shares;
       break;
-    case "Withdraw":
-    case "EmergencyWithdraw":
+    case 'Withdraw':
+    case 'EmergencyWithdraw':
       state.poolBalance = Math.max(0, state.poolBalance - assetAmount);
       state.totalShares = Math.max(0, state.totalShares - shares);
       break;
-    case "YieldDistributed":
+    case 'YieldDistributed':
       state.poolBalance += assetAmount;
       break;
     default:
@@ -107,16 +103,13 @@ function applyDepositorEvent(
     event.value,
   );
 
-  if (event.event_type === "Deposit") {
+  if (event.event_type === 'Deposit') {
     state.shares += shares;
     state.costBasis += assetAmount;
     return;
   }
 
-  if (
-    event.event_type === "Withdraw" ||
-    event.event_type === "EmergencyWithdraw"
-  ) {
+  if (event.event_type === 'Withdraw' || event.event_type === 'EmergencyWithdraw') {
     if (state.shares <= 0) {
       return;
     }
@@ -126,11 +119,7 @@ function applyDepositorEvent(
   }
 }
 
-function computeApy(
-  netYield: number,
-  depositedValue: number,
-  daysElapsed: number,
-): number {
+function computeApy(netYield: number, depositedValue: number, daysElapsed: number): number {
   if (depositedValue <= 0 || daysElapsed <= 0) {
     return 0;
   }
@@ -139,12 +128,8 @@ function computeApy(
   return parseFloat((annualized * 100).toFixed(4));
 }
 
-export function normalizeYieldHistoryDays(
-  days: number | undefined,
-): YieldHistoryDayRange {
-  if (
-    (YIELD_HISTORY_ALLOWED_DAYS as readonly number[]).includes(days as number)
-  ) {
+export function normalizeYieldHistoryDays(days: number | undefined): YieldHistoryDayRange {
+  if ((YIELD_HISTORY_ALLOWED_DAYS as readonly number[]).includes(days as number)) {
     return days as YieldHistoryDayRange;
   }
   return YIELD_HISTORY_DEFAULT_DAYS;
@@ -159,7 +144,7 @@ export async function buildDepositorYieldHistory(
   const since = new Date();
   since.setUTCDate(since.getUTCDate() - days);
 
-  const poolContractId = process.env.LENDING_POOL_CONTRACT_ID ?? "";
+  const poolContractId = process.env.LENDING_POOL_CONTRACT_ID ?? '';
 
   const [poolEventsResult, depositorEventsResult] = await Promise.all([
     query(
@@ -199,11 +184,7 @@ export async function buildDepositorYieldHistory(
   const start = new Date(since);
   start.setUTCHours(0, 0, 0, 0);
 
-  for (
-    let cursor = new Date(start);
-    cursor <= end;
-    cursor.setUTCDate(cursor.getUTCDate() + 1)
-  ) {
+  for (let cursor = new Date(start); cursor <= end; cursor.setUTCDate(cursor.getUTCDate() + 1)) {
     bucketDates.push(new Date(cursor));
     if (bucketDates.length >= MAX_POINTS) {
       break;
@@ -234,11 +215,7 @@ export async function buildDepositorYieldHistory(
       depositorIdx < depositorEvents.length &&
       new Date(depositorEvents[depositorIdx]!.ledger_closed_at) <= bucketEnd
     ) {
-      applyDepositorEvent(
-        depositorState,
-        poolState,
-        depositorEvents[depositorIdx]!,
-      );
+      applyDepositorEvent(depositorState, poolState, depositorEvents[depositorIdx]!);
       depositorIdx += 1;
     }
 
@@ -248,15 +225,9 @@ export async function buildDepositorYieldHistory(
       poolState.totalShares,
     );
 
-    const isLastBucket =
-      bucketEnd.getTime() === bucketDates[bucketDates.length - 1]!.getTime();
-    if (
-      isLastBucket &&
-      currentSharePrice !== undefined &&
-      depositorState.shares > 0
-    ) {
-      currentValue =
-        (depositorState.shares * currentSharePrice) / SHARE_PRICE_SCALE;
+    const isLastBucket = bucketEnd.getTime() === bucketDates[bucketDates.length - 1]!.getTime();
+    if (isLastBucket && currentSharePrice !== undefined && depositorState.shares > 0) {
+      currentValue = (depositorState.shares * currentSharePrice) / SHARE_PRICE_SCALE;
     }
 
     const depositedValue = depositorState.costBasis;
@@ -270,9 +241,7 @@ export async function buildDepositorYieldHistory(
     });
   }
 
-  return points.filter(
-    (point) => point.depositedValue > 0 || point.currentValue > 0,
-  );
+  return points.filter((point) => point.depositedValue > 0 || point.currentValue > 0);
 }
 
 export { MAX_POINTS, computeApy };

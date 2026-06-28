@@ -26,5 +26,5 @@ export const up = (pgm) => {
  * @param pgm {import('node-pg-migrate').MigrationBuilder}
  */
 export const down = (pgm) => {
-  pgm.sql("DROP INDEX IF EXISTS idx_loan_events_loan_id;");
+  pgm.sql('DROP INDEX IF EXISTS idx_loan_events_loan_id;');
 };

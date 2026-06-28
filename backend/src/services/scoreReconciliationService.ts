@@ -1,9 +1,9 @@
-import { query } from "../db/connection.js";
-import { setAbsoluteUserScoresBulk } from "./scoresService.js";
-import { sorobanService } from "./sorobanService.js";
-import { recordScoreReconciliationRun } from "../middleware/metrics.js";
-import { jobMetricsService } from "./jobMetricsService.js";
-import logger from "../utils/logger.js";
+import { query } from '../db/connection.js';
+import { setAbsoluteUserScoresBulk } from './scoresService.js';
+import { sorobanService } from './sorobanService.js';
+import { recordScoreReconciliationRun } from '../middleware/metrics.js';
+import { jobMetricsService } from './jobMetricsService.js';
+import logger from '../utils/logger.js';
 
 interface ActiveBorrowerScoreRow {
   address: string;
@@ -29,23 +29,20 @@ export interface ScoreReconciliationResult {
 }
 
 function parsePositiveInt(value: string | undefined, fallback: number): number {
-  const parsed = Number.parseInt(value ?? "", 10);
+  const parsed = Number.parseInt(value ?? '', 10);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
-function parseNonNegativeInt(
-  value: string | undefined,
-  fallback: number,
-): number {
-  const parsed = Number.parseInt(value ?? "", 10);
+function parseNonNegativeInt(value: string | undefined, fallback: number): number {
+  const parsed = Number.parseInt(value ?? '', 10);
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
 }
 
 function parseBoolean(value: string | undefined, fallback: boolean): boolean {
   if (value == null) return fallback;
   const normalized = value.trim().toLowerCase();
-  if (["1", "true", "yes", "on"].includes(normalized)) return true;
-  if (["0", "false", "no", "off"].includes(normalized)) return false;
+  if (['1', 'true', 'yes', 'on'].includes(normalized)) return true;
+  if (['0', 'false', 'no', 'off'].includes(normalized)) return false;
   return fallback;
 }
 
@@ -64,24 +61,15 @@ class ScoreReconciliationService {
   }
 
   private getMaxBorrowersPerRun(): number {
-    return parsePositiveInt(
-      process.env.SCORE_RECONCILIATION_MAX_BORROWERS_PER_RUN,
-      500,
-    );
+    return parsePositiveInt(process.env.SCORE_RECONCILIATION_MAX_BORROWERS_PER_RUN, 500);
   }
 
   private isAutoCorrectEnabled(): boolean {
-    return parseBoolean(
-      process.env.SCORE_RECONCILIATION_AUTOCORRECT_ENABLED,
-      false,
-    );
+    return parseBoolean(process.env.SCORE_RECONCILIATION_AUTOCORRECT_ENABLED, false);
   }
 
   private getAutoCorrectThreshold(): number {
-    return parseNonNegativeInt(
-      process.env.SCORE_RECONCILIATION_AUTOCORRECT_THRESHOLD,
-      50,
-    );
+    return parseNonNegativeInt(process.env.SCORE_RECONCILIATION_AUTOCORRECT_THRESHOLD, 50);
   }
 
   private async fetchActiveBorrowerScores(): Promise<ActiveBorrowerScoreRow[]> {
@@ -119,7 +107,7 @@ class ScoreReconciliationService {
       };
 
       return {
-        address: String(record.address ?? ""),
+        address: String(record.address ?? ''),
         dbScore:
           record.current_score === null || record.current_score === undefined
             ? null
@@ -130,7 +118,7 @@ class ScoreReconciliationService {
 
   async reconcileActiveBorrowerScores(): Promise<ScoreReconciliationResult> {
     const startTime = Date.now();
-    const jobName = "scoreReconciliationService";
+    const jobName = 'scoreReconciliationService';
 
     const activeBorrowers = await this.fetchActiveBorrowerScores();
     const batchSize = this.getBatchSize();
@@ -141,7 +129,7 @@ class ScoreReconciliationService {
     let checkedBorrowerCount = 0;
     let failedBorrowerCount = 0;
 
-    logger.withContext().info("score_reconciliation.run.start", {
+    logger.withContext().info('score_reconciliation.run.start', {
       activeBorrowerCount: activeBorrowers.length,
       batchSize,
       autoCorrectEnabled,
@@ -152,9 +140,7 @@ class ScoreReconciliationService {
       for (const batch of chunk(activeBorrowers, batchSize)) {
         const batchResults = await Promise.allSettled(
           batch.map(async (borrowerRow) => {
-            const contractScore = await sorobanService.getOnChainCreditScore(
-              borrowerRow.address,
-            );
+            const contractScore = await sorobanService.getOnChainCreditScore(borrowerRow.address);
             return {
               ...borrowerRow,
               contractScore,
@@ -163,10 +149,10 @@ class ScoreReconciliationService {
         );
 
         batchResults.forEach((result, index) => {
-          const address = batch[index]?.address ?? "unknown";
-          if (result.status === "rejected") {
+          const address = batch[index]?.address ?? 'unknown';
+          if (result.status === 'rejected') {
             failedBorrowerCount += 1;
-            logger.withContext().error("score_reconciliation.borrower.failed", {
+            logger.withContext().error('score_reconciliation.borrower.failed', {
               address,
               error: result.reason,
             });
@@ -175,8 +161,7 @@ class ScoreReconciliationService {
 
           checkedBorrowerCount += 1;
           const { dbScore, contractScore } = result.value;
-          const absoluteDifference =
-            dbScore === null ? null : Math.abs(contractScore - dbScore);
+          const absoluteDifference = dbScore === null ? null : Math.abs(contractScore - dbScore);
           const isDivergent = dbScore === null || dbScore !== contractScore;
 
           if (!isDivergent) {
@@ -191,13 +176,10 @@ class ScoreReconciliationService {
           };
           divergences.push(divergence);
 
-          logger
-            .withContext()
-            .warn("score_reconciliation.mismatch", divergence);
+          logger.withContext().warn('score_reconciliation.mismatch', divergence);
 
           const exceedsThreshold =
-            absoluteDifference === null ||
-            absoluteDifference >= autoCorrectThreshold;
+            absoluteDifference === null || absoluteDifference >= autoCorrectThreshold;
 
           if (autoCorrectEnabled && exceedsThreshold) {
             corrections.set(address, contractScore);
@@ -205,14 +187,14 @@ class ScoreReconciliationService {
         });
       }
 
-      logger.withContext().info("score_divergence_count", {
-        metric: "score_divergence_count",
+      logger.withContext().info('score_divergence_count', {
+        metric: 'score_divergence_count',
         value: divergences.length,
       });
 
       if (corrections.size > 0) {
         await setAbsoluteUserScoresBulk(corrections);
-        logger.withContext().warn("score_reconciliation.autocorrect.applied", {
+        logger.withContext().warn('score_reconciliation.autocorrect.applied', {
           correctedCount: corrections.size,
           threshold: autoCorrectThreshold,
         });
@@ -229,7 +211,7 @@ class ScoreReconciliationService {
         divergences,
       };
 
-      logger.withContext().info("score_reconciliation.run.complete", {
+      logger.withContext().info('score_reconciliation.run.complete', {
         activeBorrowerCount: result.activeBorrowerCount,
         checkedBorrowerCount: result.checkedBorrowerCount,
         failedBorrowerCount: result.failedBorrowerCount,
@@ -246,11 +228,7 @@ class ScoreReconciliationService {
     } catch (error) {
       // Record failure metrics
       const durationMs = Date.now() - startTime;
-      jobMetricsService.recordFailure(
-        jobName,
-        error as Error | string,
-        durationMs,
-      );
+      jobMetricsService.recordFailure(jobName, error as Error | string, durationMs);
       throw error;
     }
   }
@@ -264,31 +242,24 @@ let reconciliationInFlight = false;
 export function startScoreReconciliationScheduler(): void {
   if (reconciliationInterval) return;
 
-  if (process.env.NODE_ENV === "test") {
+  if (process.env.NODE_ENV === 'test') {
     return;
   }
 
   if (!process.env.REMITTANCE_NFT_CONTRACT_ID) {
     logger
       .withContext()
-      .warn(
-        "Score reconciliation scheduler disabled (set REMITTANCE_NFT_CONTRACT_ID)",
-      );
+      .warn('Score reconciliation scheduler disabled (set REMITTANCE_NFT_CONTRACT_ID)');
     return;
   }
 
-  const intervalMs = parsePositiveInt(
-    process.env.SCORE_RECONCILIATION_INTERVAL_MS,
-    60 * 60 * 1000,
-  );
+  const intervalMs = parsePositiveInt(process.env.SCORE_RECONCILIATION_INTERVAL_MS, 60 * 60 * 1000);
 
   const run = async () => {
     if (reconciliationInFlight) {
       logger
         .withContext()
-        .warn(
-          "Score reconciliation run skipped because a previous run is still in flight",
-        );
+        .warn('Score reconciliation run skipped because a previous run is still in flight');
       return;
     }
 
@@ -296,9 +267,7 @@ export function startScoreReconciliationScheduler(): void {
     try {
       await scoreReconciliationService.reconcileActiveBorrowerScores();
     } catch (error) {
-      logger
-        .withContext()
-        .error("Score reconciliation scheduled run failed", { error });
+      logger.withContext().error('Score reconciliation scheduled run failed', { error });
     } finally {
       reconciliationInFlight = false;
     }
@@ -311,7 +280,7 @@ export function startScoreReconciliationScheduler(): void {
   }, intervalMs);
   reconciliationInterval.unref?.();
 
-  logger.withContext().info("Score reconciliation scheduler started", {
+  logger.withContext().info('Score reconciliation scheduler started', {
     intervalMs,
   });
 }
@@ -320,6 +289,6 @@ export function stopScoreReconciliationScheduler(): void {
   if (reconciliationInterval) {
     clearInterval(reconciliationInterval);
     reconciliationInterval = undefined;
-    logger.withContext().info("Score reconciliation scheduler stopped");
+    logger.withContext().info('Score reconciliation scheduler stopped');
   }
 }

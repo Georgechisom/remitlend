@@ -8,10 +8,10 @@ export const shorthands = undefined;
  * @returns {Promise<void> | void}
  */
 export const up = (pgm) => {
-  pgm.addColumns("user_profiles", {
-    email_enabled: { type: "boolean", notNull: true, default: false },
-    sms_enabled: { type: "boolean", notNull: true, default: false },
-    phone: { type: "varchar(20)" },
+  pgm.addColumns('user_profiles', {
+    email_enabled: { type: 'boolean', notNull: true, default: false },
+    sms_enabled: { type: 'boolean', notNull: true, default: false },
+    phone: { type: 'varchar(20)' },
   });
 };
 
@@ -20,5 +20,5 @@ export const up = (pgm) => {
  * @returns {Promise<void> | void}
  */
 export const down = (pgm) => {
-  pgm.dropColumns("user_profiles", ["email_enabled", "sms_enabled", "phone"]);
+  pgm.dropColumns('user_profiles', ['email_enabled', 'sms_enabled', 'phone']);
 };

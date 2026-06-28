@@ -1,5 +1,5 @@
-import { jest } from "@jest/globals";
-import type { NextFunction, Request, Response } from "express";
+import { jest } from '@jest/globals';
+import type { NextFunction, Request, Response } from 'express';
 
 const mockQuery =
   jest.fn<
@@ -9,16 +9,14 @@ const mockQuery =
     ) => Promise<{ rows: Record<string, unknown>[]; rowCount: number }>
   >();
 
-jest.unstable_mockModule("../db/connection.js", () => ({
+jest.unstable_mockModule('../db/connection.js', () => ({
   query: mockQuery,
   getClient: jest.fn(),
 }));
 
-const { getPoolStats, getDepositorPortfolio } =
-  await import("../controllers/poolController.js");
+const { getPoolStats, getDepositorPortfolio } = await import('../controllers/poolController.js');
 
-const flushAsync = async (): Promise<void> =>
-  new Promise((resolve) => setImmediate(resolve));
+const flushAsync = async (): Promise<void> => new Promise((resolve) => setImmediate(resolve));
 
 const createMockResponse = (): Response =>
   ({
@@ -26,13 +24,13 @@ const createMockResponse = (): Response =>
     json: jest.fn().mockReturnThis(),
   }) as unknown as Response;
 
-describe("poolController asyncHandler wrapping", () => {
+describe('poolController asyncHandler wrapping', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  it("forwards async errors from getPoolStats to next()", async () => {
-    const error = new Error("db failed");
+  it('forwards async errors from getPoolStats to next()', async () => {
+    const error = new Error('db failed');
     mockQuery.mockRejectedValue(error);
 
     const res = createMockResponse();
@@ -46,12 +44,12 @@ describe("poolController asyncHandler wrapping", () => {
     expect(res.json).not.toHaveBeenCalled();
   });
 
-  it("forwards async errors from getDepositorPortfolio to next()", async () => {
-    const error = new Error("db failed");
+  it('forwards async errors from getDepositorPortfolio to next()', async () => {
+    const error = new Error('db failed');
     mockQuery.mockRejectedValue(error);
 
     const req = {
-      params: { address: "GTESTADDRESS123" },
+      params: { address: 'GTESTADDRESS123' },
     } as unknown as Request;
     const res = createMockResponse();
     const next = jest.fn<(err?: unknown) => void>();

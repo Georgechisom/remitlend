@@ -5,23 +5,19 @@ export interface LoanConfig {
   creditScoreThreshold: number;
 }
 
-const LOAN_MIN_SCORE = "LOAN_MIN_SCORE";
-const LOAN_MAX_AMOUNT = "LOAN_MAX_AMOUNT";
-const LOAN_INTEREST_RATE_PERCENT = "LOAN_INTEREST_RATE_PERCENT";
-const CREDIT_SCORE_THRESHOLD = "CREDIT_SCORE_THRESHOLD";
+const LOAN_MIN_SCORE = 'LOAN_MIN_SCORE';
+const LOAN_MAX_AMOUNT = 'LOAN_MAX_AMOUNT';
+const LOAN_INTEREST_RATE_PERCENT = 'LOAN_INTEREST_RATE_PERCENT';
+const CREDIT_SCORE_THRESHOLD = 'CREDIT_SCORE_THRESHOLD';
 
 const LOAN_MIN_SCORE_RANGE = { min: 300, max: 850 };
 const LOAN_MAX_AMOUNT_RANGE = { min: 1, max: 1_000_000 }; // 0 is invalid as requested
 const INTEREST_RATE_PERCENT_RANGE = { min: 1, max: 100 };
 const CREDIT_SCORE_THRESHOLD_RANGE = { min: 300, max: 850 };
 
-function parseRequiredInteger(
-  envKey: string,
-  min: number,
-  max: number,
-): number {
+function parseRequiredInteger(envKey: string, min: number, max: number): number {
   const rawValue = process.env[envKey];
-  if (rawValue === undefined || rawValue.trim() === "") {
+  if (rawValue === undefined || rawValue.trim() === '') {
     throw new Error(`${envKey} is required but missing`);
   }
 
@@ -32,9 +28,7 @@ function parseRequiredInteger(
   }
 
   if (parsed < min || parsed > max) {
-    throw new Error(
-      `${envKey} must be between ${min} and ${max} (inclusive), got ${parsed}`,
-    );
+    throw new Error(`${envKey} must be between ${min} and ${max} (inclusive), got ${parsed}`);
   }
 
   return parsed;
@@ -42,7 +36,7 @@ function parseRequiredInteger(
 
 function parseRequiredNumber(envKey: string, min: number, max: number): number {
   const rawValue = process.env[envKey];
-  if (rawValue === undefined || rawValue.trim() === "") {
+  if (rawValue === undefined || rawValue.trim() === '') {
     throw new Error(`${envKey} is required but missing`);
   }
 
@@ -53,9 +47,7 @@ function parseRequiredNumber(envKey: string, min: number, max: number): number {
   }
 
   if (parsed < min || parsed > max) {
-    throw new Error(
-      `${envKey} must be between ${min} and ${max} (inclusive), got ${parsed}`,
-    );
+    throw new Error(`${envKey} must be between ${min} and ${max} (inclusive), got ${parsed}`);
   }
 
   return parsed;

@@ -1,11 +1,7 @@
-import jwt from "jsonwebtoken";
-import { Keypair, StrKey } from "@stellar/stellar-sdk";
-import crypto from "crypto";
-import {
-  resolveRoleForWallet,
-  resolveScopesForRole,
-  type UserRole,
-} from "../auth/rbac.js";
+import jwt from 'jsonwebtoken';
+import { Keypair, StrKey } from '@stellar/stellar-sdk';
+import crypto from 'crypto';
+import { resolveRoleForWallet, resolveScopesForRole, type UserRole } from '../auth/rbac.js';
 
 export interface JwtPayload {
   publicKey: string;
@@ -22,23 +18,23 @@ export interface ChallengeMessage {
   expiresIn: number;
 }
 
-const JWT_EXPIRES_IN = "24h";
+const JWT_EXPIRES_IN = '24h';
 const CHALLENGE_EXPIRES_IN_MS = 5 * 60 * 1000;
 
 function getJwtSecret(): string {
   const secret = process.env.JWT_SECRET;
   if (!secret) {
-    throw new Error("JWT_SECRET environment variable is not set");
+    throw new Error('JWT_SECRET environment variable is not set');
   }
   return secret;
 }
 
 export function generateChallenge(publicKey: string): ChallengeMessage {
   if (!StrKey.isValidEd25519PublicKey(publicKey)) {
-    throw new Error("Invalid Stellar public key");
+    throw new Error('Invalid Stellar public key');
   }
 
-  const nonce = crypto.randomBytes(32).toString("hex");
+  const nonce = crypto.randomBytes(32).toString('hex');
   const timestamp = Date.now();
 
   const message = `Sign this message to authenticate with RemitLend.\n\nNonce: ${nonce}\nTimestamp: ${timestamp}\n\nThis request will expire in 5 minutes.`;
@@ -51,27 +47,20 @@ export function generateChallenge(publicKey: string): ChallengeMessage {
   };
 }
 
-export function verifySignature(
-  publicKey: string,
-  message: string,
-  signature: string,
-): boolean {
+export function verifySignature(publicKey: string, message: string, signature: string): boolean {
   if (!StrKey.isValidEd25519PublicKey(publicKey)) {
     return false;
   }
 
   try {
-    const signatureBytes = Buffer.from(signature, "base64");
+    const signatureBytes = Buffer.from(signature, 'base64');
     if (signatureBytes.length !== 64) {
       return false;
     }
 
-    const messageBytes = Buffer.from(message, "utf-8");
+    const messageBytes = Buffer.from(message, 'utf-8');
 
-    return Keypair.fromPublicKey(publicKey).verify(
-      messageBytes,
-      signatureBytes,
-    );
+    return Keypair.fromPublicKey(publicKey).verify(messageBytes, signatureBytes);
   } catch {
     return false;
   }
@@ -90,7 +79,7 @@ export function generateJwtToken(publicKey: string): string {
   const role = resolveRoleForWallet(publicKey);
   const scopes = resolveScopesForRole(role);
 
-  const payload: Omit<JwtPayload, "iat" | "exp"> = {
+  const payload: Omit<JwtPayload, 'iat' | 'exp'> = {
     publicKey,
     role,
     scopes,
@@ -98,7 +87,7 @@ export function generateJwtToken(publicKey: string): string {
 
   return jwt.sign(payload, secret, {
     expiresIn: JWT_EXPIRES_IN,
-    algorithm: "HS256",
+    algorithm: 'HS256',
   });
 }
 
@@ -106,7 +95,7 @@ export function verifyJwtToken(token: string): JwtPayload | null {
   try {
     const secret = getJwtSecret();
     const decoded = jwt.verify(token, secret, {
-      algorithms: ["HS256"],
+      algorithms: ['HS256'],
     }) as JwtPayload;
 
     return decoded;
@@ -124,15 +113,13 @@ export function decodeJwtToken(token: string): JwtPayload | null {
   }
 }
 
-export function extractBearerToken(
-  authHeader: string | undefined,
-): string | null {
+export function extractBearerToken(authHeader: string | undefined): string | null {
   if (!authHeader) {
     return null;
   }
 
-  const parts = authHeader.split(" ");
-  if (parts.length !== 2 || parts[0] !== "Bearer") {
+  const parts = authHeader.split(' ');
+  if (parts.length !== 2 || parts[0] !== 'Bearer') {
     return null;
   }
 

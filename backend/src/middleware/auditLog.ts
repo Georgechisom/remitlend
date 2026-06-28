@@ -1,27 +1,20 @@
-import type { Request, Response, NextFunction } from "express";
-import { query } from "../db/connection.js";
-import logger from "../utils/logger.js";
+import type { Request, Response, NextFunction } from 'express';
+import { query } from '../db/connection.js';
+import logger from '../utils/logger.js';
 
 /**
  * Sanitizes the request body to remove sensitive fields before logging.
  */
 function sanitizePayload(body: unknown): unknown {
-  if (!body || typeof body !== "object") return body;
+  if (!body || typeof body !== 'object') return body;
 
   const sanitized = { ...body } as Record<string, unknown>;
   // List of fields that should be redacted in audit logs
-  const sensitiveFields = [
-    "secret",
-    "apiKey",
-    "password",
-    "token",
-    "signedTxXdr",
-    "x-api-key",
-  ];
+  const sensitiveFields = ['secret', 'apiKey', 'password', 'token', 'signedTxXdr', 'x-api-key'];
 
   for (const field of sensitiveFields) {
     if (field in sanitized) {
-      sanitized[field] = "[REDACTED]";
+      sanitized[field] = '[REDACTED]';
     }
   }
 
@@ -44,8 +37,7 @@ function extractTarget(req: Request): string | undefined {
   const body = req.body as Record<string, unknown>;
   if (body) {
     if (body.loanId) return `LoanID:${body.loanId}`;
-    if (Array.isArray(body.loanIds))
-      return `LoanIDs:[${body.loanIds.join(",")}]`;
+    if (Array.isArray(body.loanIds)) return `LoanIDs:[${body.loanIds.join(',')}]`;
     if (body.address) return `Address:${body.address}`;
     if (body.userId) return `UserID:${body.userId}`;
     if (body.publicKey) return `PublicKey:${body.publicKey}`;
@@ -60,24 +52,19 @@ function extractTarget(req: Request): string | undefined {
  * It identifies the actor (JWT user or API key), the action (method+path),
  * any target entity, and the sanitized request payload.
  */
-export const auditLog = async (
-  req: Request,
-  _res: Response,
-  next: NextFunction,
-): Promise<void> => {
+export const auditLog = async (req: Request, _res: Response, next: NextFunction): Promise<void> => {
   try {
     const actor =
-      req.user?.publicKey ??
-      (req.headers["x-api-key"] ? "INTERNAL_API_KEY" : "unknown");
+      req.user?.publicKey ?? (req.headers['x-api-key'] ? 'INTERNAL_API_KEY' : 'unknown');
     const action = `${req.method} ${req.path}`;
     const target = extractTarget(req);
     const payload = sanitizePayload(req.body);
     const ipAddress =
       req.ip ||
-      (Array.isArray(req.headers["x-forwarded-for"])
-        ? req.headers["x-forwarded-for"][0]
-        : (req.headers["x-forwarded-for"] as string)
-      )?.split(",")[0] ||
+      (Array.isArray(req.headers['x-forwarded-for'])
+        ? req.headers['x-forwarded-for'][0]
+        : (req.headers['x-forwarded-for'] as string)
+      )?.split(',')[0] ||
       req.socket.remoteAddress;
 
     // Log the action asynchronously to avoid blocking the main request thread
@@ -95,7 +82,7 @@ export const auditLog = async (
           ],
         );
       } catch (err) {
-        logger.error("Audit logging failure", {
+        logger.error('Audit logging failure', {
           err,
           actor,
           action,
@@ -105,7 +92,7 @@ export const auditLog = async (
     })();
   } catch (err) {
     // If the audit log logic fails, we still want to proceed with the request
-    logger.warn("Audit log middleware error", { err });
+    logger.warn('Audit log middleware error', { err });
   }
 
   next();

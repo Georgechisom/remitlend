@@ -1,57 +1,56 @@
 // ─── Env vars MUST be set before any app imports ─────────────────────────────
 
-process.env.JWT_SECRET = "test-secret";
-process.env.INTERNAL_API_KEY = "test-api-key";
-process.env.NODE_ENV = "test";
+process.env.JWT_SECRET = 'test-secret';
+process.env.INTERNAL_API_KEY = 'test-api-key';
+process.env.NODE_ENV = 'test';
 
-import { jest } from "@jest/globals";
+import { jest } from '@jest/globals';
 
 // ESM-compatible mocking
 const mockQuery = jest.fn<(...args: unknown[]) => Promise<unknown>>();
-jest.unstable_mockModule("../db/connection.js", () => ({
+jest.unstable_mockModule('../db/connection.js', () => ({
   query: mockQuery,
   default: { query: mockQuery, connect: jest.fn(), end: jest.fn() },
   withTransaction: jest.fn(),
 }));
-jest.unstable_mockModule("../db/transaction.js", () => ({
+jest.unstable_mockModule('../db/transaction.js', () => ({
   withTransaction: jest.fn(),
   withStellarAndDbTransaction: jest.fn(),
 }));
 
-let request: typeof import("supertest");
-let jwt: typeof import("jsonwebtoken");
+let request: typeof import('supertest');
+let jwt: typeof import('jsonwebtoken');
 let app: any;
 // Dynamic imports after mocks
 beforeAll(async () => {
-  ({ default: request } = await import("supertest"));
-  ({ default: jwt } = await import("jsonwebtoken"));
-  ({ default: app } = await import("../app.js"));
+  ({ default: request } = await import('supertest'));
+  ({ default: jwt } = await import('jsonwebtoken'));
+  ({ default: app } = await import('../app.js'));
 });
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 // Real Stellar-format public key so any key-format validation passes
-const TEST_PUBLIC_KEY =
-  "GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN";
-const ADMIN_API_KEY = "test-api-key";
+const TEST_PUBLIC_KEY = 'GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN';
+const ADMIN_API_KEY = 'test-api-key';
 const LOAN_ID = 42;
 const DISPUTE_ID = 7;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function mintToken(publicKey = TEST_PUBLIC_KEY) {
   return jwt.sign(
-    { publicKey, role: "borrower", scopes: ["read:loans", "write:loans"] },
+    { publicKey, role: 'borrower', scopes: ['read:loans', 'write:loans'] },
     process.env.JWT_SECRET!,
-    { algorithm: "HS256", expiresIn: "1h" },
+    { algorithm: 'HS256', expiresIn: '1h' },
   );
 }
 
 /** Shorthand for a resolved pg QueryResult with rows */
-function dbRows(rows: object[], command = "SELECT") {
+function dbRows(rows: object[], command = 'SELECT') {
   return { rows, rowCount: rows.length, command, oid: 0, fields: [] };
 }
 
 /** Shorthand for a resolved pg QueryResult with no rows */
-function dbOk(command = "INSERT") {
+function dbOk(command = 'INSERT') {
   return { rows: [], rowCount: 1, command, oid: 0, fields: [] };
 }
 
@@ -65,9 +64,9 @@ let disputeId = DISPUTE_ID;
 beforeAll(async () => {
   // Wait for dynamic imports
   if (!request || !jwt || !app) {
-    ({ default: request } = await import("supertest"));
-    ({ default: jwt } = await import("jsonwebtoken"));
-    ({ default: app } = await import("../app.js"));
+    ({ default: request } = await import('supertest'));
+    ({ default: jwt } = await import('jsonwebtoken'));
+    ({ default: app } = await import('../app.js'));
   }
   authToken = mintToken();
 
@@ -85,25 +84,21 @@ beforeAll(async () => {
     .mockResolvedValueOnce(dbOk());
 
   const loanRes = await request(app)
-    .post("/api/loans")
-    .set("Authorization", `Bearer ${authToken}`)
+    .post('/api/loans')
+    .set('Authorization', `Bearer ${authToken}`)
     .send({ amount: 1000, term: 12 });
 
   if (loanRes.status !== 200) {
-    console.error("createTestLoan failed:", loanRes.status, loanRes.body);
+    console.error('createTestLoan failed:', loanRes.status, loanRes.body);
   }
 
   const defaultRes = await request(app)
     .post(`/api/loans/${defaultedLoanId}/mark-defaulted`)
-    .set("Authorization", `Bearer ${authToken}`)
+    .set('Authorization', `Bearer ${authToken}`)
     .send({ borrower: TEST_PUBLIC_KEY });
 
   if (defaultRes.status !== 200) {
-    console.error(
-      "markLoanDefaulted failed:",
-      defaultRes.status,
-      defaultRes.body,
-    );
+    console.error('markLoanDefaulted failed:', defaultRes.status, defaultRes.body);
   }
 }, 15000);
 
@@ -112,8 +107,8 @@ afterAll(() => {
 });
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
-describe("Loan Dispute/Appeal Mechanism", () => {
-  it("should reject contest if loan is not defaulted", async () => {
+describe('Loan Dispute/Appeal Mechanism', () => {
+  it('should reject contest if loan is not defaulted', async () => {
     /**
      * POST /api/loans/9999/contest-default
      *   requireLoanBorrowerAccess for loanId=9999:
@@ -124,14 +119,14 @@ describe("Loan Dispute/Appeal Mechanism", () => {
     mockQuery.mockResolvedValueOnce(dbRows([])); // [1] loan not found
 
     const res = await request(app)
-      .post("/api/loans/9999/contest-default")
-      .set("Authorization", `Bearer ${authToken}`)
-      .send({ reason: "Test reason" });
+      .post('/api/loans/9999/contest-default')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({ reason: 'Test reason' });
 
     expect(res.status).toBeGreaterThanOrEqual(400);
   });
 
-  it("should allow borrower to contest a defaulted loan", async () => {
+  it('should allow borrower to contest a defaulted loan', async () => {
     /**
      * POST /api/loans/42/contest-default
      *   requireLoanBorrowerAccess:
@@ -150,8 +145,8 @@ describe("Loan Dispute/Appeal Mechanism", () => {
 
     const res = await request(app)
       .post(`/api/loans/${defaultedLoanId}/contest-default`)
-      .set("Authorization", `Bearer ${authToken}`)
-      .send({ reason: "Indexer lag caused incorrect default." });
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({ reason: 'Indexer lag caused incorrect default.' });
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
@@ -159,7 +154,7 @@ describe("Loan Dispute/Appeal Mechanism", () => {
     disputeId = res.body.disputeId ?? disputeId;
   });
 
-  it("should freeze penalty accrual during dispute", async () => {
+  it('should freeze penalty accrual during dispute', async () => {
     /**
      * GET /api/loans/42
      *   requireLoanBorrowerAccess:
@@ -177,8 +172,8 @@ describe("Loan Dispute/Appeal Mechanism", () => {
         dbRows([
           // [2] all loan events
           {
-            event_type: "LoanRequested",
-            amount: "1000",
+            event_type: 'LoanRequested',
+            amount: '1000',
             ledger: 100,
             ledger_closed_at: new Date().toISOString(),
             tx_hash: null,
@@ -186,8 +181,8 @@ describe("Loan Dispute/Appeal Mechanism", () => {
             term_ledgers: null,
           },
           {
-            event_type: "LoanApproved",
-            amount: "1000",
+            event_type: 'LoanApproved',
+            amount: '1000',
             ledger: 101,
             ledger_closed_at: new Date().toISOString(),
             tx_hash: null,
@@ -195,7 +190,7 @@ describe("Loan Dispute/Appeal Mechanism", () => {
             term_ledgers: 17280,
           },
           {
-            event_type: "LoanDefaulted",
+            event_type: 'LoanDefaulted',
             amount: null,
             ledger: 200,
             ledger_closed_at: new Date().toISOString(),
@@ -207,19 +202,17 @@ describe("Loan Dispute/Appeal Mechanism", () => {
       )
       .mockResolvedValueOnce(dbRows([{ last_indexed_ledger: 300 }])) // [3] latest ledger
       .mockResolvedValueOnce(dbRows([{ created_at: new Date().toISOString() }])) // [4] open dispute
-      .mockResolvedValueOnce(
-        dbRows([{ ledger: 200, ledger_closed_at: new Date().toISOString() }]),
-      ); // [5] freeze ledger
+      .mockResolvedValueOnce(dbRows([{ ledger: 200, ledger_closed_at: new Date().toISOString() }])); // [5] freeze ledger
 
     const res = await request(app)
       .get(`/api/loans/${defaultedLoanId}`)
-      .set("Authorization", `Bearer ${authToken}`);
+      .set('Authorization', `Bearer ${authToken}`);
 
     expect(res.status).toBe(200);
     expect(res.body.summary?.disputeFrozen).toBe(true);
   });
 
-  it("should allow admin to resolve dispute as confirm", async () => {
+  it('should allow admin to resolve dispute as confirm', async () => {
     /**
      * POST /api/admin/loan-disputes/:disputeId/resolve  (no loanAccess middleware)
      *   resolveLoanDispute:
@@ -234,23 +227,23 @@ describe("Loan Dispute/Appeal Mechanism", () => {
             id: disputeId,
             loan_id: LOAN_ID,
             borrower: TEST_PUBLIC_KEY,
-            status: "open",
+            status: 'open',
           },
         ]),
       ) // [1]
-      .mockResolvedValueOnce(dbOk("UPDATE")) // [2]
+      .mockResolvedValueOnce(dbOk('UPDATE')) // [2]
       .mockResolvedValueOnce(dbOk()); // [3]
 
     const res = await request(app)
       .post(`/api/admin/loan-disputes/${disputeId}/resolve`)
-      .set("x-api-key", ADMIN_API_KEY)
-      .send({ action: "confirm", resolution: "Default was valid." });
+      .set('x-api-key', ADMIN_API_KEY)
+      .send({ action: 'confirm', resolution: 'Default was valid.' });
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
   });
 
-  it("should allow admin to resolve dispute as reverse", async () => {
+  it('should allow admin to resolve dispute as reverse', async () => {
     /**
      * resolveLoanDispute:
      *   [1] SELECT loan_disputes WHERE id = disputeId AND status='open'  → found
@@ -264,17 +257,17 @@ describe("Loan Dispute/Appeal Mechanism", () => {
             id: disputeId,
             loan_id: LOAN_ID,
             borrower: TEST_PUBLIC_KEY,
-            status: "open",
+            status: 'open',
           },
         ]),
       ) // [1]
-      .mockResolvedValueOnce(dbOk("UPDATE")) // [2]
+      .mockResolvedValueOnce(dbOk('UPDATE')) // [2]
       .mockResolvedValueOnce(dbOk()); // [3]
 
     const res = await request(app)
       .post(`/api/admin/loan-disputes/${disputeId}/resolve`)
-      .set("x-api-key", ADMIN_API_KEY)
-      .send({ action: "reverse", resolution: "Default was incorrect." });
+      .set('x-api-key', ADMIN_API_KEY)
+      .send({ action: 'reverse', resolution: 'Default was incorrect.' });
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);

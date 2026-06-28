@@ -41,34 +41,34 @@ export const shorthands = undefined;
  */
 export const up = (pgm) => {
   // (borrower, event_type) — borrower loan list + pool stats with borrower filter
-  pgm.createIndex("loan_events", ["borrower", "event_type"], {
-    name: "idx_loan_events_borrower_event_type",
+  pgm.createIndex('loan_events', ['borrower', 'event_type'], {
+    name: 'idx_loan_events_borrower_event_type',
     ifNotExists: true,
   });
 
   // (loan_id, event_type) — loan detail fetch + defaultChecker repayment sub-query
-  pgm.createIndex("loan_events", ["loan_id", "event_type"], {
-    name: "idx_loan_events_loan_id_event_type",
+  pgm.createIndex('loan_events', ['loan_id', 'event_type'], {
+    name: 'idx_loan_events_loan_id_event_type',
     ifNotExists: true,
   });
 
   // (event_type, loan_id) — defaultChecker approved-loans CTE
-  pgm.createIndex("loan_events", ["event_type", "loan_id"], {
-    name: "idx_loan_events_event_type_loan_id",
+  pgm.createIndex('loan_events', ['event_type', 'loan_id'], {
+    name: 'idx_loan_events_event_type_loan_id',
     ifNotExists: true,
   });
 
   // (ledger) — already exists from the initial schema migration; declared
   // IF NOT EXISTS so this migration stays idempotent if re-run.
-  pgm.createIndex("loan_events", "ledger", {
-    name: "idx_loan_events_ledger",
+  pgm.createIndex('loan_events', 'ledger', {
+    name: 'idx_loan_events_ledger',
     ifNotExists: true,
   });
 
   // partial index: (borrower) WHERE event_type IN ('Deposit', 'Withdraw')
   // Covers the pool controller query for per-borrower deposit/withdrawal totals.
-  pgm.createIndex("loan_events", "borrower", {
-    name: "idx_loan_events_pool_deposits_withdraws",
+  pgm.createIndex('loan_events', 'borrower', {
+    name: 'idx_loan_events_pool_deposits_withdraws',
     ifNotExists: true,
     where: "event_type IN ('Deposit', 'Withdraw')",
   });
@@ -79,8 +79,8 @@ export const up = (pgm) => {
  * @returns {void}
  */
 export const down = (pgm) => {
-  pgm.dropIndex("loan_events", "borrower", {
-    name: "idx_loan_events_pool_deposits_withdraws",
+  pgm.dropIndex('loan_events', 'borrower', {
+    name: 'idx_loan_events_pool_deposits_withdraws',
     ifExists: true,
   });
 
@@ -88,18 +88,18 @@ export const down = (pgm) => {
   // dropping it here so rolling back this migration does not break the
   // earlier one.
 
-  pgm.dropIndex("loan_events", ["event_type", "loan_id"], {
-    name: "idx_loan_events_event_type_loan_id",
+  pgm.dropIndex('loan_events', ['event_type', 'loan_id'], {
+    name: 'idx_loan_events_event_type_loan_id',
     ifExists: true,
   });
 
-  pgm.dropIndex("loan_events", ["loan_id", "event_type"], {
-    name: "idx_loan_events_loan_id_event_type",
+  pgm.dropIndex('loan_events', ['loan_id', 'event_type'], {
+    name: 'idx_loan_events_loan_id_event_type',
     ifExists: true,
   });
 
-  pgm.dropIndex("loan_events", ["borrower", "event_type"], {
-    name: "idx_loan_events_borrower_event_type",
+  pgm.dropIndex('loan_events', ['borrower', 'event_type'], {
+    name: 'idx_loan_events_borrower_event_type',
     ifExists: true,
   });
 };

@@ -1,13 +1,13 @@
-import { Request, Response } from "express";
-import { notificationService } from "../services/notificationService.js";
-import { asyncHandler } from "../utils/asyncHandler.js";
-import { AppError } from "../errors/AppError.js";
-import { parseCappedLimit } from "../utils/queryHelpers.js";
-import logger from "../utils/logger.js";
+import { Request, Response } from 'express';
+import { notificationService } from '../services/notificationService.js';
+import { asyncHandler } from '../utils/asyncHandler.js';
+import { AppError } from '../errors/AppError.js';
+import { parseCappedLimit } from '../utils/queryHelpers.js';
+import logger from '../utils/logger.js';
 import {
   updateNotificationPreferencesSchema,
   validateNotificationPhone,
-} from "../schemas/notificationSchemas.js";
+} from '../schemas/notificationSchemas.js';
 
 /**
  * GET /api/notifications
@@ -15,40 +15,31 @@ import {
  * Supports filtering by type, status, and date range.
  * Optional query params: ?type=X&status=Y&from=ISO&to=ISO&limit=N (default 50, max 100)
  */
-export const getNotifications = asyncHandler(
-  async (req: Request, res: Response) => {
-    const userId = req.user?.publicKey;
-    if (!userId) throw AppError.unauthorized("Authentication required");
+export const getNotifications = asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?.publicKey;
+  if (!userId) throw AppError.unauthorized('Authentication required');
 
-    const limit = parseCappedLimit(req, 50);
-    const type = req.query.type as string | undefined;
-    const status = req.query.status as string | undefined;
-    const from = req.query.from as string | undefined;
-    const to = req.query.to as string | undefined;
+  const limit = parseCappedLimit(req, 50);
+  const type = req.query.type as string | undefined;
+  const status = req.query.status as string | undefined;
+  const from = req.query.from as string | undefined;
+  const to = req.query.to as string | undefined;
 
-    // Validate date formats
-    if (from && Number.isNaN(Date.parse(from))) {
-      throw AppError.badRequest("Invalid 'from' date format");
-    }
-    if (to && Number.isNaN(Date.parse(to))) {
-      throw AppError.badRequest("Invalid 'to' date format");
-    }
+  // Validate date formats
+  if (from && Number.isNaN(Date.parse(from))) {
+    throw AppError.badRequest("Invalid 'from' date format");
+  }
+  if (to && Number.isNaN(Date.parse(to))) {
+    throw AppError.badRequest("Invalid 'to' date format");
+  }
 
-    const [notifications, unreadCount] = await Promise.all([
-      notificationService.getNotificationsForUser(
-        userId,
-        limit,
-        type,
-        status,
-        from,
-        to,
-      ),
-      notificationService.getUnreadCount(userId),
-    ]);
+  const [notifications, unreadCount] = await Promise.all([
+    notificationService.getNotificationsForUser(userId, limit, type, status, from, to),
+    notificationService.getUnreadCount(userId),
+  ]);
 
-    res.json({ success: true, data: { notifications, unreadCount } });
-  },
-);
+  res.json({ success: true, data: { notifications, unreadCount } });
+});
 
 /**
  * POST /api/notifications/mark-read
@@ -57,11 +48,11 @@ export const getNotifications = asyncHandler(
  */
 export const markRead = asyncHandler(async (req: Request, res: Response) => {
   const userId = req.user?.publicKey;
-  if (!userId) throw AppError.unauthorized("Authentication required");
+  if (!userId) throw AppError.unauthorized('Authentication required');
 
   const { ids } = req.body as { ids?: unknown };
-  if (!Array.isArray(ids) || ids.some((id) => typeof id !== "number")) {
-    throw AppError.badRequest("Body must contain an array of numeric ids");
+  if (!Array.isArray(ids) || ids.some((id) => typeof id !== 'number')) {
+    throw AppError.badRequest('Body must contain an array of numeric ids');
   }
 
   await notificationService.markRead(userId, ids as number[]);
@@ -74,53 +65,43 @@ export const markRead = asyncHandler(async (req: Request, res: Response) => {
  */
 export const markAllRead = asyncHandler(async (req: Request, res: Response) => {
   const userId = req.user?.publicKey;
-  if (!userId) throw AppError.unauthorized("Authentication required");
+  if (!userId) throw AppError.unauthorized('Authentication required');
 
   await notificationService.markAllRead(userId);
   res.json({ success: true });
 });
 
-export const getNotificationPreferences = asyncHandler(
-  async (req: Request, res: Response) => {
-    const userId = req.user?.publicKey;
-    if (!userId) throw AppError.unauthorized("Authentication required");
+export const getNotificationPreferences = asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?.publicKey;
+  if (!userId) throw AppError.unauthorized('Authentication required');
 
-    const preferences =
-      await notificationService.getNotificationPreferences(userId);
-    res.json(preferences);
-  },
-);
+  const preferences = await notificationService.getNotificationPreferences(userId);
+  res.json(preferences);
+});
 
-export const updateNotificationPreferences = asyncHandler(
-  async (req: Request, res: Response) => {
-    const userId = req.user?.publicKey;
-    if (!userId) throw AppError.unauthorized("Authentication required");
+export const updateNotificationPreferences = asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?.publicKey;
+  if (!userId) throw AppError.unauthorized('Authentication required');
 
-    const parsed = updateNotificationPreferencesSchema.parse(req.body);
-    const phone = parsed.phone?.trim() ? parsed.phone.trim() : null;
+  const parsed = updateNotificationPreferencesSchema.parse(req.body);
+  const phone = parsed.phone?.trim() ? parsed.phone.trim() : null;
 
-    if (!validateNotificationPhone(phone)) {
-      throw AppError.badRequest("Phone must be a valid E.164-like number");
-    }
+  if (!validateNotificationPhone(phone)) {
+    throw AppError.badRequest('Phone must be a valid E.164-like number');
+  }
 
-    if (parsed.smsEnabled && !phone) {
-      throw AppError.badRequest(
-        "Phone is required when SMS notifications are enabled",
-      );
-    }
+  if (parsed.smsEnabled && !phone) {
+    throw AppError.badRequest('Phone is required when SMS notifications are enabled');
+  }
 
-    const preferences = await notificationService.updateNotificationPreferences(
-      userId,
-      {
-        emailEnabled: parsed.emailEnabled,
-        smsEnabled: parsed.smsEnabled,
-        phone,
-      },
-    );
+  const preferences = await notificationService.updateNotificationPreferences(userId, {
+    emailEnabled: parsed.emailEnabled,
+    smsEnabled: parsed.smsEnabled,
+    phone,
+  });
 
-    res.json(preferences);
-  },
-);
+  res.json(preferences);
+});
 
 /**
  * GET /api/notifications/stream
@@ -128,53 +109,46 @@ export const updateNotificationPreferences = asyncHandler(
  * The client connects and keeps the connection open; whenever the user
  * receives a new notification the server pushes it as a JSON `data:` event.
  */
-export const streamNotifications = asyncHandler(
-  async (req: Request, res: Response) => {
-    const userId = req.user?.publicKey;
-    if (!userId) throw AppError.unauthorized("Authentication required");
+export const streamNotifications = asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?.publicKey;
+  if (!userId) throw AppError.unauthorized('Authentication required');
 
-    // SSE headers
-    res.setHeader("Content-Type", "text/event-stream");
-    res.setHeader("Cache-Control", "no-cache");
-    res.setHeader("Connection", "keep-alive");
-    res.setHeader("X-Accel-Buffering", "no"); // disable nginx buffering
-    res.flushHeaders();
+  // SSE headers
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no'); // disable nginx buffering
+  res.flushHeaders();
 
-    // Send a comment heartbeat every 30s to keep the connection alive through
-    // load balancers and proxies.
-    const heartbeat = setInterval(() => {
-      try {
-        res.write(": heartbeat\n\n");
-      } catch {
-        // client already gone
-      }
-    }, 30_000);
-
-    // Send any unread notifications immediately on connect so the client
-    // doesn't have to issue a separate GET.
+  // Send a comment heartbeat every 30s to keep the connection alive through
+  // load balancers and proxies.
+  const heartbeat = setInterval(() => {
     try {
-      const notifications = await notificationService.getNotificationsForUser(
-        userId,
-        50,
-      );
-      const unread = notifications.filter((n) => !n.read);
-      if (unread.length) {
-        res.write(
-          `data: ${JSON.stringify({ type: "init", notifications: unread })}\n\n`,
-        );
-      }
-    } catch (err) {
-      logger.withContext().error("SSE init fetch error", { userId, err });
+      res.write(': heartbeat\n\n');
+    } catch {
+      // client already gone
     }
+  }, 30_000);
 
-    const unsubscribe = notificationService.subscribe(userId, res);
+  // Send any unread notifications immediately on connect so the client
+  // doesn't have to issue a separate GET.
+  try {
+    const notifications = await notificationService.getNotificationsForUser(userId, 50);
+    const unread = notifications.filter((n) => !n.read);
+    if (unread.length) {
+      res.write(`data: ${JSON.stringify({ type: 'init', notifications: unread })}\n\n`);
+    }
+  } catch (err) {
+    logger.withContext().error('SSE init fetch error', { userId, err });
+  }
 
-    const cleanup = () => {
-      clearInterval(heartbeat);
-      unsubscribe();
-    };
+  const unsubscribe = notificationService.subscribe(userId, res);
 
-    req.on("close", cleanup);
-    req.on("error", cleanup);
-  },
-);
+  const cleanup = () => {
+    clearInterval(heartbeat);
+    unsubscribe();
+  };
+
+  req.on('close', cleanup);
+  req.on('error', cleanup);
+});

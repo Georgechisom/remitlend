@@ -1,11 +1,8 @@
-import { Router } from "express";
-import {
-  getUserProfile,
-  updateUserProfile,
-} from "../controllers/userController.js";
-import { requireJwtAuth } from "../middleware/jwtAuth.js";
-import { validateBody } from "../middleware/validation.js";
-import { updateUserProfileSchema } from "../schemas/userSchemas.js";
+import { Router } from 'express';
+import { getUserProfile, updateUserProfile } from '../controllers/userController.js';
+import { requireJwtAuth } from '../middleware/jwtAuth.js';
+import { validateBody } from '../middleware/validation.js';
+import { updateUserProfileSchema } from '../schemas/userSchemas.js';
 
 const router = Router();
 
@@ -23,7 +20,7 @@ const router = Router();
  *       401:
  *         description: Missing or invalid JWT
  */
-router.get("/profile", requireJwtAuth, getUserProfile);
+router.get('/profile', requireJwtAuth, getUserProfile);
 
 /**
  * @swagger
@@ -67,11 +64,6 @@ router.get("/profile", requireJwtAuth, getUserProfile);
  *       401:
  *         description: Missing or invalid JWT
  */
-router.patch(
-  "/profile",
-  requireJwtAuth,
-  validateBody(updateUserProfileSchema),
-  updateUserProfile,
-);
+router.patch('/profile', requireJwtAuth, validateBody(updateUserProfileSchema), updateUserProfile);
 
 export default router;

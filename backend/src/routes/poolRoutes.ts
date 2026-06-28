@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router } from 'express';
 import {
   getPoolStats,
   getDepositorPortfolio,
@@ -8,22 +8,22 @@ import {
   emergencyWithdrawFromPool,
   getPoolSharePrice,
   submitPoolTransaction,
-} from "../controllers/poolController.js";
+} from '../controllers/poolController.js';
 import {
   requireLender,
   requireJwtAuth,
   requireScopes,
   requireWalletParamMatchesJwt,
-} from "../middleware/jwtAuth.js";
-import { validate, validateBody } from "../middleware/validation.js";
-import { idempotencyMiddleware } from "../middleware/idempotency.js";
-import { addressParamSchema } from "../schemas/stellarSchemas.js";
+} from '../middleware/jwtAuth.js';
+import { validate, validateBody } from '../middleware/validation.js';
+import { idempotencyMiddleware } from '../middleware/idempotency.js';
+import { addressParamSchema } from '../schemas/stellarSchemas.js';
 import {
   buildPoolTransactionSchema,
   emergencyWithdrawSchema,
   getDepositorYieldHistorySchema,
   submitTxSchema,
-} from "../schemas/poolSchemas.js";
+} from '../schemas/poolSchemas.js';
 
 const router = Router();
 
@@ -48,13 +48,7 @@ const router = Router();
  *       401:
  *         description: Missing or invalid Bearer token
  */
-router.get(
-  "/stats",
-  requireJwtAuth,
-  requireLender,
-  requireScopes("read:pool"),
-  getPoolStats,
-);
+router.get('/stats', requireJwtAuth, requireLender, requireScopes('read:pool'), getPoolStats);
 
 /**
  * @swagger
@@ -87,11 +81,11 @@ router.get(
  *         description: address does not match authenticated wallet
  */
 router.get(
-  "/depositor/:address",
+  '/depositor/:address',
   requireJwtAuth,
   requireLender,
-  requireScopes("read:pool"),
-  requireWalletParamMatchesJwt("address"),
+  requireScopes('read:pool'),
+  requireWalletParamMatchesJwt('address'),
   validate(addressParamSchema),
   getDepositorPortfolio,
 );
@@ -133,11 +127,11 @@ router.get(
  *         description: address does not match authenticated wallet
  */
 router.get(
-  "/depositor/:address/yield-history",
+  '/depositor/:address/yield-history',
   requireJwtAuth,
   requireLender,
-  requireScopes("read:pool"),
-  requireWalletParamMatchesJwt("address"),
+  requireScopes('read:pool'),
+  requireWalletParamMatchesJwt('address'),
   validate(getDepositorYieldHistorySchema),
   getDepositorYieldHistory,
 );
@@ -168,10 +162,10 @@ router.get(
  *         description: Missing or invalid Bearer token
  */
 router.get(
-  "/:token/share-price",
+  '/:token/share-price',
   requireJwtAuth,
   requireLender,
-  requireScopes("read:pool"),
+  requireScopes('read:pool'),
   getPoolSharePrice,
 );
 
@@ -221,10 +215,10 @@ router.get(
  *         description: Missing or invalid Bearer token
  */
 router.post(
-  "/build-deposit",
+  '/build-deposit',
   requireJwtAuth,
   requireLender,
-  requireScopes("write:pool"),
+  requireScopes('write:pool'),
   validateBody(buildPoolTransactionSchema),
   idempotencyMiddleware,
   depositToPool,
@@ -276,10 +270,10 @@ router.post(
  *         description: Missing or invalid Bearer token
  */
 router.post(
-  "/build-withdraw",
+  '/build-withdraw',
   requireJwtAuth,
   requireLender,
-  requireScopes("write:pool"),
+  requireScopes('write:pool'),
   validateBody(buildPoolTransactionSchema),
   idempotencyMiddleware,
   withdrawFromPool,
@@ -327,10 +321,10 @@ router.post(
  *         description: Missing or invalid Bearer token
  */
 router.post(
-  "/build-emergency-withdraw",
+  '/build-emergency-withdraw',
   requireJwtAuth,
   requireLender,
-  requireScopes("write:pool"),
+  requireScopes('write:pool'),
   validateBody(emergencyWithdrawSchema),
   idempotencyMiddleware,
   emergencyWithdrawFromPool,
@@ -372,10 +366,10 @@ router.post(
  *         description: Missing or invalid Bearer token
  */
 router.post(
-  "/submit",
+  '/submit',
   requireJwtAuth,
   requireLender,
-  requireScopes("write:pool"),
+  requireScopes('write:pool'),
   validateBody(submitTxSchema),
   idempotencyMiddleware,
   submitPoolTransaction,

@@ -1,7 +1,7 @@
 // Service for score decay logic
 // Provides functions to find inactive borrowers and apply score decay
 
-import { query } from "../db/connection.js";
+import { query } from '../db/connection.js';
 
 const DECAY_PER_MONTH = 5;
 const MIN_SCORE = 300; // Adjust as needed

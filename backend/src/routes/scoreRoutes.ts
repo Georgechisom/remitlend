@@ -1,25 +1,25 @@
-import { Router } from "express";
+import { Router } from 'express';
 import {
   getScore,
   updateScore,
   getScoreBreakdown,
   getOnChainScoreHistory,
   getRemittanceNft,
-} from "../controllers/scoreController.js";
-import { validate } from "../middleware/validation.js";
+} from '../controllers/scoreController.js';
+import { validate } from '../middleware/validation.js';
 import {
   getRemittanceNftSchema,
   getScoreHistorySchema,
   getScoreSchema,
   updateScoreSchema,
-} from "../schemas/scoreSchemas.js";
-import { requireApiKey } from "../middleware/auth.js";
-import { scoreUpdateRateLimit } from "../middleware/rateLimitMiddleware.js";
+} from '../schemas/scoreSchemas.js';
+import { requireApiKey } from '../middleware/auth.js';
+import { scoreUpdateRateLimit } from '../middleware/rateLimitMiddleware.js';
 import {
   requireJwtAuth,
   requireScopes,
   requireWalletParamMatchesJwt,
-} from "../middleware/jwtAuth.js";
+} from '../middleware/jwtAuth.js';
 
 const router = Router();
 
@@ -60,10 +60,10 @@ const router = Router();
  *         description: userId does not match the authenticated wallet.
  */
 router.get(
-  "/:userId",
+  '/:userId',
   requireJwtAuth,
-  requireScopes("read:score"),
-  requireWalletParamMatchesJwt("userId"),
+  requireScopes('read:score'),
+  requireWalletParamMatchesJwt('userId'),
   validate(getScoreSchema),
   getScore,
 );
@@ -96,19 +96,19 @@ router.get(
  *         description: walletAddress does not match the authenticated wallet.
  */
 router.get(
-  "/:walletAddress/history",
+  '/:walletAddress/history',
   requireJwtAuth,
-  requireScopes("read:score"),
-  requireWalletParamMatchesJwt("walletAddress"),
+  requireScopes('read:score'),
+  requireWalletParamMatchesJwt('walletAddress'),
   validate(getScoreHistorySchema),
   getOnChainScoreHistory,
 );
 
 router.get(
-  "/:walletAddress/nft",
+  '/:walletAddress/nft',
   requireJwtAuth,
-  requireScopes("read:score"),
-  requireWalletParamMatchesJwt("walletAddress"),
+  requireScopes('read:score'),
+  requireWalletParamMatchesJwt('walletAddress'),
   validate(getRemittanceNftSchema),
   getRemittanceNft,
 );
@@ -146,10 +146,10 @@ router.get(
  *         description: userId does not match the authenticated wallet.
  */
 router.get(
-  "/:userId/breakdown",
+  '/:userId/breakdown',
   requireJwtAuth,
-  requireScopes("read:score"),
-  requireWalletParamMatchesJwt("userId"),
+  requireScopes('read:score'),
+  requireWalletParamMatchesJwt('userId'),
   validate(getScoreSchema),
   getScoreBreakdown,
 );
@@ -206,8 +206,8 @@ router.get(
  *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.post(
-  "/update",
-  requireApiKey("admin:loans"),
+  '/update',
+  requireApiKey('admin:loans'),
   scoreUpdateRateLimit,
   validate(updateScoreSchema),
   updateScore,

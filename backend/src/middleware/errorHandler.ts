@@ -1,9 +1,9 @@
-import type { Request, Response, NextFunction } from "express";
-import { z } from "zod";
-import { AppError } from "../errors/AppError.js";
-import { ErrorCode } from "../errors/errorCodes.js";
-import logger from "../utils/logger.js";
-import { Sentry } from "../config/sentry.js";
+import type { Request, Response, NextFunction } from 'express';
+import { z } from 'zod';
+import { AppError } from '../errors/AppError.js';
+import { ErrorCode } from '../errors/errorCodes.js';
+import logger from '../utils/logger.js';
+import { Sentry } from '../config/sentry.js';
 
 /**
  * Global error handling middleware.
@@ -25,7 +25,7 @@ export const errorHandler = (
   // ── Zod Validation Errors ────────────────────────────────────
   if (err instanceof z.ZodError) {
     const details = err.issues.map((issue: z.ZodIssue) => ({
-      field: issue.path.join("."),
+      field: issue.path.join('.'),
       message: issue.message,
       code: issue.code,
     }));
@@ -36,15 +36,15 @@ export const errorHandler = (
     res.status(400).json({
       success: false,
       // Legacy format for backward compatibility
-      message: "Validation failed",
+      message: 'Validation failed',
       errors: err.issues.map((issue: z.ZodIssue) => ({
-        path: issue.path.join("."),
+        path: issue.path.join('.'),
         message: issue.message,
       })),
       // New structured format
       error: {
         code: ErrorCode.VALIDATION_ERROR,
-        message: "Validation failed",
+        message: 'Validation failed',
         field: firstField,
         details,
       },
@@ -68,13 +68,13 @@ export const errorHandler = (
 
     const errorDetail: Record<string, unknown> = {
       code: err.errorCode,
-      message: err.isOperational ? err.message : "Internal server error",
+      message: err.isOperational ? err.message : 'Internal server error',
     };
 
     const errorResponse: Record<string, unknown> = {
       success: false,
       // Legacy format for backward compatibility
-      message: err.isOperational ? err.message : "Internal server error",
+      message: err.isOperational ? err.message : 'Internal server error',
       // New structured format
       error: errorDetail,
     };
@@ -95,7 +95,7 @@ export const errorHandler = (
   }
 
   // ── Unexpected / Programming Errors ──────────────────────────
-  logger.error("Unhandled error", {
+  logger.error('Unhandled error', {
     requestId: req.requestId,
     message: err.message,
     name: err.name,
@@ -105,16 +105,15 @@ export const errorHandler = (
   Sentry.captureException(err);
 
   const shouldExposeStackTrace =
-    process.env.NODE_ENV === "development" &&
-    process.env.EXPOSE_STACK_TRACES === "true";
+    process.env.NODE_ENV === 'development' && process.env.EXPOSE_STACK_TRACES === 'true';
 
   res.status(500).json({
     success: false,
     // Legacy format
-    message: "Internal server error",
+    message: 'Internal server error',
     error: {
       code: ErrorCode.INTERNAL_ERROR,
-      message: "Internal server error",
+      message: 'Internal server error',
     },
     ...(shouldExposeStackTrace && { stack: err.stack }),
   });

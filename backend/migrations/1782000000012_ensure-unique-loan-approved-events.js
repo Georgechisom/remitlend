@@ -59,5 +59,5 @@ export const up = (pgm) => {
  * @returns {Promise<void> | void}
  */
 export const down = (pgm) => {
-  pgm.sql("DROP INDEX IF EXISTS loan_events_unique_approved_event_per_loan");
+  pgm.sql('DROP INDEX IF EXISTS loan_events_unique_approved_event_per_loan');
 };

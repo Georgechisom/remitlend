@@ -1,6 +1,6 @@
-import { query } from "../db/connection.js";
-import logger from "../utils/logger.js";
-import { WebhookService, type WebhookEventType } from "./webhookService.js";
+import { query } from '../db/connection.js';
+import logger from '../utils/logger.js';
+import { WebhookService, type WebhookEventType } from './webhookService.js';
 
 const BACKOFF = [60, 300, 1800]; // seconds
 
@@ -13,11 +13,9 @@ async function markAsFailed(deliveryId: number) {
          last_error = $1,
          updated_at = NOW()
      WHERE id = $2`,
-    ["Permanently failed after max attempts reached", deliveryId],
+    ['Permanently failed after max attempts reached', deliveryId],
   );
-  logger
-    .withContext()
-    .error(`Webhook delivery ${deliveryId} marked as permanently failed.`);
+  logger.withContext().error(`Webhook delivery ${deliveryId} marked as permanently failed.`);
 }
 
 function shouldRetry(delivery: { updated_at: string }, delay: number): boolean {
@@ -39,9 +37,7 @@ async function sendWebhookAgain(delivery: {
 }) {
   logger
     .withContext()
-    .info(
-      `Retrying webhook delivery ${delivery.id} (attempt ${delivery.attempt_count + 1})`,
-    );
+    .info(`Retrying webhook delivery ${delivery.id} (attempt ${delivery.attempt_count + 1})`);
 
   await WebhookService.retryWebhookDelivery(
     delivery.id,
@@ -80,23 +76,23 @@ export async function retryFailedWebhooks() {
       }
     }
   } catch (error) {
-    logger.withContext().error("Error in webhook retry scheduler", { error });
+    logger.withContext().error('Error in webhook retry scheduler', { error });
   }
 }
 
 export function startWebhookRetryScheduler() {
   if (schedulerInterval) {
-    logger.withContext().warn("Webhook retry scheduler already running");
+    logger.withContext().warn('Webhook retry scheduler already running');
     return;
   }
 
-  logger.withContext().info("Starting webhook retry scheduler (60s interval)");
+  logger.withContext().info('Starting webhook retry scheduler (60s interval)');
   schedulerInterval = setInterval(retryFailedWebhooks, 60000);
 }
 
 export function stopWebhookRetryScheduler() {
   if (schedulerInterval) {
-    logger.withContext().info("Stopping webhook retry scheduler");
+    logger.withContext().info('Stopping webhook retry scheduler');
     clearInterval(schedulerInterval);
     schedulerInterval = null;
   }

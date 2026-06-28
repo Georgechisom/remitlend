@@ -8,9 +8,9 @@ export const shorthands = undefined;
  * @returns {Promise<void> | void}
  */
 export const up = (pgm) => {
-  pgm.addColumn("webhook_subscriptions", {
+  pgm.addColumn('webhook_subscriptions', {
     max_attempts: {
-      type: "integer",
+      type: 'integer',
       notNull: true,
       default: 5,
     },
@@ -22,5 +22,5 @@ export const up = (pgm) => {
  * @returns {Promise<void> | void}
  */
 export const down = (pgm) => {
-  pgm.dropColumn("webhook_subscriptions", "max_attempts");
+  pgm.dropColumn('webhook_subscriptions', 'max_attempts');
 };

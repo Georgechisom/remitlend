@@ -1,7 +1,7 @@
-import { createTestLoan } from "../controllers/loanController.js";
-import { markLoanDefaulted } from "../controllers/loanController.js";
-import { contestDefault } from "../controllers/loanController.js";
-import { Router } from "express";
+import { createTestLoan } from '../controllers/loanController.js';
+import { markLoanDefaulted } from '../controllers/loanController.js';
+import { contestDefault } from '../controllers/loanController.js';
+import { Router } from 'express';
 import {
   getLoanConfigEndpoint,
   getBorrowerLoans,
@@ -16,25 +16,13 @@ import {
   extendLoan,
   buildLiquidateLoan,
   submitTransaction,
-} from "../controllers/loanController.js";
-import { getLoanEvents } from "../controllers/indexerController.js";
-import {
-  requireJwtAuth,
-  requireScopes,
-  requireWalletOwnership,
-} from "../middleware/jwtAuth.js";
-import {
-  requireLoanBorrowerAccess,
-  requireLoanOwner,
-} from "../middleware/loanAccess.js";
-import {
-  validate,
-  validateBody,
-  validateParams,
-  validateQuery,
-} from "../middleware/validation.js";
-import { idempotencyMiddleware } from "../middleware/idempotency.js";
-import { borrowerParamSchema } from "../schemas/stellarSchemas.js";
+} from '../controllers/loanController.js';
+import { getLoanEvents } from '../controllers/indexerController.js';
+import { requireJwtAuth, requireScopes, requireWalletOwnership } from '../middleware/jwtAuth.js';
+import { requireLoanBorrowerAccess, requireLoanOwner } from '../middleware/loanAccess.js';
+import { validate, validateBody, validateParams, validateQuery } from '../middleware/validation.js';
+import { idempotencyMiddleware } from '../middleware/idempotency.js';
+import { borrowerParamSchema } from '../schemas/stellarSchemas.js';
 import {
   previewAmortizationSchema,
   requestLoanSchema,
@@ -47,28 +35,23 @@ import {
   extendLoanSchema,
   liquidateLoanSchema,
   borrowerLoansQuerySchema,
-} from "../schemas/loanSchemas.js";
+} from '../schemas/loanSchemas.js';
 
-import { buildCancelLoanTx } from "../controllers/loanController.js";
+import { buildCancelLoanTx } from '../controllers/loanController.js';
 
 const router = Router();
 
 // TEST/DEV ONLY: Create a loan directly for test setup
-if (process.env.NODE_ENV === "test" || process.env.NODE_ENV === "development") {
-  router.post("/", requireJwtAuth, createTestLoan);
+if (process.env.NODE_ENV === 'test' || process.env.NODE_ENV === 'development') {
+  router.post('/', requireJwtAuth, createTestLoan);
 }
 
 // TEST/DEV ONLY: Mark a loan as defaulted for test setup
-if (process.env.NODE_ENV === "test" || process.env.NODE_ENV === "development") {
-  router.post(
-    "/:loanId/mark-defaulted",
-    requireJwtAuth,
-    requireLoanOwner,
-    markLoanDefaulted,
-  );
+if (process.env.NODE_ENV === 'test' || process.env.NODE_ENV === 'development') {
+  router.post('/:loanId/mark-defaulted', requireJwtAuth, requireLoanOwner, markLoanDefaulted);
 }
 
-router.get("/config", getLoanConfigEndpoint);
+router.get('/config', getLoanConfigEndpoint);
 
 /**
  * @swagger
@@ -117,15 +100,10 @@ router.get("/config", getLoanConfigEndpoint);
  *         description: Reject transaction built
  */
 
-router.post(
-  "/:loanId/build-cancel",
-  requireJwtAuth,
-  requireLoanOwner,
-  buildCancelLoanTx,
-);
+router.post('/:loanId/build-cancel', requireJwtAuth, requireLoanOwner, buildCancelLoanTx);
 
 router.post(
-  "/amortization-preview",
+  '/amortization-preview',
   requireJwtAuth,
   validateBody(previewAmortizationSchema),
   previewLoanAmortizationSchedule,
@@ -172,12 +150,7 @@ router.post(
  *       404:
  *         description: Loan not found
  */
-router.post(
-  "/:loanId/contest-default",
-  requireJwtAuth,
-  requireLoanOwner,
-  contestDefault,
-);
+router.post('/:loanId/contest-default', requireJwtAuth, requireLoanOwner, contestDefault);
 
 /**
  * @swagger
@@ -244,9 +217,9 @@ router.post(
  *         description: borrower does not match authenticated wallet
  */
 router.get(
-  "/borrower/:borrower",
+  '/borrower/:borrower',
   requireJwtAuth,
-  requireScopes("read:loans"),
+  requireScopes('read:loans'),
   requireWalletOwnership,
   validate(borrowerParamSchema),
   validateQuery(borrowerLoansQuerySchema),
@@ -286,17 +259,17 @@ router.get(
  *         description: Loan not found
  */
 router.get(
-  "/:loanId",
+  '/:loanId',
   requireJwtAuth,
-  requireScopes("read:loans"),
+  requireScopes('read:loans'),
   requireLoanBorrowerAccess,
   getLoanDetails,
 );
 
 router.get(
-  "/:loanId/amortization-schedule",
+  '/:loanId/amortization-schedule',
   requireJwtAuth,
-  requireScopes("read:loans"),
+  requireScopes('read:loans'),
   requireLoanBorrowerAccess,
   getLoanAmortizationSchedule,
 );
@@ -336,9 +309,9 @@ router.get(
  *         description: Loan not found or not accessible
  */
 router.get(
-  "/:loanId/events",
+  '/:loanId/events',
   requireJwtAuth,
-  requireScopes("read:loans"),
+  requireScopes('read:loans'),
   requireLoanBorrowerAccess,
   getLoanEvents,
 );
@@ -384,7 +357,7 @@ router.get(
  *         description: Missing or invalid Bearer token
  */
 router.post(
-  "/request",
+  '/request',
   requireJwtAuth,
   validateBody(requestLoanSchema),
   idempotencyMiddleware,
@@ -436,7 +409,7 @@ router.post(
  *         description: Loan belongs to a different borrower
  */
 router.post(
-  "/:loanId/build-deposit-collateral",
+  '/:loanId/build-deposit-collateral',
   requireJwtAuth,
   requireLoanOwner,
   validateParams(repayLoanParamsSchema),
@@ -486,7 +459,7 @@ router.post(
  *         description: Loan belongs to a different borrower
  */
 router.post(
-  "/:loanId/build-release-collateral",
+  '/:loanId/build-release-collateral',
   requireJwtAuth,
   requireLoanOwner,
   validateParams(repayLoanParamsSchema),
@@ -544,7 +517,7 @@ router.post(
  *         description: Loan belongs to a different borrower
  */
 router.post(
-  "/:loanId/build-refinance",
+  '/:loanId/build-refinance',
   requireJwtAuth,
   requireLoanOwner,
   validateParams(repayLoanParamsSchema),
@@ -598,7 +571,7 @@ router.post(
  *         description: Loan belongs to a different borrower
  */
 router.post(
-  "/:loanId/build-extend",
+  '/:loanId/build-extend',
   requireJwtAuth,
   requireLoanOwner,
   validateParams(repayLoanParamsSchema),
@@ -648,7 +621,7 @@ router.post(
  *         description: liquidatorPublicKey does not match authenticated wallet
  */
 router.post(
-  "/:loanId/liquidate/build",
+  '/:loanId/liquidate/build',
   requireJwtAuth,
   validateParams(repayLoanParamsSchema),
   validateBody(liquidateLoanSchema),
@@ -691,7 +664,7 @@ router.post(
  *         description: Missing or invalid Bearer token
  */
 router.post(
-  "/submit",
+  '/submit',
   requireJwtAuth,
   validateBody(submitTxSchema),
   idempotencyMiddleware,
@@ -751,7 +724,7 @@ router.post(
  *         description: Loan not found
  */
 router.post(
-  "/:loanId/repay",
+  '/:loanId/repay',
   requireJwtAuth,
   requireLoanOwner,
   validateParams(repayLoanParamsSchema),
@@ -806,7 +779,7 @@ router.post(
  *         description: Loan not found
  */
 router.post(
-  "/:loanId/submit",
+  '/:loanId/submit',
   requireJwtAuth,
   requireLoanOwner,
   validateParams(repayLoanParamsSchema),

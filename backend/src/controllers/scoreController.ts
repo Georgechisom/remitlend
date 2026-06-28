@@ -1,21 +1,21 @@
-import type { Request, Response } from "express";
-import { asyncHandler } from "../utils/asyncHandler.js";
-import { query } from "../db/connection.js";
-import { cacheService } from "../services/cacheService.js";
-import { sorobanService } from "../services/sorobanService.js";
+import type { Request, Response } from 'express';
+import { asyncHandler } from '../utils/asyncHandler.js';
+import { query } from '../db/connection.js';
+import { cacheService } from '../services/cacheService.js';
+import { sorobanService } from '../services/sorobanService.js';
 
 // ---------------------------------------------------------------------------
 // Score computation helpers
 // ---------------------------------------------------------------------------
 
 /** Credit bands matching typical lending tiers */
-type CreditBand = "Excellent" | "Good" | "Fair" | "Poor";
+type CreditBand = 'Excellent' | 'Good' | 'Fair' | 'Poor';
 
 function getCreditBand(score: number): CreditBand {
-  if (score >= 750) return "Excellent";
-  if (score >= 670) return "Good";
-  if (score >= 580) return "Fair";
-  return "Poor";
+  if (score >= 750) return 'Excellent';
+  if (score >= 670) return 'Good';
+  if (score >= 580) return 'Fair';
+  return 'Poor';
 }
 
 // ---------------------------------------------------------------------------
@@ -53,18 +53,15 @@ export const getScore = asyncHandler(async (req: Request, res: Response) => {
       score: cachedScoreParams.score,
       band: cachedScoreParams.band,
       factors: {
-        repaymentHistory: "On-time payments increase score by 15 pts each",
-        latePaymentPenalty: "Late payments decrease score by 30 pts each",
-        range: "500 (Poor) – 850 (Excellent)",
+        repaymentHistory: 'On-time payments increase score by 15 pts each',
+        latePaymentPenalty: 'Late payments decrease score by 30 pts each',
+        range: '500 (Poor) – 850 (Excellent)',
       },
     });
     return;
   }
 
-  const result = await query(
-    "SELECT current_score FROM scores WHERE user_id = $1",
-    [userId],
-  );
+  const result = await query('SELECT current_score FROM scores WHERE user_id = $1', [userId]);
 
   const score = result.rows.length > 0 ? result.rows[0].current_score : 500;
   const band = getCreditBand(score);
@@ -77,9 +74,9 @@ export const getScore = asyncHandler(async (req: Request, res: Response) => {
     score,
     band,
     factors: {
-      repaymentHistory: "On-time payments increase score by 15 pts each",
-      latePaymentPenalty: "Late payments decrease score by 30 pts each",
-      range: "500 (Poor) – 850 (Excellent)",
+      repaymentHistory: 'On-time payments increase score by 15 pts each',
+      latePaymentPenalty: 'Late payments decrease score by 30 pts each',
+      range: '500 (Poor) – 850 (Excellent)',
     },
   });
 });
@@ -101,12 +98,8 @@ export const updateScore = asyncHandler(async (req: Request, res: Response) => {
   };
 
   // Get old score first for the response
-  const oldResult = await query(
-    "SELECT current_score FROM scores WHERE user_id = $1",
-    [userId],
-  );
-  const oldScore =
-    oldResult.rows.length > 0 ? oldResult.rows[0].current_score : 500;
+  const oldResult = await query('SELECT current_score FROM scores WHERE user_id = $1', [userId]);
+  const oldScore = oldResult.rows.length > 0 ? oldResult.rows[0].current_score : 500;
 
   const delta = onTime ? ON_TIME_DELTA : LATE_DELTA;
 
@@ -157,20 +150,19 @@ export const updateScore = asyncHandler(async (req: Request, res: Response) => {
  *
  * This reduces 6+ separate queries to 1-2 efficient round-trips.
  */
-export const getScoreBreakdown = asyncHandler(
-  async (req: Request, res: Response) => {
-    const { userId } = req.params as { userId: string };
+export const getScoreBreakdown = asyncHandler(async (req: Request, res: Response) => {
+  const { userId } = req.params as { userId: string };
 
-    const cacheKey = `score:breakdown:${userId}`;
-    const cached = await cacheService.get<Record<string, unknown>>(cacheKey);
-    if (cached) {
-      res.json({ success: true, ...cached });
-      return;
-    }
+  const cacheKey = `score:breakdown:${userId}`;
+  const cached = await cacheService.get<Record<string, unknown>>(cacheKey);
+  if (cached) {
+    res.json({ success: true, ...cached });
+    return;
+  }
 
-    // Single unified query that computes all breakdown metrics
-    const breakdownResult = await query(
-      `WITH 
+  // Single unified query that computes all breakdown metrics
+  const breakdownResult = await query(
+    `WITH 
        -- Current score from scores table
        current_score_cte AS (
          SELECT COALESCE(current_score, 500) AS current_score
@@ -263,88 +255,87 @@ export const getScoreBreakdown = asyncHandler(
          late_count,
          avg_repayment_ledgers
        FROM breakdown_summary`,
-      [userId],
-    );
+    [userId],
+  );
 
-    const breakdown = breakdownResult.rows[0] || {};
-    const score = parseInt(breakdown.current_score || "500", 10);
-    const band = getCreditBand(score);
-    const totalLoans = parseInt(breakdown.total_loans || "0", 10);
-    const repaidOnTime = parseInt(breakdown.on_time_count || "0", 10);
-    const repaidLate = parseInt(breakdown.late_count || "0", 10);
-    const defaultedCount = parseInt(breakdown.defaulted_count || "0", 10);
-    const totalRepaid = parseFloat(breakdown.total_repaid || "0");
+  const breakdown = breakdownResult.rows[0] || {};
+  const score = parseInt(breakdown.current_score || '500', 10);
+  const band = getCreditBand(score);
+  const totalLoans = parseInt(breakdown.total_loans || '0', 10);
+  const repaidOnTime = parseInt(breakdown.on_time_count || '0', 10);
+  const repaidLate = parseInt(breakdown.late_count || '0', 10);
+  const defaultedCount = parseInt(breakdown.defaulted_count || '0', 10);
+  const totalRepaid = parseFloat(breakdown.total_repaid || '0');
 
-    // Convert average ledgers to days (1 ledger ≈ 5 seconds)
-    const avgLedgers = parseFloat(breakdown.avg_repayment_ledgers || "0");
-    const avgDays = Math.round((avgLedgers * 5) / 86400);
-    const averageRepaymentTime = avgLedgers > 0 ? `${avgDays} days` : "N/A";
+  // Convert average ledgers to days (1 ledger ≈ 5 seconds)
+  const avgLedgers = parseFloat(breakdown.avg_repayment_ledgers || '0');
+  const avgDays = Math.round((avgLedgers * 5) / 86400);
+  const averageRepaymentTime = avgLedgers > 0 ? `${avgDays} days` : 'N/A';
 
-    // Fetch detailed history for streak calculation (separate query is minimal overhead)
-    const historyResult = await query(
-      `SELECT 
+  // Fetch detailed history for streak calculation (separate query is minimal overhead)
+  const historyResult = await query(
+    `SELECT 
          event_type,
          ledger_closed_at
        FROM contract_events
        WHERE address = $1 AND event_type IN ('LoanRepaid', 'LoanDefaulted')
        ORDER BY ledger_closed_at ASC`,
-      [userId],
-    );
+    [userId],
+  );
 
-    // Build score history by replaying deltas from base 500
-    let runningScore = 500;
-    const history = historyResult.rows.map((row: Record<string, unknown>) => {
-      if (row.event_type === "LoanRepaid") {
-        runningScore = Math.min(850, runningScore + ON_TIME_DELTA);
-      } else if (row.event_type === "LoanDefaulted") {
-        runningScore = Math.max(300, runningScore - 50);
-      }
-      return {
-        date: row.ledger_closed_at
-          ? new Date(row.ledger_closed_at as string).toISOString().split("T")[0]
-          : null,
-        score: runningScore,
-        event: row.event_type,
-      };
-    });
-
-    // Calculate streaks from history
-    let longestStreak = 0;
-    let currentStreak = 0;
-    let tempStreak = 0;
-
-    for (const histItem of history) {
-      if (histItem.event === "LoanRepaid") {
-        tempStreak++;
-        longestStreak = Math.max(longestStreak, tempStreak);
-      } else {
-        tempStreak = 0;
-      }
+  // Build score history by replaying deltas from base 500
+  let runningScore = 500;
+  const history = historyResult.rows.map((row: Record<string, unknown>) => {
+    if (row.event_type === 'LoanRepaid') {
+      runningScore = Math.min(850, runningScore + ON_TIME_DELTA);
+    } else if (row.event_type === 'LoanDefaulted') {
+      runningScore = Math.max(300, runningScore - 50);
     }
-    currentStreak = tempStreak;
-
-    const responseData = {
-      userId,
-      score,
-      band,
-      breakdown: {
-        totalLoans,
-        repaidOnTime,
-        repaidLate,
-        defaulted: defaultedCount,
-        totalRepaid,
-        averageRepaymentTime,
-        longestStreak,
-        currentStreak,
-      },
-      history,
+    return {
+      date: row.ledger_closed_at
+        ? new Date(row.ledger_closed_at as string).toISOString().split('T')[0]
+        : null,
+      score: runningScore,
+      event: row.event_type,
     };
+  });
 
-    await cacheService.set(cacheKey, responseData, 300);
+  // Calculate streaks from history
+  let longestStreak = 0;
+  let currentStreak = 0;
+  let tempStreak = 0;
 
-    res.json({ success: true, ...responseData });
-  },
-);
+  for (const histItem of history) {
+    if (histItem.event === 'LoanRepaid') {
+      tempStreak++;
+      longestStreak = Math.max(longestStreak, tempStreak);
+    } else {
+      tempStreak = 0;
+    }
+  }
+  currentStreak = tempStreak;
+
+  const responseData = {
+    userId,
+    score,
+    band,
+    breakdown: {
+      totalLoans,
+      repaidOnTime,
+      repaidLate,
+      defaulted: defaultedCount,
+      totalRepaid,
+      averageRepaymentTime,
+      longestStreak,
+      currentStreak,
+    },
+    history,
+  };
+
+  await cacheService.set(cacheKey, responseData, 300);
+
+  res.json({ success: true, ...responseData });
+});
 
 /**
  * GET /api/score/:walletAddress/history
@@ -352,29 +343,27 @@ export const getScoreBreakdown = asyncHandler(
  * Reads score history from the RemittanceNFT contract and returns a full timeline.
  * Cached for 60 seconds to avoid excessive Soroban RPC reads.
  */
-export const getOnChainScoreHistory = asyncHandler(
-  async (req: Request, res: Response) => {
-    const { walletAddress } = req.params as { walletAddress: string };
+export const getOnChainScoreHistory = asyncHandler(async (req: Request, res: Response) => {
+  const { walletAddress } = req.params as { walletAddress: string };
 
-    const cacheKey = `score:history:onchain:${walletAddress}`;
-    const cached = await cacheService.get<{
-      walletAddress: string;
-      history: Array<{ score: number; timestamp: number; reason: string }>;
-    }>(cacheKey);
+  const cacheKey = `score:history:onchain:${walletAddress}`;
+  const cached = await cacheService.get<{
+    walletAddress: string;
+    history: Array<{ score: number; timestamp: number; reason: string }>;
+  }>(cacheKey);
 
-    if (cached) {
-      res.json({ success: true, ...cached });
-      return;
-    }
+  if (cached) {
+    res.json({ success: true, ...cached });
+    return;
+  }
 
-    const history = await sorobanService.getOnChainScoreHistory(walletAddress);
+  const history = await sorobanService.getOnChainScoreHistory(walletAddress);
 
-    const response = { walletAddress, history };
-    await cacheService.set(cacheKey, response, 60);
+  const response = { walletAddress, history };
+  await cacheService.set(cacheKey, response, 60);
 
-    res.json({ success: true, ...response });
-  },
-);
+  res.json({ success: true, ...response });
+});
 
 /**
  * GET /api/score/:walletAddress/nft
@@ -382,23 +371,21 @@ export const getOnChainScoreHistory = asyncHandler(
  * Reads the user's RemittanceNFT metadata and adjacent counters from the
  * RemittanceNFT contract. Returns `nft: null` when no NFT exists yet.
  */
-export const getRemittanceNft = asyncHandler(
-  async (req: Request, res: Response) => {
-    const { walletAddress } = req.params as { walletAddress: string };
+export const getRemittanceNft = asyncHandler(async (req: Request, res: Response) => {
+  const { walletAddress } = req.params as { walletAddress: string };
 
-    const cacheKey = `score:nft:${walletAddress}`;
-    const cached = await cacheService.get<Record<string, unknown>>(cacheKey);
-    if (cached) {
-      res.json({ success: true, walletAddress, nft: cached });
-      return;
-    }
+  const cacheKey = `score:nft:${walletAddress}`;
+  const cached = await cacheService.get<Record<string, unknown>>(cacheKey);
+  if (cached) {
+    res.json({ success: true, walletAddress, nft: cached });
+    return;
+  }
 
-    const nft = await sorobanService.getRemittanceNftMetadata(walletAddress);
+  const nft = await sorobanService.getRemittanceNftMetadata(walletAddress);
 
-    if (nft) {
-      await cacheService.set(cacheKey, nft, 60);
-    }
+  if (nft) {
+    await cacheService.set(cacheKey, nft, 60);
+  }
 
-    res.json({ success: true, walletAddress, nft });
-  },
-);
+  res.json({ success: true, walletAddress, nft });
+});

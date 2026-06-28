@@ -1,18 +1,10 @@
-import crypto from "crypto";
-import {
-  Asset,
-  Networks,
-  Operation,
-  TransactionBuilder,
-} from "@stellar/stellar-sdk";
-import {
-  createSorobanRpcServer,
-  getStellarNetworkPassphrase,
-} from "../config/stellar.js";
-import { query } from "../db/connection.js";
-import { withTransaction } from "../db/transaction.js";
-import { AppError } from "../errors/AppError.js";
-import logger from "../utils/logger.js";
+import crypto from 'crypto';
+import { Asset, Networks, Operation, TransactionBuilder } from '@stellar/stellar-sdk';
+import { createSorobanRpcServer, getStellarNetworkPassphrase } from '../config/stellar.js';
+import { query } from '../db/connection.js';
+import { withTransaction } from '../db/transaction.js';
+import { AppError } from '../errors/AppError.js';
+import logger from '../utils/logger.js';
 
 export interface CreateRemittancePayload {
   recipientAddress: string;
@@ -31,7 +23,7 @@ export interface Remittance {
   fromCurrency: string;
   toCurrency: string;
   memo?: string;
-  status: "pending" | "processing" | "completed" | "failed";
+  status: 'pending' | 'processing' | 'completed' | 'failed';
   transactionHash?: string;
   xdr?: string;
   createdAt: string;
@@ -42,18 +34,17 @@ export interface Remittance {
  * Validates a Stellar public key format
  */
 function isValidStellarAddress(address: string): boolean {
-  if (!address || typeof address !== "string") return false;
-  if (address.length !== 56 || !address.startsWith("G")) return false;
+  if (!address || typeof address !== 'string') return false;
+  if (address.length !== 56 || !address.startsWith('G')) return false;
   return /^G[A-Z2-7]{55}$/.test(address);
 }
 
-const normalizeCurrency = (currency: string): string =>
-  currency.trim().toUpperCase();
+const normalizeCurrency = (currency: string): string => currency.trim().toUpperCase();
 
 const getCurrencyAsset = (currency: string): Asset => {
   const normalized = normalizeCurrency(currency);
 
-  if (normalized === "XLM") {
+  if (normalized === 'XLM') {
     return Asset.native();
   }
 
@@ -81,9 +72,7 @@ export const remittanceService = {
   /**
    * Create a new remittance record and generate XDR
    */
-  async createRemittance(
-    payload: CreateRemittancePayload,
-  ): Promise<Remittance> {
+  async createRemittance(payload: CreateRemittancePayload): Promise<Remittance> {
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
 
@@ -91,14 +80,12 @@ export const remittanceService = {
     // while doing synchronous checks.
     if (!isValidStellarAddress(payload.recipientAddress)) {
       throw AppError.badRequest(
-        "Invalid Stellar recipient address (must be 56 chars, start with G)",
+        'Invalid Stellar recipient address (must be 56 chars, start with G)',
       );
     }
 
     if (!isValidStellarAddress(payload.senderAddress)) {
-      throw AppError.badRequest(
-        "Invalid Stellar sender address (must be 56 chars, start with G)",
-      );
+      throw AppError.badRequest('Invalid Stellar sender address (must be 56 chars, start with G)');
     }
 
     const paymentAsset = getCurrencyAsset(payload.fromCurrency);
@@ -115,7 +102,7 @@ export const remittanceService = {
       const sourceAccount = await server.getAccount(payload.senderAddress);
 
       const transaction = new TransactionBuilder(sourceAccount, {
-        fee: "100",
+        fee: '100',
         networkPassphrase: networkPassphrase || Networks.TESTNET,
       })
         .addOperation(
@@ -146,7 +133,7 @@ export const remittanceService = {
             normalizedFromCurrency,
             normalizedToCurrency,
             payload.memo || null,
-            "pending",
+            'pending',
             xdr,
             now,
             now,
@@ -154,7 +141,7 @@ export const remittanceService = {
         );
 
         if (!result.rows[0]) {
-          throw AppError.internal("Failed to create remittance record");
+          throw AppError.internal('Failed to create remittance record');
         }
 
         const record = result.rows[0];
@@ -175,11 +162,11 @@ export const remittanceService = {
         };
       });
     } catch (error) {
-      logger.withContext().error("Error creating remittance:", error);
+      logger.withContext().error('Error creating remittance:', error);
 
       if (error instanceof AppError) throw error;
 
-      throw AppError.internal("Failed to create remittance");
+      throw AppError.internal('Failed to create remittance');
     }
   },
 
@@ -197,7 +184,7 @@ export const remittanceService = {
     nextCursor: string | null;
   }> {
     try {
-      let whereClause = "sender_id = $1";
+      let whereClause = 'sender_id = $1';
       const params: (string | number)[] = [userId];
       let paramIndex = 2;
 
@@ -236,7 +223,7 @@ export const remittanceService = {
 
       const cursorValue = cursor ? new Date(cursor) : null;
       if (cursor && (!cursorValue || Number.isNaN(cursorValue.getTime()))) {
-        throw AppError.badRequest("Invalid cursor");
+        throw AppError.badRequest('Invalid cursor');
       }
 
       if (cursorValue) {
@@ -277,35 +264,30 @@ export const remittanceService = {
       }));
 
       const lastRemittance =
-        remittances.length > 0
-          ? remittances[remittances.length - 1]
-          : undefined;
-      const nextCursor =
-        hasNext && lastRemittance ? lastRemittance.createdAt : null;
+        remittances.length > 0 ? remittances[remittances.length - 1] : undefined;
+      const nextCursor = hasNext && lastRemittance ? lastRemittance.createdAt : null;
 
       return {
         remittances,
-        total: parseInt(countResult.rows[0]?.total || "0", 10),
+        total: parseInt(countResult.rows[0]?.total || '0', 10),
         nextCursor,
       };
     } catch (error) {
-      logger.withContext().error("Error fetching remittances:", error);
+      logger.withContext().error('Error fetching remittances:', error);
 
       if (error instanceof AppError) {
         throw error;
       }
 
-      throw AppError.internal("Failed to fetch remittances");
+      throw AppError.internal('Failed to fetch remittances');
     }
   },
 
   async getRemittance(id: string): Promise<Remittance> {
     try {
-      const result = await query("SELECT * FROM remittances WHERE id = $1", [
-        id,
-      ]);
+      const result = await query('SELECT * FROM remittances WHERE id = $1', [id]);
 
-      if (!result.rows[0]) throw AppError.notFound("Remittance not found");
+      if (!result.rows[0]) throw AppError.notFound('Remittance not found');
 
       const r = result.rows[0];
 
@@ -324,19 +306,19 @@ export const remittanceService = {
         updatedAt: r.updated_at.toISOString(),
       };
     } catch (error) {
-      logger.withContext().error("Error fetching remittance:", error);
+      logger.withContext().error('Error fetching remittance:', error);
 
       if (error instanceof AppError) {
         throw error;
       }
 
-      throw AppError.internal("Failed to fetch remittance");
+      throw AppError.internal('Failed to fetch remittance');
     }
   },
 
   async updateRemittanceStatus(
     id: string,
-    status: "processing" | "completed" | "failed",
+    status: 'processing' | 'completed' | 'failed',
     transactionHash?: string,
     errorMessage?: string,
   ): Promise<Remittance> {
@@ -346,17 +328,11 @@ export const remittanceService = {
          SET status = $1, transaction_hash = $2, error_message = $3, updated_at = $4
          WHERE id = $5
          RETURNING *`,
-        [
-          status,
-          transactionHash || null,
-          errorMessage || null,
-          new Date().toISOString(),
-          id,
-        ],
+        [status, transactionHash || null, errorMessage || null, new Date().toISOString(), id],
       );
 
       if (!result.rows[0]) {
-        throw AppError.notFound("Remittance not found");
+        throw AppError.notFound('Remittance not found');
       }
 
       const r = result.rows[0];
@@ -376,13 +352,13 @@ export const remittanceService = {
         updatedAt: r.updated_at.toISOString(),
       };
     } catch (error) {
-      logger.withContext().error("Error updating remittance:", error);
+      logger.withContext().error('Error updating remittance:', error);
 
       if (error instanceof AppError) {
         throw error;
       }
 
-      throw AppError.internal("Failed to update remittance");
+      throw AppError.internal('Failed to update remittance');
     }
   },
 };

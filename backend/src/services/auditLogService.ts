@@ -1,4 +1,4 @@
-import { query } from "../db/connection.js";
+import { query } from '../db/connection.js';
 
 export interface AuditLogFilters {
   actor?: string;
@@ -41,8 +41,7 @@ export async function getAuditLogs(filters: AuditLogFilters) {
     values.push(cursor);
   }
 
-  const whereClause =
-    conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
   values.push(limit + 1);
   const result = await query(
@@ -56,17 +55,13 @@ export async function getAuditLogs(filters: AuditLogFilters) {
 
   let total: number | undefined;
   if (withTotal === true) {
-    const countResult = await query("SELECT COUNT(*) as count FROM audit_logs");
-    total = Number(
-      (countResult.rows[0] as Record<string, unknown>)?.count ?? 0,
-    );
+    const countResult = await query('SELECT COUNT(*) as count FROM audit_logs');
+    total = Number((countResult.rows[0] as Record<string, unknown>)?.count ?? 0);
   }
 
   return {
     data,
-    nextCursor: hasNext
-      ? String((data[data.length - 1] as Record<string, unknown>).id)
-      : null,
+    nextCursor: hasNext ? String((data[data.length - 1] as Record<string, unknown>).id) : null,
     total,
   };
 }

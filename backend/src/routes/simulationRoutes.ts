@@ -1,14 +1,8 @@
-import { Router } from "express";
-import {
-  getRemittanceHistory,
-  simulatePayment,
-} from "../controllers/simulationController.js";
-import { validate } from "../middleware/validation.js";
-import {
-  getRemittanceHistorySchema,
-  simulatePaymentSchema,
-} from "../schemas/simulationSchemas.js";
-import { simulationRateLimiter } from "../middleware/rateLimiter.js";
+import { Router } from 'express';
+import { getRemittanceHistory, simulatePayment } from '../controllers/simulationController.js';
+import { validate } from '../middleware/validation.js';
+import { getRemittanceHistorySchema, simulatePaymentSchema } from '../schemas/simulationSchemas.js';
+import { simulationRateLimiter } from '../middleware/rateLimiter.js';
 
 const router = Router();
 
@@ -41,7 +35,7 @@ const router = Router();
  */
 
 router.get(
-  "/history/:userId",
+  '/history/:userId',
   simulationRateLimiter,
   validate(getRemittanceHistorySchema),
   getRemittanceHistory,
@@ -84,11 +78,6 @@ router.get(
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.post(
-  "/simulate",
-  simulationRateLimiter,
-  validate(simulatePaymentSchema),
-  simulatePayment,
-);
+router.post('/simulate', simulationRateLimiter, validate(simulatePaymentSchema), simulatePayment);
 
 export default router;

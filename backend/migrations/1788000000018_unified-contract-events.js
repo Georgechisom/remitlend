@@ -4,39 +4,35 @@
  */
 export const up = (pgm) => {
   // 1. Rename the table
-  pgm.renameTable("loan_events", "contract_events");
+  pgm.renameTable('loan_events', 'contract_events');
 
   // 2. Rename the column (Postgres handles index column updates automatically)
-  pgm.renameColumn("contract_events", "borrower", "address");
+  pgm.renameColumn('contract_events', 'borrower', 'address');
 
   // 3. Make address nullable (for events like YieldDistributed that may not have a user address)
-  pgm.alterColumn("contract_events", "address", { notNull: false });
+  pgm.alterColumn('contract_events', 'address', { notNull: false });
 
   // 4. Rename indexes to match the new table and column names
   pgm.renameIndex(
-    "contract_events",
-    "idx_loan_events_borrower_event_type",
-    "idx_contract_events_address_event_type",
+    'contract_events',
+    'idx_loan_events_borrower_event_type',
+    'idx_contract_events_address_event_type',
   );
   pgm.renameIndex(
-    "contract_events",
-    "idx_loan_events_loan_id_event_type",
-    "idx_contract_events_loan_id_event_type",
+    'contract_events',
+    'idx_loan_events_loan_id_event_type',
+    'idx_contract_events_loan_id_event_type',
   );
   pgm.renameIndex(
-    "contract_events",
-    "idx_loan_events_event_type_loan_id",
-    "idx_contract_events_event_type_loan_id",
+    'contract_events',
+    'idx_loan_events_event_type_loan_id',
+    'idx_contract_events_event_type_loan_id',
   );
+  pgm.renameIndex('contract_events', 'idx_loan_events_ledger', 'idx_contract_events_ledger');
   pgm.renameIndex(
-    "contract_events",
-    "idx_loan_events_ledger",
-    "idx_contract_events_ledger",
-  );
-  pgm.renameIndex(
-    "contract_events",
-    "idx_loan_events_pool_deposits_withdraws",
-    "idx_contract_events_pool_deposits_withdraws",
+    'contract_events',
+    'idx_loan_events_pool_deposits_withdraws',
+    'idx_contract_events_pool_deposits_withdraws',
   );
 
   // Rename single-column indexes from initial schema (if they exist)
@@ -74,38 +70,34 @@ export const up = (pgm) => {
  * @returns {void}
  */
 export const down = (pgm) => {
-  pgm.sql("DROP VIEW IF EXISTS loan_events");
+  pgm.sql('DROP VIEW IF EXISTS loan_events');
 
-  pgm.renameColumn("contract_events", "address", "borrower");
-  pgm.alterColumn("contract_events", "borrower", { notNull: true });
+  pgm.renameColumn('contract_events', 'address', 'borrower');
+  pgm.alterColumn('contract_events', 'borrower', { notNull: true });
 
-  pgm.renameTable("contract_events", "loan_events");
+  pgm.renameTable('contract_events', 'loan_events');
 
   // Revert index names
   pgm.renameIndex(
-    "loan_events",
-    "idx_contract_events_address_event_type",
-    "idx_loan_events_borrower_event_type",
+    'loan_events',
+    'idx_contract_events_address_event_type',
+    'idx_loan_events_borrower_event_type',
   );
   pgm.renameIndex(
-    "loan_events",
-    "idx_contract_events_loan_id_event_type",
-    "idx_loan_events_loan_id_event_type",
+    'loan_events',
+    'idx_contract_events_loan_id_event_type',
+    'idx_loan_events_loan_id_event_type',
   );
   pgm.renameIndex(
-    "loan_events",
-    "idx_contract_events_event_type_loan_id",
-    "idx_loan_events_event_type_loan_id",
+    'loan_events',
+    'idx_contract_events_event_type_loan_id',
+    'idx_loan_events_event_type_loan_id',
   );
+  pgm.renameIndex('loan_events', 'idx_contract_events_ledger', 'idx_loan_events_ledger');
   pgm.renameIndex(
-    "loan_events",
-    "idx_contract_events_ledger",
-    "idx_loan_events_ledger",
-  );
-  pgm.renameIndex(
-    "loan_events",
-    "idx_contract_events_pool_deposits_withdraws",
-    "idx_loan_events_pool_deposits_withdraws",
+    'loan_events',
+    'idx_contract_events_pool_deposits_withdraws',
+    'idx_loan_events_pool_deposits_withdraws',
   );
 
   pgm.sql(`

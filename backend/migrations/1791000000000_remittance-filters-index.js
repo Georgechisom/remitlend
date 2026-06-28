@@ -9,13 +9,13 @@ export const shorthands = undefined;
  */
 export const up = (pgm) => {
   // Add composite index for filtering by sender, status, and created_at
-  pgm.createIndex("remittances", ["sender_id", "status", "created_at"], {
-    name: "idx_remittances_sender_status_created",
+  pgm.createIndex('remittances', ['sender_id', 'status', 'created_at'], {
+    name: 'idx_remittances_sender_status_created',
   });
 
   // Add index for date range queries
-  pgm.createIndex("remittances", ["sender_id", "created_at"], {
-    name: "idx_remittances_sender_created",
+  pgm.createIndex('remittances', ['sender_id', 'created_at'], {
+    name: 'idx_remittances_sender_created',
   });
 };
 
@@ -24,10 +24,10 @@ export const up = (pgm) => {
  * @returns {Promise<void> | void}
  */
 export const down = (pgm) => {
-  pgm.dropIndex("remittances", ["sender_id", "status", "created_at"], {
-    name: "idx_remittances_sender_status_created",
+  pgm.dropIndex('remittances', ['sender_id', 'status', 'created_at'], {
+    name: 'idx_remittances_sender_status_created',
   });
-  pgm.dropIndex("remittances", ["sender_id", "created_at"], {
-    name: "idx_remittances_sender_created",
+  pgm.dropIndex('remittances', ['sender_id', 'created_at'], {
+    name: 'idx_remittances_sender_created',
   });
 };

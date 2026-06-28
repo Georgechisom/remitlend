@@ -26,23 +26,23 @@ export const shorthands = undefined;
  * @returns {void}
  */
 export const up = (pgm) => {
-  pgm.createTable("quarantine_events", {
-    id: { type: "serial", primaryKey: true },
-    event_id: { type: "varchar(255)", notNull: true, unique: true },
-    ledger: { type: "integer", notNull: true },
-    tx_hash: { type: "varchar(255)", notNull: true },
-    contract_id: { type: "varchar(255)", notNull: true },
-    raw_xdr: { type: "jsonb", notNull: true },
-    error_message: { type: "text", notNull: true },
+  pgm.createTable('quarantine_events', {
+    id: { type: 'serial', primaryKey: true },
+    event_id: { type: 'varchar(255)', notNull: true, unique: true },
+    ledger: { type: 'integer', notNull: true },
+    tx_hash: { type: 'varchar(255)', notNull: true },
+    contract_id: { type: 'varchar(255)', notNull: true },
+    raw_xdr: { type: 'jsonb', notNull: true },
+    error_message: { type: 'text', notNull: true },
     quarantined_at: {
-      type: "timestamp",
+      type: 'timestamp',
       notNull: true,
-      default: pgm.func("current_timestamp"),
+      default: pgm.func('current_timestamp'),
     },
   });
 
-  pgm.createIndex("quarantine_events", "ledger");
-  pgm.createIndex("quarantine_events", "quarantined_at");
+  pgm.createIndex('quarantine_events', 'ledger');
+  pgm.createIndex('quarantine_events', 'quarantined_at');
 };
 
 /**
@@ -50,5 +50,5 @@ export const up = (pgm) => {
  * @returns {void}
  */
 export const down = (pgm) => {
-  pgm.dropTable("quarantine_events");
+  pgm.dropTable('quarantine_events');
 };

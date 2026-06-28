@@ -1,17 +1,17 @@
-import { Router } from "express";
+import { Router } from 'express';
 import {
   createRemittance,
   getRemittances,
   getRemittance,
   submitRemittanceTransaction,
-} from "../controllers/remittanceController.js";
-import { requireJwtAuth, requireScopes } from "../middleware/jwtAuth.js";
-import { validate } from "../middleware/validation.js";
+} from '../controllers/remittanceController.js';
+import { requireJwtAuth, requireScopes } from '../middleware/jwtAuth.js';
+import { validate } from '../middleware/validation.js';
 import {
   createRemittanceSchema,
   getRemittancesSchema,
   getRemittanceSchema,
-} from "../schemas/remittanceSchemas.js";
+} from '../schemas/remittanceSchemas.js';
 
 const router = Router();
 
@@ -71,9 +71,9 @@ const router = Router();
  *         description: Missing or invalid Bearer token
  */
 router.post(
-  "/",
+  '/',
   requireJwtAuth,
-  requireScopes("write:remittances"),
+  requireScopes('write:remittances'),
   validate(createRemittanceSchema),
   createRemittance,
 );
@@ -132,9 +132,9 @@ router.post(
  *         description: Missing or invalid Bearer token
  */
 router.get(
-  "/",
+  '/',
   requireJwtAuth,
-  requireScopes("read:remittances"),
+  requireScopes('read:remittances'),
   validate(getRemittancesSchema),
   getRemittances,
 );
@@ -177,9 +177,9 @@ router.get(
  *         description: Remittance not found
  */
 router.get(
-  "/:id",
+  '/:id',
   requireJwtAuth,
-  requireScopes("read:remittances"),
+  requireScopes('read:remittances'),
   validate(getRemittanceSchema),
   getRemittance,
 );
@@ -227,9 +227,9 @@ router.get(
  *         description: Remittance not found
  */
 router.post(
-  "/:id/submit",
+  '/:id/submit',
   requireJwtAuth,
-  requireScopes("write:remittances"),
+  requireScopes('write:remittances'),
   submitRemittanceTransaction,
 );
 

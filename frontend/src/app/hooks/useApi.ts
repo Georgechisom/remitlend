@@ -1057,71 +1057,115 @@ export function useCreditScore(
 
     let cancelled = false;
     let retryDelay = 1_000;
-    let eventSource: EventSource | null = null;
+    let abortControllerRef: AbortController | null = null;
     let retryTimeout: ReturnType<typeof setTimeout> | null = null;
 
-    const connect = () => {
+    const connect = async () => {
       if (cancelled) {
         return;
       }
 
-      const url = `${API_URL}/api/events/stream?borrower=${encodeURIComponent(walletAddress)}`;
-      const es = new EventSource(url, { withCredentials: true });
-      eventSource = es;
+      if (abortControllerRef) {
+        abortControllerRef.abort();
+      }
 
-      es.onopen = () => {
-        retryDelay = 1_000;
-      };
+      const controller = new AbortController();
+      abortControllerRef = controller;
 
-      es.onmessage = (event: MessageEvent<string>) => {
-        try {
-          const payload = JSON.parse(event.data) as {
-            type?: string;
-            borrower?: string;
-            eventType?: string;
-          };
+      try {
+        const url = `${API_URL}/api/events/stream?borrower=${encodeURIComponent(walletAddress)}`;
+        const headers: Record<string, string> = {
+          Accept: "text/event-stream",
+        };
 
-          if (payload.type === "init") {
-            return;
-          }
-
-          const scoreChangingEvent =
-            payload.eventType === "LoanRepaid" || payload.eventType === "LoanDefaulted";
-
-          if (payload.borrower === walletAddress && scoreChangingEvent) {
-            const currentScore = queryClient.getQueryData<number>(["creditScore", userId]);
-
-            setPreviousScoreState({
-              walletAddress,
-              previousScore: currentScore,
-            });
-
-            queryClient.invalidateQueries({
-              queryKey: ["creditScore", userId],
-            });
-          }
-        } catch {
-          // Ignore malformed SSE payloads.
+        if (token) {
+          headers["Authorization"] = `Bearer ${token}`;
         }
-      };
 
-      es.onerror = () => {
-        es.close();
-        eventSource = null;
+        const response = await fetch(url, {
+          headers,
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          throw new Error(`SSE connection failed: ${response.status}`);
+        }
+
+        if (!response.body) {
+          throw new Error("Response body is null");
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        retryDelay = 1_000;
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const parts = buffer.split("\n\n");
+          buffer = parts.pop() || "";
+
+          for (const part of parts) {
+            const lines = part.split("\n");
+            for (const line of lines) {
+              if (line.startsWith("data: ")) {
+                const dataStr = line.slice(6);
+                try {
+                  const payload = JSON.parse(dataStr) as {
+                    type?: string;
+                    borrower?: string;
+                    eventType?: string;
+                  };
+
+                  if (payload.type === "init") {
+                    continue;
+                  }
+
+                  const scoreChangingEvent =
+                    payload.eventType === "LoanRepaid" || payload.eventType === "LoanDefaulted";
+
+                  if (payload.borrower === walletAddress && scoreChangingEvent) {
+                    const currentScore = queryClient.getQueryData<number>(["creditScore", userId]);
+
+                    setPreviousScoreState({
+                      walletAddress,
+                      previousScore: currentScore,
+                    });
+
+                    queryClient.invalidateQueries({
+                      queryKey: ["creditScore", userId],
+                    });
+                  }
+                } catch {
+                  // Ignore malformed SSE payloads.
+                }
+              }
+            }
+          }
+        }
+      } catch (err) {
+        if (err instanceof Error && err.name === "AbortError") {
+          return;
+        }
 
         if (!cancelled) {
           const delay = Math.min(retryDelay, 30_000);
           retryDelay = Math.min(retryDelay * 2, 30_000);
-          retryTimeout = setTimeout(connect, delay);
+          retryTimeout = setTimeout(() => void connect(), delay);
         }
-      };
+      }
     };
 
-    connect();
+    void connect();
 
     return () => {
       cancelled = true;
-      eventSource?.close();
+      if (abortControllerRef) {
+        abortControllerRef.abort();
+      }
       if (retryTimeout) {
         clearTimeout(retryTimeout);
       }
